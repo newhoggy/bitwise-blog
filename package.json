@@ -18,6 +18,7 @@
     "seal": "node scripts/bh.mjs seal",
     "unseal": "node scripts/bh.mjs unseal",
     "serve": "node scripts/bh.mjs serve",
-    "visual": "node scripts/visual.mjs"
+    "visual": "node scripts/visual.mjs",
+    "stats": "node scripts/stats.mjs"
   }
 }

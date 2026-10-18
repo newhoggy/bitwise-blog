@@ -107,6 +107,9 @@ need Node ≥ 22 and a local Chrome.)
   [GoatCounter](https://www.goatcounter.com/) site code and the publication step adds its tag to
   the home page and every public page (never to encrypted private pages, and never to the source
   or to bundles). Keep the GoatCounter dashboard private. See "Page-view counting" in `CLAUDE.md`.
+  To read the numbers, run `npm run stats`: views per page with title, kind and tags. It needs
+  `GOATCOUNTER_CODE` and a token (`GOATCOUNTER_TOKEN`, or 1Password); see "Reading the numbers" in `CLAUDE.md`.
+  The output names unlisted pages, so keep it private.
   The custom domain is a Pages setting (Settings → Pages → Custom domain, plus DNS), not a file in
   the repo. Pages also work under a project sub-path such as `/beautiful-html/`; a fork sets
   `homepage` in `package.json` (or `BH_SITE_URL`) to wherever it is served from.
@@ -148,6 +151,7 @@ scripts/bh.mjs          CLI: new · index · check · cards · bundle · seal ·
 scripts/private-cards.mjs  Encrypted card blobs for private pages, and the home-page card markup
 scripts/cards.mjs       Social card renderer (used by `bh cards`): visual screenshot + branded frame
 scripts/chrome.mjs      Finds and drives a local Chrome over the DevTools protocol (visual, cards)
+scripts/stats.mjs       `npm run stats`: views per page from GoatCounter's export, joined with titles and tags
 scripts/visual.mjs      Visual regression: Chrome via DevTools protocol, PNG diff, HTML report
 dist/                   Bundled single-file outputs (git-ignored)
 ```

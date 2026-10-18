@@ -1,0 +1,15 @@
+2Path,Title,Event,User-Agent,Browser,System,Session,Bot,Referrer,Referrer scheme,Screen size,Location,FirstVisit,Date
+/docs/how-deflate-works.html,How DEFLATE works,false,,Firefox 130,Linux,s1,0,,,"1920,1080,1",AU,t,2026-10-10T01:00:00Z
+/docs/how-deflate-works.html,How DEFLATE works,false,,Firefox 130,Linux,s1,0,,,"1920,1080,1",AU,f,2026-10-10T01:05:00Z
+/docs/how-deflate-works.html#step-3,How DEFLATE works,false,,Firefox 130,Linux,s2,0,,,"1920,1080,1",AU,t,2026-10-11T09:30:00Z
+/docs/how-deflate-works,How DEFLATE works,false,,Firefox 130,Linux,s3,0,,,"1920,1080,1",AU,t,2026-10-12T02:00:00Z
+/,Bitwise Engineering,false,,Firefox 130,Linux,s1,0,,,"1920,1080,1",AU,t,2026-10-10T00:59:00Z
+/,Bitwise Engineering,false,,Firefox 130,Linux,s4,0,,,"1920,1080,1",AU,t,2026-10-13T10:00:00Z
+/docs/announcing-patchcov.html,"Announcing patchcov, a ""gateable"" answer
+to what a change left untested",false,,Firefox 130,Linux,s2,0,,,"1920,1080,1",AU,t,2026-10-11T09:40:00Z
+/docs/secret-notes.html,Private page,false,,Firefox 130,Linux,s5,0,,,"1920,1080,1",AU,t,2026-10-12T03:00:00Z
+/docs/quiet-draft.html,"Quiet draft, unlisted",false,,Firefox 130,Linux,s6,0,,,"1920,1080,1",AU,t,2026-10-12T04:00:00Z
+/docs/removed-post.html,A post that was deleted,false,,Firefox 130,Linux,s7,0,,,"1920,1080,1",AU,t,2026-10-09T05:00:00Z
+/docs/how-deflate-works.html,How DEFLATE works,false,,Firefox 130,Linux,b1,3,,,"1920,1080,1",AU,t,2026-10-12T06:00:00Z
+/docs/how-deflate-works.html,How DEFLATE works,false,,Firefox 130,Linux,b2,1,,,"1920,1080,1",AU,t,2026-10-12T06:01:00Z
+share-click,share-click,true,,Firefox 130,Linux,s1,0,,,"1920,1080,1",AU,t,2026-10-12T07:00:00Z
