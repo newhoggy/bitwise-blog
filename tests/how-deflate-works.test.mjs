@@ -561,6 +561,15 @@ test("the decode-table figure is the example's real lookup table, used on the ex
   const DT = JSON.parse(PAGE.match(/const DT = (\{.*\});/)[1]);
   const ID = { 32: "sp", 97: "a", 98: "b", 99: "c", 100: "d", 114: "r", 256: "end", 258: "l258", 270: "l270" };
   assert.deepEqual(DT.entries, table.map((e) => ({ idx: e.idx, owner: ID[e.sym], l: e.l })));
+  // The first column is the block's own length list, in symbol order, zeros folded into ranges;
+  // each code starts beside its length and ends in canonical order (by length, then symbol).
+  const unfolded = DT.lengths.flatMap((r) => (r.l ? [r.l] : Array(r.e - r.s + 1).fill(0)));
+  assert.deepEqual(unfolded, lit);
+  assert.deepEqual([lit.length, lit.filter((l) => !l).length], [271, 262]);
+  const sorted = [...used].sort((x, y) => x.l - y.l || x.sym - y.sym).map((u) => ID[u.sym]);
+  assert.deepEqual([...DT.codes].sort((x, y) => x.y - y.y).map((c) => c.id), sorted);
+  const rowY = Object.fromEntries(DT.lengths.map((r, i) => [r.s, 36 + i * 26]));
+  for (const c of DT.codes) assert.equal(c.y0, rowY[used.find((u) => ID[u.sym] === c.id).sym], `${c.id} starts beside its length`);
   // The data: the block's own bits, in arrival order, up to the first distance code.
   const data = tr.fields.filter((f) => ["literal", "length", "distance"].includes(f.kind));
   const firstDist = data.findIndex((f) => f.kind === "distance");
@@ -583,6 +592,8 @@ test("the decode-table figure is the example's real lookup table, used on the ex
   const NAME = { 32: "␣", 256: "end", 258: "258", 270: "270" };
   for (const e of table) assert.match(fig, new RegExp(`data-id="e-${e.idx}">.*?>${NAME[e.sym] ?? String.fromCharCode(e.sym)} · ${e.l} bits<`));
   const steps = text(PAGE.match(/<bh-stepper for="decode-table">[\s\S]*?<\/bh-stepper>/)[0]);
+  assert.match(steps, /one length per symbol, in symbol order, 271 of them\. The decoder knows each one's symbol by counting: the 98th is symbol 97, a, and it is 2\. 262 of the 271 are 0/);
+  assert.match(steps, /a, the only length 2, gets 00; the four 3s get 010 to 101; the four 4s get 1100 to 1111/);
   assert.match(steps, /so a fills all four entries from 0000 to 0011/);
   assert.match(steps, /That makes 4 \+ 4 × 2 \+ 4 × 1 = 16/);
   assert.match(steps, /The data starts 0011\. Entry 0011 says a, 2 bits/);
