@@ -70,6 +70,12 @@
     #send-steps .send-zero > rect, #send-steps .send-run > rect { fill: color-mix(in oklab, var(--text-muted) 10%, var(--surface)); }
     @media (max-width: 640px) { #send-steps > svg { min-width: 900px; } }
     @media (max-width: 640px) { #tree-cost > svg { min-width: 900px; } }
+    @media (max-width: 640px) { #decode-table > svg { min-width: 900px; } }
+    #decode-table .dt-slot { fill: none; stroke: var(--border); stroke-dasharray: 3 3; }
+    #decode-table .dt-window { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+    #decode-table .dt-bit > rect { fill: var(--surface); }
+    #decode-table .dt-code { font-size: 13px; }
+    #decode-table .dt-out { font-size: 15px; font-weight: 600; fill: var(--text); }
     #tree-cost .tc-shape > rect { fill: color-mix(in oklab, var(--text-muted) 12%, var(--surface)); }
     #tree-cost .tc-name .sub { font-size: 11px; }
     #tree-cost .tc-flag { font-size: 11px; }
@@ -871,16 +877,157 @@
       <bh-step highlight="sym-sp sym-b sym-c sym-d len-sp len-b len-c len-d code-sp code-b code-c code-d why-sp why-b why-c why-d"><p><strong>Again for 4 bits.</strong> <code>101</code> + 1 is <code>110</code>, and one more bit makes ␣ <code>1100</code>; then <code>b</code> <code>1101</code>, <code>c</code> <code>1110</code>, <code>d</code> <code>1111</code>. The decoder runs the same rules on the same lengths, so it gets the same codes without ever seeing a tree.</p></bh-step>
     </bh-stepper>
     <p>These are not the tree's codes: <code>a</code> was <code>10</code> and is now <code>00</code>, and <code>r</code> was <code>000</code> and is now <code>010</code>. But every symbol keeps its length, so the 11 symbols still cost 34 bits. Counting up keeps the code prefix-free: only <code>a</code>'s code starts <code>00</code>, and only the 4-bit codes start <code>11</code>. The distance code works the same way: d5 and d6, 1 bit each, get <code>0</code> and <code>1</code>. These are the codes the example's dynamic block uses, in the <a href="#dynamic-block">bit walk</a> further on.</p>
+    <h2 id="decoding">Decoding with only the lengths</h2>
     <p>So the decoder gets from a bare list of lengths to the right bytes without any symbol ever being named. For <code>a</code>:</p>
     <ol id="round-trip" data-linkable>
       <li><strong>Its slot.</strong> The decoder counts the lengths as it reads them. Slot 97, the 98th length, is <code>a</code>'s because <code>a</code> is symbol 97, and it holds 2.</li>
       <li><strong>Its code.</strong> Once it has every length, the decoder runs the canonical rule above and builds a lookup table from code to symbol. <code>a</code> is the only symbol of length 2, so it gets <code>00</code>, as it did in the encoder.</li>
       <li><strong>Its byte.</strong> In the data, the decoder reads <code>00</code>, looks it up and gets symbol 97. A symbol below 256 is a literal, so it outputs byte 97, <code>01100001</code>: <code>a</code>.</li>
     </ol>
+    <p>Step 2 is where the work is. The codes are 2, 3 and 4 bits long, and nothing in the data marks where one ends, so the decoder can't simply cut the data into codes. It could read one bit at a time and check, after each, whether the bits so far make a code: up to 4 checks per symbol here, and up to 15 in a block with 15-bit codes. Instead it builds a table that answers both questions at once: given the next few bits, which symbol do they start with, and how many bits is its code? Here is the example's table, built and then used on the example's own data.</p>
+    <figure class="diagram wide" id="decode-table">
+      <svg viewBox="-16 -16 962 488" role="img" aria-label="The decoder's lookup table for the example: a's 2-bit code fills 4 of its 16 entries, each 3-bit code 2, each 4-bit code 1; then a 4-bit window slides along the data, and each lookup gives a symbol and how many bits to consume">
+        <text class="label strong" x="0" y="0">the codes</text>
+        <text class="label strong" x="200" y="0">the table: next 4 bits → symbol</text>
+        <text class="label strong" x="430" y="0">the data, as it arrives</text>
+        <g class="node c2" data-id="k-a"><rect x="0" y="23" width="56" height="26" rx="5"/><text x="28" y="36">a</text></g>
+        <text class="mono dt-code" data-id="kc-a" x="68" y="36">00</text>
+        <g class="node c2" data-id="k-r"><rect x="0" y="59" width="56" height="26" rx="5"/><text x="28" y="72">r</text></g>
+        <text class="mono dt-code" data-id="kc-r" x="68" y="72">010</text>
+        <g class="node c2" data-id="k-end"><rect x="0" y="95" width="56" height="26" rx="5"/><text x="28" y="108">end</text></g>
+        <text class="mono dt-code" data-id="kc-end" x="68" y="108">011</text>
+        <g class="node c2" data-id="k-l258"><rect x="0" y="131" width="56" height="26" rx="5"/><text x="28" y="144">258</text></g>
+        <text class="mono dt-code" data-id="kc-l258" x="68" y="144">100</text>
+        <g class="node c2" data-id="k-l270"><rect x="0" y="167" width="56" height="26" rx="5"/><text x="28" y="180">270</text></g>
+        <text class="mono dt-code" data-id="kc-l270" x="68" y="180">101</text>
+        <g class="node c2" data-id="k-sp"><rect x="0" y="203" width="56" height="26" rx="5"/><text x="28" y="216">␣</text></g>
+        <text class="mono dt-code" data-id="kc-sp" x="68" y="216">1100</text>
+        <g class="node c2" data-id="k-b"><rect x="0" y="239" width="56" height="26" rx="5"/><text x="28" y="252">b</text></g>
+        <text class="mono dt-code" data-id="kc-b" x="68" y="252">1101</text>
+        <g class="node c2" data-id="k-c"><rect x="0" y="275" width="56" height="26" rx="5"/><text x="28" y="288">c</text></g>
+        <text class="mono dt-code" data-id="kc-c" x="68" y="288">1110</text>
+        <g class="node c2" data-id="k-d"><rect x="0" y="311" width="56" height="26" rx="5"/><text x="28" y="324">d</text></g>
+        <text class="mono dt-code" data-id="kc-d" x="68" y="324">1111</text>
+        <text class="mono dt-idx" data-id="i-0000" x="200" y="36"><tspan class="dt-pre">00</tspan><tspan class="dt-rest">00</tspan></text>
+        <rect class="dt-slot" x="244" y="25" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-0000"><rect x="244" y="25" width="132" height="22" rx="4"/><text x="310" y="36">a · 2 bits</text></g>
+        <text class="mono dt-idx" data-id="i-0001" x="200" y="62"><tspan class="dt-pre">00</tspan><tspan class="dt-rest">01</tspan></text>
+        <rect class="dt-slot" x="244" y="51" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-0001"><rect x="244" y="51" width="132" height="22" rx="4"/><text x="310" y="62">a · 2 bits</text></g>
+        <text class="mono dt-idx" data-id="i-0010" x="200" y="88"><tspan class="dt-pre">00</tspan><tspan class="dt-rest">10</tspan></text>
+        <rect class="dt-slot" x="244" y="77" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-0010"><rect x="244" y="77" width="132" height="22" rx="4"/><text x="310" y="88">a · 2 bits</text></g>
+        <text class="mono dt-idx" data-id="i-0011" x="200" y="114"><tspan class="dt-pre">00</tspan><tspan class="dt-rest">11</tspan></text>
+        <rect class="dt-slot" x="244" y="103" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-0011"><rect x="244" y="103" width="132" height="22" rx="4"/><text x="310" y="114">a · 2 bits</text></g>
+        <text class="mono dt-idx" data-id="i-0100" x="200" y="140"><tspan class="dt-pre">010</tspan><tspan class="dt-rest">0</tspan></text>
+        <rect class="dt-slot" x="244" y="129" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-0100"><rect x="244" y="129" width="132" height="22" rx="4"/><text x="310" y="140">r · 3 bits</text></g>
+        <text class="mono dt-idx" data-id="i-0101" x="200" y="166"><tspan class="dt-pre">010</tspan><tspan class="dt-rest">1</tspan></text>
+        <rect class="dt-slot" x="244" y="155" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-0101"><rect x="244" y="155" width="132" height="22" rx="4"/><text x="310" y="166">r · 3 bits</text></g>
+        <text class="mono dt-idx" data-id="i-0110" x="200" y="192"><tspan class="dt-pre">011</tspan><tspan class="dt-rest">0</tspan></text>
+        <rect class="dt-slot" x="244" y="181" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-0110"><rect x="244" y="181" width="132" height="22" rx="4"/><text x="310" y="192">end · 3 bits</text></g>
+        <text class="mono dt-idx" data-id="i-0111" x="200" y="218"><tspan class="dt-pre">011</tspan><tspan class="dt-rest">1</tspan></text>
+        <rect class="dt-slot" x="244" y="207" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-0111"><rect x="244" y="207" width="132" height="22" rx="4"/><text x="310" y="218">end · 3 bits</text></g>
+        <text class="mono dt-idx" data-id="i-1000" x="200" y="244"><tspan class="dt-pre">100</tspan><tspan class="dt-rest">0</tspan></text>
+        <rect class="dt-slot" x="244" y="233" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-1000"><rect x="244" y="233" width="132" height="22" rx="4"/><text x="310" y="244">258 · 3 bits</text></g>
+        <text class="mono dt-idx" data-id="i-1001" x="200" y="270"><tspan class="dt-pre">100</tspan><tspan class="dt-rest">1</tspan></text>
+        <rect class="dt-slot" x="244" y="259" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-1001"><rect x="244" y="259" width="132" height="22" rx="4"/><text x="310" y="270">258 · 3 bits</text></g>
+        <text class="mono dt-idx" data-id="i-1010" x="200" y="296"><tspan class="dt-pre">101</tspan><tspan class="dt-rest">0</tspan></text>
+        <rect class="dt-slot" x="244" y="285" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-1010"><rect x="244" y="285" width="132" height="22" rx="4"/><text x="310" y="296">270 · 3 bits</text></g>
+        <text class="mono dt-idx" data-id="i-1011" x="200" y="322"><tspan class="dt-pre">101</tspan><tspan class="dt-rest">1</tspan></text>
+        <rect class="dt-slot" x="244" y="311" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-1011"><rect x="244" y="311" width="132" height="22" rx="4"/><text x="310" y="322">270 · 3 bits</text></g>
+        <text class="mono dt-idx" data-id="i-1100" x="200" y="348"><tspan class="dt-pre">1100</tspan><tspan class="dt-rest"></tspan></text>
+        <rect class="dt-slot" x="244" y="337" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-1100"><rect x="244" y="337" width="132" height="22" rx="4"/><text x="310" y="348">␣ · 4 bits</text></g>
+        <text class="mono dt-idx" data-id="i-1101" x="200" y="374"><tspan class="dt-pre">1101</tspan><tspan class="dt-rest"></tspan></text>
+        <rect class="dt-slot" x="244" y="363" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-1101"><rect x="244" y="363" width="132" height="22" rx="4"/><text x="310" y="374">b · 4 bits</text></g>
+        <text class="mono dt-idx" data-id="i-1110" x="200" y="400"><tspan class="dt-pre">1110</tspan><tspan class="dt-rest"></tspan></text>
+        <rect class="dt-slot" x="244" y="389" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-1110"><rect x="244" y="389" width="132" height="22" rx="4"/><text x="310" y="400">c · 4 bits</text></g>
+        <text class="mono dt-idx" data-id="i-1111" x="200" y="426"><tspan class="dt-pre">1111</tspan><tspan class="dt-rest"></tspan></text>
+        <rect class="dt-slot" x="244" y="415" width="132" height="22" rx="4"/>
+        <g class="node c2 dt-entry" data-id="e-1111"><rect x="244" y="415" width="132" height="22" rx="4"/><text x="310" y="426">d · 4 bits</text></g>
+        <g class="node dt-bit" data-id="bit-0"><rect x="430" y="24" width="20" height="24"/><text x="440" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-1"><rect x="450" y="24" width="20" height="24"/><text x="460" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-2"><rect x="470" y="24" width="20" height="24"/><text x="480" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-3"><rect x="490" y="24" width="20" height="24"/><text x="500" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-4"><rect x="510" y="24" width="20" height="24"/><text x="520" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-5"><rect x="530" y="24" width="20" height="24"/><text x="540" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-6"><rect x="550" y="24" width="20" height="24"/><text x="560" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-7"><rect x="570" y="24" width="20" height="24"/><text x="580" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-8"><rect x="590" y="24" width="20" height="24"/><text x="600" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-9"><rect x="610" y="24" width="20" height="24"/><text x="620" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-10"><rect x="630" y="24" width="20" height="24"/><text x="640" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-11"><rect x="650" y="24" width="20" height="24"/><text x="660" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-12"><rect x="670" y="24" width="20" height="24"/><text x="680" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-13"><rect x="690" y="24" width="20" height="24"/><text x="700" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-14"><rect x="710" y="24" width="20" height="24"/><text x="720" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-15"><rect x="730" y="24" width="20" height="24"/><text x="740" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-16"><rect x="750" y="24" width="20" height="24"/><text x="760" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-17"><rect x="770" y="24" width="20" height="24"/><text x="780" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-18"><rect x="790" y="24" width="20" height="24"/><text x="800" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-19"><rect x="810" y="24" width="20" height="24"/><text x="820" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-20"><rect x="830" y="24" width="20" height="24"/><text x="840" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-21"><rect x="850" y="24" width="20" height="24"/><text x="860" y="36">1</text></g>
+        <g class="node dt-bit" data-id="bit-22"><rect x="870" y="24" width="20" height="24"/><text x="880" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-23"><rect x="890" y="24" width="20" height="24"/><text x="900" y="36">0</text></g>
+        <g class="node dt-bit" data-id="bit-24"><rect x="910" y="24" width="20" height="24"/><text x="920" y="36">0</text></g>
+        <path class="edge no-arrow dt-brace" data-id="ob-0" d="M433 56 H467"/>
+        <text class="label strong" data-id="o-0" x="450" y="70" text-anchor="middle">a</text>
+        <path class="edge no-arrow dt-brace" data-id="ob-1" d="M473 56 H547"/>
+        <text class="label strong" data-id="o-1" x="510" y="70" text-anchor="middle">b</text>
+        <path class="edge no-arrow dt-brace" data-id="ob-2" d="M553 56 H607"/>
+        <text class="label strong" data-id="o-2" x="580" y="70" text-anchor="middle">r</text>
+        <path class="edge no-arrow dt-brace" data-id="ob-3" d="M613 56 H647"/>
+        <text class="label strong" data-id="o-3" x="630" y="70" text-anchor="middle">a</text>
+        <path class="edge no-arrow dt-brace" data-id="ob-4" d="M653 56 H727"/>
+        <text class="label strong" data-id="o-4" x="690" y="70" text-anchor="middle">c</text>
+        <path class="edge no-arrow dt-brace" data-id="ob-5" d="M733 56 H767"/>
+        <text class="label strong" data-id="o-5" x="750" y="70" text-anchor="middle">a</text>
+        <path class="edge no-arrow dt-brace" data-id="ob-6" d="M773 56 H847"/>
+        <text class="label strong" data-id="o-6" x="810" y="70" text-anchor="middle">d</text>
+        <path class="edge no-arrow dt-brace" data-id="ob-7" d="M853 56 H907"/>
+        <text class="label strong" data-id="o-7" x="880" y="70" text-anchor="middle">258</text>
+        <path class="edge no-arrow dt-brace" data-id="ob-8" d="M913 56 H927"/>
+        <text class="label strong" data-id="o-8" x="920" y="70" text-anchor="middle">d5</text>
+        <rect class="dt-window" data-id="dt-window" x="847" y="20" width="86" height="32" rx="5"/>
+        <text class="label strong dt-read" data-id="dt-r1" x="430" y="112">peek: 1000</text>
+        <text class="label dt-read" data-id="dt-r2" x="430" y="134">entry 1000: 258, 3 bits</text>
+        <text class="label dt-read" data-id="dt-r3" x="430" y="156">a length: read a distance next</text>
+        <text class="label strong" data-id="dt-outlabel" x="430" y="200">output so far</text>
+        <text class="mono dt-out" data-id="dt-out" x="530" y="200">abracadabra</text>
+        <text class="label strong" data-id="dt-dlabel" x="430" y="248">the distance table: next 1 bit → symbol</text>
+        <text class="mono" data-id="di-0" x="430" y="276">0</text>
+        <g class="node c2" data-id="de-0"><rect x="454" y="265" width="132" height="22" rx="4"/><text x="520" y="276">d5 · 1 bit</text></g>
+        <text class="mono" data-id="di-1" x="430" y="302">1</text>
+        <g class="node c2" data-id="de-1"><rect x="454" y="291" width="132" height="22" rx="4"/><text x="520" y="302">d6 · 1 bit</text></g>
+      </svg>
+      <figcaption>Notice that a short code fills several entries and a long one fills one, and that the window always peeks at 4 bits but moves only as far as the entry says. The data bits are the example block's real ones, as the decoder reads them.</figcaption>
+    </figure>
+    <bh-stepper for="decode-table">
+      <bh-step><p><strong>Start from the codes.</strong> The decoder has just built them from the lengths, by the canonical rule. The longest is 4 bits, so its table has one entry for every 4-bit pattern: 2<sup>4</sup> = 16 entries, empty for now.</p></bh-step>
+      <bh-step highlight="k-a kc-a e-0000 e-0001 e-0010 e-0011 i-0000 i-0001 i-0010 i-0011"><p><strong>Fill <code>a</code>'s entries.</strong> <code>a</code>'s code, <code>00</code>, is only 2 bits. Any 4 bits that start <code>00</code> begin with <code>a</code>, whatever the other two are, so <code>a</code> fills all four entries from <code>0000</code> to <code>0011</code>. Each one says: <code>a</code>, 2 bits.</p></bh-step>
+      <bh-step highlight="k-r k-end k-l258 k-l270 kc-r kc-end kc-l258 kc-l270 e-0100 e-0101 e-0110 e-0111 e-1000 e-1001 e-1010 e-1011 i-0100 i-0101 i-0110 i-0111 i-1000 i-1001 i-1010 i-1011"><p><strong>The 3-bit codes fill two entries each:</strong> <code>r</code> <code>0100</code> and <code>0101</code>, end <code>0110</code> and <code>0111</code>, 258 <code>1000</code> and <code>1001</code>, 270 <code>1010</code> and <code>1011</code>.</p></bh-step>
+      <bh-step highlight="k-sp k-b k-c k-d kc-sp kc-b kc-c kc-d e-1100 e-1101 e-1110 e-1111 i-1100 i-1101 i-1110 i-1111"><p><strong>The 4-bit codes fill one each,</strong> ␣ to <code>d</code>, <code>1100</code> to <code>1111</code>. That makes 4 + 4 × 2 + 4 × 1 = 16: every entry is filled exactly once, so any 4 bits the decoder meets begin with exactly one code.</p></bh-step>
+      <bh-step highlight="dt-window bit-0 bit-1 bit-2 bit-3 bit-4 bit-5 bit-6 bit-7 bit-8 bit-9 bit-10 bit-11 bit-12 bit-13 bit-14 bit-15 bit-16 bit-17 bit-18 bit-19 bit-20 bit-21 bit-22 bit-23 bit-24 e-0011 i-0011 k-a ob-0 o-0 dt-r1 dt-r2 dt-r3 dt-out dt-outlabel"><p><strong>Decode: peek at 4 bits.</strong> The data starts <code>0011</code>. Entry <code>0011</code> says <code>a</code>, 2 bits. The decoder outputs <code>a</code> and consumes only those 2 bits: the other two are the start of the next code.</p></bh-step>
+      <bh-step highlight="dt-window bit-2 bit-3 bit-4 bit-5 bit-6 bit-7 bit-8 bit-9 bit-10 bit-11 bit-12 bit-13 bit-14 bit-15 bit-16 bit-17 bit-18 bit-19 bit-20 bit-21 bit-22 bit-23 bit-24 e-1101 i-1101 k-b ob-1 o-1 dt-r1 dt-r2 dt-r3 dt-out dt-outlabel"><p><strong>The window moves on by 2.</strong> The next 4 bits are <code>1101</code>: <code>b</code>, 4 bits. Output <code>b</code>, consume 4.</p></bh-step>
+      <bh-step highlight="dt-window bit-6 bit-7 bit-8 bit-9 bit-10 bit-11 bit-12 bit-13 bit-14 bit-15 bit-16 bit-17 bit-18 bit-19 bit-20 bit-21 bit-22 bit-23 bit-24 e-0100 i-0100 k-r ob-2 o-2 dt-r1 dt-r2 dt-r3 dt-out dt-outlabel"><p><strong><code>0100</code>: <code>r</code>, 3 bits.</strong> The decoder always peeks at 4 bits, and the entry says how far to move. It never needs to know in advance where a code ends.</p></bh-step>
+      <bh-step highlight="dt-window bit-17 bit-18 bit-19 bit-20 bit-21 bit-22 bit-23 bit-24 e-1111 i-1111 k-d ob-6 o-6 dt-r1 dt-r2 dt-r3 dt-out dt-outlabel o-3 o-4 o-5 ob-3 ob-4 ob-5"><p><strong>Four more lookups:</strong> <code>0011</code> <code>a</code>, <code>1110</code> <code>c</code>, <code>0011</code> <code>a</code>, <code>1111</code> <code>d</code>. Output so far: <code>abracad</code>.</p></bh-step>
+      <bh-step highlight="dt-window bit-21 bit-22 bit-23 bit-24 e-1000 i-1000 k-l258 ob-7 o-7 dt-r1 dt-r2 dt-r3 dt-out dt-outlabel ob-8 o-8 bit-24 dt-dlabel di-0 de-0"><p><strong><code>1000</code>: 258, 3 bits.</strong> The last of those 4 bits isn't 258's: it was peeked at, not consumed. 258 is not a byte but a copy length, 4, so a distance comes next, looked up in the <em>distance</em> table: <code>0</code> is d5, and its extra bit, <code>0</code>, makes the distance 7. The decoder copies <code>abra</code> from 7 bytes back: <code>abracadabra</code>.</p></bh-step>
+    </bh-stepper>
     <p>So a decoder builds its lookup tables itself, at the start of every dynamic block, from the lengths the block sends. It builds three, in order: first the code-length code's table, from its 3-bit lengths, so it can read the other lengths; then the literal/length and distance tables, from those. Only then can it read the data. A new dynamic block brings new lengths, so the tables are built again. A fixed block's lengths never change, so its tables are built once and reused.</p>
     <details class="disclosure" id="lookup-tables" data-linkable>
       <summary>Go deeper: what zlib's tables look like</summary>
-      <p>A decoder could follow the code one bit at a time, but zlib looks up several bits at once. Its literal/length table is indexed by the next 9 bits of input, 2<sup>9</sup> = 512 entries, or fewer bits when no code is that long. Each entry holds the symbol and how many of those bits its code really used; the decoder consumes only that many. A short code fills several entries: in a 9-bit table a 2-bit code fills every entry that starts with its two bits, 128 of them. A code longer than 9 bits points to a second, smaller table for its remaining bits. The distance table works the same way with 6 bits, and the code-length table with 7, enough for its longest code. For the example, whose longest literal/length code is 4 bits, the whole table is 16 entries, and <code>a</code>'s <code>00</code> fills 4 of them. zlib also stores each code reversed, to match the order bits arrive in.</p>
+      <p>A decoder could follow the code one bit at a time, but zlib looks up several bits at once. Its literal/length table is indexed by the next 9 bits of input, 2<sup>9</sup> = 512 entries, or fewer bits when no code is that long. Each entry holds the symbol and how many of those bits its code really used; the decoder consumes only that many. A short code fills several entries: in a 9-bit table a 2-bit code fills every entry that starts with its two bits, 128 of them. A code longer than 9 bits points to a second, smaller table for its remaining bits. The distance table works the same way with 6 bits, and the code-length table with 7, enough for its longest code. zlib also stores each code reversed, to match the order bits arrive in.</p>
     </details>
     <p>Dropping the names has a price, though. A list in symbol order has a slot for every symbol a block <em>could</em> use, not just the ones it does, so it starts out far longer than the tree. The next section measures how much longer, and shrinks it.</p>
 
@@ -1891,6 +2038,39 @@ document.addEventListener("DOMContentLoaded", () => {
         why.setAttribute("y", y);
         fade(why, s[l].why);
       }
+    });
+  }
+
+  // ---- The decoder's lookup table: fill it from the codes, then slide a window along the data ----
+  // Geometry generated from the page's encoder at authoring time; the markup is its last step.
+  {
+    const DT = {"BITS":4,"cell":20,"x0":430,"codes":[{"id":"a","l":2},{"id":"r","l":3},{"id":"end","l":3},{"id":"l258","l":3},{"id":"l270","l":3},{"id":"sp","l":4},{"id":"b","l":4},{"id":"c","l":4},{"id":"d","l":4}],"entries":[{"idx":"0000","owner":"a","l":2},{"idx":"0001","owner":"a","l":2},{"idx":"0010","owner":"a","l":2},{"idx":"0011","owner":"a","l":2},{"idx":"0100","owner":"r","l":3},{"idx":"0101","owner":"r","l":3},{"idx":"0110","owner":"end","l":3},{"idx":"0111","owner":"end","l":3},{"idx":"1000","owner":"l258","l":3},{"idx":"1001","owner":"l258","l":3},{"idx":"1010","owner":"l270","l":3},{"idx":"1011","owner":"l270","l":3},{"idx":"1100","owner":"sp","l":4},{"idx":"1101","owner":"b","l":4},{"idx":"1110","owner":"c","l":4},{"idx":"1111","owner":"d","l":4}],"syms":[{"start":0,"n":2},{"start":2,"n":4},{"start":6,"n":3},{"start":9,"n":2},{"start":11,"n":4},{"start":15,"n":2},{"start":17,"n":4},{"start":21,"n":3},{"start":24,"n":1}],"stream":"0011010100011100011111000","readout":[{"pos":0,"r1":"peek: 0011","r2":"entry 0011: a, 2 bits","r3":"output a, consume 2 bits"},{"pos":2,"r1":"peek: 1101","r2":"entry 1101: b, 4 bits","r3":"output b, consume 4 bits"},{"pos":6,"r1":"peek: 0100","r2":"entry 0100: r, 3 bits","r3":"output r, consume 3 bits"},{"pos":17,"r1":"peek: 1111","r2":"entry 1111: d, 4 bits","r3":"output d, consume 4 bits"},{"pos":21,"r1":"peek: 1000","r2":"entry 1000: 258, 3 bits","r3":"a length: read a distance next"}],"out":["a","ab","abr","abracad","abracadabra"]};
+    const FILL = { 2: 1, 3: 2, 4: 3 };                    // the step each code length's entries appear
+    const STOP = [0, 1, 2, 6, 7];                         // the symbol under the window in steps 5-9
+    const dtState = (k) => {
+      const d = k - 4, sym = d >= 0 ? DT.syms[STOP[d]] : null, r = d >= 0 ? DT.readout[d] : null;
+      // mix() tweens one level down, so the numbers live in v and the strings in text.
+      const v = { dec: d >= 0 ? 1 : 0, pos: sym ? sym.start : 0, dist: k >= 8 ? 1 : 0 };
+      for (const e of DT.entries) v[e.idx] = k >= FILL[e.l] ? 1 : 0;
+      DT.syms.forEach((y, j) => { v["o" + j] = sym && (y.start <= sym.start || (k >= 8 && j === DT.syms.length - 1)) ? 1 : 0; });
+      const text = r ? { r1: r.r1, r2: r.r2, r3: r.r3, out: DT.out[d] } : { r1: "", r2: "", r3: "", out: "" };
+      return { v, text };
+    };
+    scene("decode-table", dtState(8), [0, 1, 2, 3, 4, 5, 6, 7, 8].map(dtState), (part, { v: s, text }) => {
+      for (const e of DT.entries) {
+        fade(part(`e-${e.idx}`), s[e.idx]);
+        const rest = part(`i-${e.idx}`).querySelector(".dt-rest");
+        if (rest) rest.style.opacity = String(1 - 0.6 * s[e.idx]);
+      }
+      for (let n = 0; n < DT.stream.length; n++) fade(part(`bit-${n}`), s.dec * (n < s.pos - 0.01 ? 0.35 : 1));
+      DT.syms.forEach((_, j) => { fade(part(`o-${j}`), s["o" + j]); fade(part(`ob-${j}`), s["o" + j]); });
+      const win = part("dt-window");
+      win.setAttribute("x", DT.x0 + s.pos * DT.cell - 3);
+      fade(win, s.dec);
+      for (const id of ["r1", "r2", "r3"]) { part(`dt-${id}`).textContent = text[id]; fade(part(`dt-${id}`), s.dec); }
+      part("dt-out").textContent = text.out;
+      for (const id of ["dt-dlabel", "di-0", "di-1", "de-0", "de-1"]) fade(part(id), s.dist);
+      fade(part("dt-outlabel"), s.dec);
     });
   }
 
