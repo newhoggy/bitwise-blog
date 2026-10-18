@@ -455,7 +455,7 @@ test("the four steps to sending a dynamic code cost what the page says", () => {
   assert.deepEqual([para.naive, para.counts, para.runs, para.coded, para.data], [1264, 1158, 443, 352, 1521]);
   const chart = PAGE.match(/<figure class="frame wide" id="header-steps">[\s\S]*?<\/figure>/)[0];
   const rows = [...chart.matchAll(/<tr><td>[^<]*<\/td><td>(\d+)<\/td><td>(\d+)<\/td><\/tr>/g)].map((m) => [+m[1], +m[2]]);
-  assert.deepEqual(rows, [[ex.naive, para.naive], [ex.counts, para.counts], [ex.runs, para.runs], [ex.coded, para.coded]]);
+  assert.deepEqual(rows, [[111, 581], [ex.naive, para.naive], [ex.counts, para.counts], [ex.runs, para.runs], [ex.coded, para.coded]]); // the tree row: see the tree-cost test
   const prose = text(PAGE.match(/<h2 id="dynamic-header">[\s\S]*?<figure class="frame wide" id="header-steps">/)[0]);
   assert.match(prose, /That is 1,264 bits, 158 bytes/);
   assert.match(prose, /The example's data is only 41 bits, so its code table would cost 30 times as much/);
@@ -470,6 +470,57 @@ test("the four steps to sending a dynamic code cost what the page says", () => {
   const exRuns = trace(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.dynamic)).fields.filter((f) => f.kind === "clsym" && f.at < f.hlit && f.value === 0);
   assert.deepEqual([exRuns.reduce((s, f) => s + f.count, 0), exRuns.length], [262, 7]);
   assert.match(prose, /the example's 262 unused literal\/length symbols take just 7/);
+});
+
+// What sending each block's code as a tree would cost: a pre-order walk, 1 bit per branch or leaf,
+// then each leaf's symbol in 9 bits (literal/length) or 5 (distance).
+const codeLengths = (buf) => {
+  const tr = trace(buf), hlit = tr.blocks[0].hlit, lens = [];
+  for (const f of tr.fields) if (f.kind === "clsym") for (let i = 0; i < f.count; i++) lens[f.at + i] = f.value;
+  return { lit: lens.slice(0, hlit), dist: lens.slice(hlit) };
+};
+const treeCost = ({ lit, dist }) => {
+  const n = lit.filter(Boolean).length, m = dist.filter(Boolean).length;
+  const shape = 2 * n - 1 + (m ? 2 * m - 1 : 0), names = 9 * n + 5 * m;
+  const table = n * (9 + 4) + lit.reduce((s, v) => s + v, 0) + m * (5 + 4) + dist.reduce((s, v) => s + v, 0);
+  return { n, m, shape, names, tree: shape + names, table };
+};
+
+test("the tree-cost figure is the example's tree, walked in pre-order, and the page's tree costs are real", () => {
+  const ex = treeCost(codeLengths(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.dynamic)));
+  const para = treeCost(codeLengths(Buffer.from(REFERENCE.paragraph, "hex")));
+  assert.deepEqual(ex, { n: 9, m: 2, shape: 20, names: 91, tree: 111, table: 167 });
+  assert.deepEqual([para.n, para.m, para.names, para.tree], [46, 11, 469, 581]);
+  // The figure: the walk of the drawn tree (EXTREE), left before right, each name in binary, to scale.
+  const fig = PAGE.match(/<figure class="diagram wide" id="tree-cost">[\s\S]*?<\/figure>/)[0];
+  const EXTREE = JSON.parse(PAGE.match(/const EXTREE = (\{.*\});/)[1]);
+  const kids = Object.fromEntries(EXTREE.inner.map((n) => [n.id, n.kids]));
+  const root = EXTREE.inner.find((n) => !EXTREE.inner.some((p) => p.kids.includes(n.id))).id;
+  const SYM = { "x-sp": 32, "x-b": 98, "x-c": 99, "x-d": 100, "x-r": 114, "x-end": 256, "x-258": 258, "x-270": 270, "x-a": 97 };
+  const want = [];
+  const walk = (id) => { if (kids[id]) { want.push([id, "0"]); kids[id].forEach(walk); } else want.push([id, "1"], [id, SYM[id].toString(2).padStart(9, "0")]); };
+  walk(root);
+  want.push(["y-root", "0"], ["y-d5", "1"], ["y-d5", "00101"], ["y-d6", "1"], ["y-d6", "00110"]);
+  const got = [...fig.matchAll(/data-id="([xy]-[a-z0-9]+)-(flag|name)"><rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"[^>]*\/>(?:<text[^>]*>[^<]*<\/text>)?<text[^>]*>([01]+)<\/text>/g)];
+  assert.deepEqual(got.map((m) => [m[1], m[5]]), want);
+  for (const m of got) assert.equal(+m[4], m[5].length * 10, `${m[1]}-${m[2]} is drawn 10 units per bit`);
+  assert.equal(got.filter((m) => m[2] === "flag").length, ex.shape);
+  assert.equal(got.filter((m) => m[2] === "name").reduce((s, m) => s + m[5].length, 0), ex.names);
+  assert.match(fig, />111 bits</);
+  // The prose.
+  const sec = text(PAGE.match(/<h2 id="canonical">[\s\S]*?<h2 id="dynamic-header">/)[0]);
+  assert.match(sec, /For the example that is 9 × \(9 \+ 4\) bits plus the 30 bits of the codes, 147 bits, and d5 and d6 add 2 × \(5 \+ 4 \+ 1\) = 20: 167 bits/);
+  assert.match(sec, /That is 111 bits for the example\. Look at where they go: 20 describe the shape, and 91 name the symbols/);
+  assert.match(sec, /the walk starts 0 0 0 1 r: the root, the node of 4 on its left, the node of 2 on that one's left, then the leaf r, followed by its sibling, 1 end/);
+  assert.deepEqual(want.slice(0, 6).map((w) => w[0]), [root, "x-n6", "x-n3", "x-r", "x-r", "x-end"]);
+  // "Swap the two halves under the node of 7": a becomes 11, the 4-bit codes 1000–1011, no length changes.
+  const code = Object.fromEntries(EXTREE.leaves.map((l) => [l.id, l.code]));
+  assert.deepEqual([code["x-a"], code["x-sp"], code["x-d"]], ["10", "1100", "1111"]);
+  assert.match(sec, /a becomes 11, and ␣, b, c and d become 1000 to 1011/);
+  const after = text(PAGE.match(/<h3 id="step-coded">[\s\S]*?<figure class="frame wide" id="header-steps">/)[0]);
+  assert.match(after, /For the example, the tree still wins, 111 bits to 159/);
+  assert.match(after, /the tree would cost 581 bits, 469 of them names, against 352 for the lengths/);
+  assert.match(after, /uses 46 literal\/length symbols and 11 distances/);
 });
 
 test("the page finishes the fixed scheme before building up to the dynamic one", () => {

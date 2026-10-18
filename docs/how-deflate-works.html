@@ -69,6 +69,11 @@
     #send-steps .send-formula { font-family: var(--font-mono); }
     #send-steps .send-zero > rect, #send-steps .send-run > rect { fill: color-mix(in oklab, var(--text-muted) 10%, var(--surface)); }
     @media (max-width: 640px) { #send-steps > svg { min-width: 900px; } }
+    @media (max-width: 640px) { #tree-cost > svg { min-width: 900px; } }
+    #tree-cost .tc-shape > rect { fill: color-mix(in oklab, var(--text-muted) 12%, var(--surface)); }
+    #tree-cost .tc-name .sub { font-size: 11px; }
+    #tree-cost .tc-flag { font-size: 11px; }
+    #tree-cost .tc-total { font-size: 22px; }
     #join .node.sym text:not(.sub), #join .node.tok text { font-family: var(--font-mono); }
     @media (max-width: 640px) { #join > svg { min-width: 900px; } }
     #alphabets .range { white-space: nowrap; }
@@ -761,10 +766,58 @@
       <bh-step><p><strong>Count the bits.</strong> A code's length is the symbol's depth in the tree: <code>a</code> has 2 bits; <code>r</code>, end, 258 and 270 have 3; ␣, <code>b</code>, <code>c</code> and <code>d</code> have 4. The 11 symbols now cost 34 bits instead of 85.</p></bh-step>
       <bh-step><p><strong>As a table.</strong> The tree has done its job. What remains is each symbol with its code and its length, in the order of the tree's leaves. The next section starts from exactly this table.</p></bh-step>
 </bh-stepper>
-    <p>The distance code is simpler: d5 and d6 are used once each, so each gets 1 bit. Reading codes off the tree works, but it isn't what a DEFLATE block does: sending the tree, or even these codes, would cost more than it needs to. The next section turns the same lengths into the codes the example's block actually uses, and the sections after it show how a block sends those lengths.</p>
+    <p>The distance code is simpler: d5 and d6 are used once each, so each gets 1 bit. This code takes the example's symbols from 85 bits to 34. But the decoder has never seen the example's counts, so it can't build the tree itself: the block has to tell it the code, and every bit spent on that comes out of the 51 bits saved.</p>
 
     <h2 id="canonical">Send lengths, not trees</h2>
-    <p>A dynamic block, then, fits a code to its own counts, and the decoder must be told that code. Sending the tree would cost bits, and as the <a href="#huffman">tie-break question</a> showed, many trees are equally good. DEFLATE fixes one rule for turning code <em>lengths</em> into codes, called the <em>canonical Huffman code</em>, so a block only has to send one small number per symbol.</p>
+    <p>How should a block tell the decoder its code? The most literal way is a table. For each used symbol, write its number in 9 bits, enough for all 286 literal/length symbols, then its code's length in 4 bits so the decoder knows where the code ends, then the code itself. For the example that is 9 × (9 + 4) bits plus the 30 bits of the codes, 147 bits, and d5 and d6 add 2 × (5 + 4 + 1) = 20: 167 bits, plus something to say where the table ends. That is four times the 41 bits of data it describes, and more than three times the 51 bits the code saves.</p>
+    <p>Sending the tree is cheaper, because the codes are implied by its shape and need not be written out. Walk it from the root, left branch before right. At a branch write 0; at a leaf write 1, then the leaf's symbol number. The decoder rebuilds the same tree from those bits: a 0 means two subtrees follow, a 1 means a symbol follows. Against the <a href="#example-tree">example's tree</a>, the walk starts <code>0 0 0 1</code> <code>r</code>: the root, the node of 4 on its left, the node of 2 on that one's left, then the leaf <code>r</code>, followed by its sibling, <code>1</code> end.</p>
+    <figure class="diagram wide" id="tree-cost">
+      <svg viewBox="-16 -16 1162 168" role="img" aria-label="The example's code sent as its trees, to scale: 20 bits of shape, one per branch or leaf, and 91 bits of symbol names, 111 bits in all">
+        <text class="label strong" data-id="tc-lit" x="0" y="14">literal/length tree: 17 + 81 = 98 bits</text>
+        <text class="label strong" data-id="tc-dist" x="1130" y="14" text-anchor="end">distance: 13</text>
+        <g class="node tc-shape" data-id="x-n8-flag"><rect x="0" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="5" y="52">0</text></g>
+        <g class="node tc-shape" data-id="x-n6-flag"><rect x="10" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="15" y="52">0</text></g>
+        <g class="node tc-shape" data-id="x-n3-flag"><rect x="20" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="25" y="52">0</text></g>
+        <g class="node tc-shape" data-id="x-r-flag"><rect x="30" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="35" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="x-r-name"><rect x="40" y="30" width="90" height="44"/><text x="85" y="44">r</text><text class="mono sub" x="85" y="62">001110010</text></g>
+        <g class="node tc-shape" data-id="x-end-flag"><rect x="130" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="135" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="x-end-name"><rect x="140" y="30" width="90" height="44"/><text x="185" y="44">end</text><text class="mono sub" x="185" y="62">100000000</text></g>
+        <g class="node tc-shape" data-id="x-n4-flag"><rect x="230" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="235" y="52">0</text></g>
+        <g class="node tc-shape" data-id="x-258-flag"><rect x="240" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="245" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="x-258-name"><rect x="250" y="30" width="90" height="44"/><text x="295" y="44">258</text><text class="mono sub" x="295" y="62">100000010</text></g>
+        <g class="node tc-shape" data-id="x-270-flag"><rect x="340" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="345" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="x-270-name"><rect x="350" y="30" width="90" height="44"/><text x="395" y="44">270</text><text class="mono sub" x="395" y="62">100001110</text></g>
+        <g class="node tc-shape" data-id="x-n7-flag"><rect x="440" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="445" y="52">0</text></g>
+        <g class="node tc-shape" data-id="x-a-flag"><rect x="450" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="455" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="x-a-name"><rect x="460" y="30" width="90" height="44"/><text x="505" y="44">a</text><text class="mono sub" x="505" y="62">001100001</text></g>
+        <g class="node tc-shape" data-id="x-n5-flag"><rect x="550" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="555" y="52">0</text></g>
+        <g class="node tc-shape" data-id="x-n1-flag"><rect x="560" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="565" y="52">0</text></g>
+        <g class="node tc-shape" data-id="x-sp-flag"><rect x="570" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="575" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="x-sp-name"><rect x="580" y="30" width="90" height="44"/><text x="625" y="44">␣</text><text class="mono sub" x="625" y="62">000100000</text></g>
+        <g class="node tc-shape" data-id="x-b-flag"><rect x="670" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="675" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="x-b-name"><rect x="680" y="30" width="90" height="44"/><text x="725" y="44">b</text><text class="mono sub" x="725" y="62">001100010</text></g>
+        <g class="node tc-shape" data-id="x-n2-flag"><rect x="770" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="775" y="52">0</text></g>
+        <g class="node tc-shape" data-id="x-c-flag"><rect x="780" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="785" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="x-c-name"><rect x="790" y="30" width="90" height="44"/><text x="835" y="44">c</text><text class="mono sub" x="835" y="62">001100011</text></g>
+        <g class="node tc-shape" data-id="x-d-flag"><rect x="880" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="885" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="x-d-name"><rect x="890" y="30" width="90" height="44"/><text x="935" y="44">d</text><text class="mono sub" x="935" y="62">001100100</text></g>
+        <g class="node tc-shape" data-id="y-root-flag"><rect x="1000" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="1005" y="52">0</text></g>
+        <g class="node tc-shape" data-id="y-d5-flag"><rect x="1010" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="1015" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="y-d5-name"><rect x="1020" y="30" width="50" height="44"/><text x="1045" y="44">d5</text><text class="mono sub" x="1045" y="62">00101</text></g>
+        <g class="node tc-shape" data-id="y-d6-flag"><rect x="1070" y="30" width="10" height="44"/><text class="tc-flag" data-overlap-ok x="1075" y="52">1</text></g>
+        <g class="node c2 tc-name" data-id="y-d6-name"><rect x="1080" y="30" width="50" height="44"/><text x="1105" y="44">d6</text><text class="mono sub" x="1105" y="62">00110</text></g>
+        <g class="node tc-shape" data-id="tc-key-shape"><rect x="0" y="100" width="320" height="28"/><text x="160" y="114">shape: 20 bits, 0 = branch, 1 = leaf</text></g>
+        <g class="node c2 tc-name" data-id="tc-key-names"><rect x="336" y="100" width="390" height="28"/><text x="531" y="114">names: 91 bits, 9 per symbol, 5 per distance</text></g>
+        <text class="label strong tc-total" x="1130" y="122" text-anchor="end">111 bits</text>
+      </svg>
+      <figcaption>Notice how little of the tree is tree. The 0s and 1s that give its shape are the thin slivers; the symbol names are most of the bar. Each block is drawn as wide as the bits it costs.</figcaption>
+    </figure>
+    <p>That is 111 bits for the example. Look at where they go: <span data-ref="tree-cost:tc-key-shape x-n8-flag x-n6-flag x-n3-flag x-r-flag x-end-flag x-n4-flag x-258-flag x-270-flag x-n7-flag x-a-flag x-n5-flag x-n1-flag x-sp-flag x-b-flag x-n2-flag x-c-flag x-d-flag y-root-flag y-d5-flag y-d6-flag">20 describe the shape</span>, and <span data-ref="tree-cost:tc-key-names x-r-name x-end-name x-258-name x-270-name x-a-name x-sp-name x-b-name x-c-name x-d-name y-d5-name y-d6-name">91 name the symbols</span>. Neither is what the decoder actually needs.</p>
+    <ul>
+      <li><strong>The names.</strong> They are needed only because the tree lists the used symbols in tree order. A list in <em>symbol</em> order needs no names: its entry 98 is <code>b</code>'s, because <code>b</code> is symbol 98.</li>
+      <li><strong>The shape.</strong> As the <a href="#huffman">tie-break question</a> showed, many trees are equally good. Swap the two halves under the node of 7: <code>a</code> becomes <code>11</code>, and ␣, <code>b</code>, <code>c</code> and <code>d</code> become <code>1000</code> to <code>1011</code>. Every one of those codes changes, but no length does, so the data still costs 34 bits. The tree spends bits picking one code out of many that are all as good.</li>
+    </ul>
+    <p>So DEFLATE drops both. It fixes one rule for turning code <em>lengths</em> into codes, called the <em>canonical Huffman code</em>, so no shape is sent. And it sends the lengths as a list in symbol order, so no symbol is named.</p>
     <figure class="diagram" id="canonical-codes">
       <svg viewBox="-16 -24 440 508" role="img" aria-label="Canonical codes for the example: its nine symbols sorted by code length, then by symbol number, receive codes 00, 010 to 101 and 1100 to 1111 by counting up">
         <text class="label" x="24" y="-6" text-anchor="middle">symbol</text>
@@ -818,6 +871,7 @@
       <bh-step highlight="sym-sp sym-b sym-c sym-d len-sp len-b len-c len-d code-sp code-b code-c code-d why-sp why-b why-c why-d"><p><strong>Again for 4 bits.</strong> <code>101</code> + 1 is <code>110</code>, and one more bit makes ␣ <code>1100</code>; then <code>b</code> <code>1101</code>, <code>c</code> <code>1110</code>, <code>d</code> <code>1111</code>. The decoder runs the same rules on the same lengths, so it gets the same codes without ever seeing a tree.</p></bh-step>
     </bh-stepper>
     <p>These are not the tree's codes: <code>a</code> was <code>10</code> and is now <code>00</code>, and <code>r</code> was <code>000</code> and is now <code>010</code>. But every symbol keeps its length, so the 11 symbols still cost 34 bits. Counting up keeps the code prefix-free: only <code>a</code>'s code starts <code>00</code>, and only the 4-bit codes start <code>11</code>. The distance code works the same way: d5 and d6, 1 bit each, get <code>0</code> and <code>1</code>. These are the codes the example's dynamic block uses, in the <a href="#dynamic-block">bit walk</a> further on.</p>
+    <p>Dropping the names has a price, though. A list in symbol order has a slot for every symbol a block <em>could</em> use, not just the ones it does, so it starts out far longer than the tree. The next section measures how much longer, and shrinks it.</p>
 
     <h2 id="dynamic-header">Sending a dynamic code</h2>
     <p>A dynamic block must tell the decoder its codes before its data. Thanks to <a href="#canonical">canonical codes</a>, it only needs to send each symbol's code length: 286 literal/length symbols and 30 distance symbols, 316 lengths in all, each from 0 to 15. The question is how to send them cheaply, and it matters: every bit spent on the code comes out of the saving. For the paragraph, the fitted code saved 854 bits on the data, and sending it cost 352 of them. Here are four tries, each fixing the biggest waste in the one before, measured on two blocks: the worked example written as a dynamic block (the one <a href="#dynamic-block">walked through below</a>), and zlib's real block for the 381-byte paragraph.</p>
@@ -980,7 +1034,7 @@
       <bh-step id="send-steps-step-4"><p><strong>Step 4: code the run symbols.</strong> 18, 3 and 4 get 2-bit codes, 17 gets 3 bits, 1 gets 4, and 0 and 2 get 5. With the 54 bits that describe this code, that makes 159 bits: for this short list, 13 more than step 3.</p></bh-step>
     </bh-stepper>
     <h3 id="step-naive">1. Every length, 4 bits each</h3>
-    <p>Write all 316 lengths as plain 4-bit numbers, in symbol order. That is 1,264 bits, 158 bytes, in every dynamic block whatever it holds. The example's data is only 41 bits, so its code table would cost 30 times as much as the data it describes. Even the paragraph's data, 1,521 bits, would nearly double.</p>
+    <p>Write all 316 lengths as plain 4-bit numbers, in symbol order. That is 1,264 bits, 158 bytes, in every dynamic block whatever it holds. The example's data is only 41 bits, so its code table would cost 30 times as much as the data it describes. Even the paragraph's data, 1,521 bits, would nearly double. It is also more than ten times the tree's 111 bits for the example: the tree pays about 11 bits for each symbol a block uses, but the list pays 4 bits for every symbol it could use. Steps 2 to 4 cut what the unused ones cost.</p>
     <h3 id="step-counts">2. Say how many</h3>
     <p>Any one block uses few of the symbols. So send two counts first, <code>HLIT</code> and <code>HDIST</code> (plain 5-bit numbers), and stop each list after its highest used symbol; the rest count as 0. It barely helps: 1,122 bits for the example and 1,158 for the paragraph. The unused symbols are mostly in the middle of the alphabet, the byte values a text never contains, not at the end. The counts stay in the final scheme anyway: with no separators, they are how the decoder knows where each list ends.</p>
 
@@ -1014,11 +1068,13 @@
       </table>
     </div>
     <p>It stops at three layers because the bottom one is so small: 57 bits at most, too little for yet another code to repay its own description. This is DEFLATE's actual scheme, and it costs 159 bits for the example (<a href="#send-steps-step-4">step 4 in the figure</a>) and 352 for the paragraph. For the paragraph, coding the run symbols saved another 91 bits. For the tiny example it cost 13 more: describing the small code took more than it saved on just 19 run symbols. DEFLATE has no way to stop at step 3, which is one more reason tiny blocks are written with the fixed codes.</p>
+    <p>And against the tree? For the example, the tree still wins, 111 bits to 159: a block with only 11 different symbols has too few names to be worth dropping. For the paragraph, which uses 46 literal/length symbols and 11 distances, the tree would cost 581 bits, 469 of them names, against 352 for the lengths. Real blocks run to thousands of symbols and use far more of the alphabet, so the gap only grows.</p>
     <figure class="frame wide" id="header-steps">
       <bh-chart type="bar" unit="bits" y-label="Bits to send the codes">
         <table>
           <thead><tr><th>Step</th><th>The example</th><th>The paragraph</th></tr></thead>
           <tbody>
+            <tr><td>The tree, to beat</td><td>111</td><td>581</td></tr>
             <tr><td>1. 4 bits each</td><td>1264</td><td>1264</td></tr>
             <tr><td>2. Say how many</td><td>1122</td><td>1158</td></tr>
             <tr><td>3. Runs</td><td>146</td><td>443</td></tr>
@@ -1026,7 +1082,7 @@
           </tbody>
         </table>
       </bh-chart>
-      <figcaption>Runs make the big difference. Coding the run symbols pays off for the paragraph but not for the 35-byte example, whose header ends up bigger than its data either way.</figcaption>
+      <figcaption>Runs make the big difference. Only after them does the list beat the tree, and only for the paragraph: the 35-byte example uses too few symbols, and its header ends up bigger than its data either way.</figcaption>
     </figure>
     <p>What changes from block to block is only <em>which</em> of the 19 symbols a block uses, and the code each one gets: in the worked example below, symbol 18 is <code>10</code> and 16 isn't used at all, but 18 still means 11–138 zeros with 7 extra bits. For the 381-byte paragraph, zlib's whole header (<code>HLIT</code> = 270, <code>HDIST</code> = 17, <code>HCLEN</code> = 16, then the lengths) is 352 bits, about 44 bytes. That is the price of the table, and the paragraph is long enough to repay it.</p>
     <p>The code-length code's 19 lengths are sent in a fixed order, 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15, and <code>HCLEN</code> (4 bits) says how many are sent; any not sent count as 0.</p>
