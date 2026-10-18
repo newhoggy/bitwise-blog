@@ -455,7 +455,7 @@ test("the four steps to sending a dynamic code cost what the page says", () => {
   assert.deepEqual([para.naive, para.counts, para.runs, para.coded, para.data], [1264, 1158, 443, 352, 1521]);
   const chart = PAGE.match(/<figure class="frame wide" id="header-steps">[\s\S]*?<\/figure>/)[0];
   const rows = [...chart.matchAll(/<tr><td>[^<]*<\/td><td>(\d+)<\/td><td>(\d+)<\/td><\/tr>/g)].map((m) => [+m[1], +m[2]]);
-  assert.deepEqual(rows, [[ex.naive, para.naive], [ex.counts, para.counts], [ex.runs, para.runs], [ex.coded, para.coded]]);
+  assert.deepEqual(rows, [[111, 581], [ex.naive, para.naive], [ex.counts, para.counts], [ex.runs, para.runs], [ex.coded, para.coded]]); // the tree row: see the tree-cost test
   const prose = text(PAGE.match(/<h2 id="dynamic-header">[\s\S]*?<figure class="frame wide" id="header-steps">/)[0]);
   assert.match(prose, /That is 1,264 bits, 158 bytes/);
   assert.match(prose, /The example's data is only 41 bits, so its code table would cost 30 times as much/);
@@ -472,11 +472,140 @@ test("the four steps to sending a dynamic code cost what the page says", () => {
   assert.match(prose, /the example's 262 unused literal\/length symbols take just 7/);
 });
 
+// What sending each block's code as a tree would cost: a pre-order walk, 1 bit per branch or leaf,
+// then each leaf's symbol in 9 bits (literal/length) or 5 (distance).
+const codeLengths = (buf) => {
+  const tr = trace(buf), hlit = tr.blocks[0].hlit, lens = [];
+  for (const f of tr.fields) if (f.kind === "clsym") for (let i = 0; i < f.count; i++) lens[f.at + i] = f.value;
+  return { lit: lens.slice(0, hlit), dist: lens.slice(hlit) };
+};
+const treeCost = ({ lit, dist }) => {
+  const n = lit.filter(Boolean).length, m = dist.filter(Boolean).length;
+  const shape = 2 * n - 1 + (m ? 2 * m - 1 : 0), names = 9 * n + 5 * m;
+  const table = n * (9 + 4) + lit.reduce((s, v) => s + v, 0) + m * (5 + 4) + dist.reduce((s, v) => s + v, 0);
+  return { n, m, shape, names, tree: shape + names, table };
+};
+
+test("the tree-cost figure is the example's tree, walked in pre-order, and the page's tree costs are real", () => {
+  const ex = treeCost(codeLengths(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.dynamic)));
+  const para = treeCost(codeLengths(Buffer.from(REFERENCE.paragraph, "hex")));
+  assert.deepEqual(ex, { n: 9, m: 2, shape: 20, names: 91, tree: 111, table: 167 });
+  assert.deepEqual([para.n, para.m, para.names, para.tree], [46, 11, 469, 581]);
+  // The figure: the walk of the drawn tree (EXTREE), left before right, each name in binary, to scale.
+  const fig = PAGE.match(/<figure class="diagram wide" id="tree-cost">[\s\S]*?<\/figure>/)[0];
+  const EXTREE = JSON.parse(PAGE.match(/const EXTREE = (\{.*\});/)[1]);
+  const kids = Object.fromEntries(EXTREE.inner.map((n) => [n.id, n.kids]));
+  const root = EXTREE.inner.find((n) => !EXTREE.inner.some((p) => p.kids.includes(n.id))).id;
+  const SYM = { "x-sp": 32, "x-b": 98, "x-c": 99, "x-d": 100, "x-r": 114, "x-end": 256, "x-258": 258, "x-270": 270, "x-a": 97 };
+  const want = [];
+  const walk = (id) => { if (kids[id]) { want.push([id, "0"]); kids[id].forEach(walk); } else want.push([id, "1"], [id, SYM[id].toString(2).padStart(9, "0")]); };
+  walk(root);
+  want.push(["y-root", "0"], ["y-d5", "1"], ["y-d5", "00101"], ["y-d6", "1"], ["y-d6", "00110"]);
+  const got = [...fig.matchAll(/data-id="([xy]-[a-z0-9]+)-(flag|name)"><rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"[^>]*\/>(?:<text[^>]*>[^<]*<\/text>)?<text[^>]*>([01]+)<\/text>/g)];
+  assert.deepEqual(got.map((m) => [m[1], m[5]]), want);
+  for (const m of got) assert.equal(+m[4], m[5].length * 10, `${m[1]}-${m[2]} is drawn 10 units per bit`);
+  assert.equal(got.filter((m) => m[2] === "flag").length, ex.shape);
+  assert.equal(got.filter((m) => m[2] === "name").reduce((s, m) => s + m[5].length, 0), ex.names);
+  assert.match(fig, />111 bits</);
+  // The prose.
+  const sec = text(PAGE.match(/<h2 id="canonical">[\s\S]*?<h2 id="dynamic-header">/)[0]);
+  assert.match(sec, /For the example that is 9 × \(9 \+ 4\) bits plus the 30 bits of the codes, 147 bits, and d5 and d6 add 2 × \(5 \+ 4 \+ 1\) = 20: 167 bits/);
+  assert.match(sec, /That is 111 bits for the example\. Look at where they go: 20 describe the shape, and 91 name the symbols/);
+  assert.match(sec, /the walk starts 0 0 0 1 r: the root, the node of 4 on its left, the node of 2 on that one's left, then the leaf r, followed by its sibling, 1 end/);
+  assert.deepEqual(want.slice(0, 6).map((w) => w[0]), [root, "x-n6", "x-n3", "x-r", "x-r", "x-end"]);
+  // "Swap the two halves under the node of 7": a becomes 11, the 4-bit codes 1000–1011, no length changes.
+  const code = Object.fromEntries(EXTREE.leaves.map((l) => [l.id, l.code]));
+  assert.deepEqual([code["x-a"], code["x-sp"], code["x-d"]], ["10", "1100", "1111"]);
+  assert.match(sec, /a becomes 11, and ␣, b, c and d become 1000 to 1011/);
+  // The round trip for a: slot 97 holds 2, the canonical rule gives 00, and 00 decodes to byte 97.
+  const exLens = codeLengths(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.dynamic));
+  const litCodes = Deflate.canonicalCodes(exLens.lit);
+  assert.equal("a".charCodeAt(0), 97);
+  assert.equal(exLens.lit[97], 2);
+  assert.equal(exLens.lit.filter((l) => l === 2).length, 1, "a is the only 2-bit symbol");
+  assert.equal(litCodes[97].toString(2).padStart(exLens.lit[97], "0"), "00");
+  assert.equal((97).toString(2).padStart(9, "0"), "001100001");
+  assert.match(fig, />a \(97\)</);
+  assert.match(text(fig), /a is symbol 97, 001100001\. It is neither a's code nor the byte it decodes to/);
+  assert.match(sec, /so the 98th is symbol 97's, which is a's\. Nothing in the stream says 97; the position does/);
+  const trip = text(PAGE.match(/<ol id="round-trip"[\s\S]*?<\/ol>/)[0]);
+  assert.match(trip, /Slot 97, the 98th length, is a's because a is symbol 97, and it holds 2/);
+  assert.match(trip, /a is the only symbol of length 2, so it gets 00/);
+  assert.match(trip, /builds a lookup table from code to symbol/);
+  // zlib's table: a 9-bit index, cut to the longest code when shorter (inflate_table: root = min(9, max)).
+  const tables = text(PAGE.match(/<details class="disclosure" id="lookup-tables"[\s\S]*?<\/details>/)[0]);
+  const maxLen = Math.max(...exLens.lit);
+  assert.deepEqual([2 ** (9 - 2), maxLen, 2 ** maxLen, 2 ** (maxLen - exLens.lit[97])], [128, 4, 16, 4]);
+  assert.match(tables, /in a 9-bit table a 2-bit code fills every entry that starts with its two bits, 128 of them/);
+  assert.match(trip, /reads 00, looks it up and gets symbol 97\. A symbol below 256 is a literal, so it outputs byte 97, 01100001: a/);
+  const after = text(PAGE.match(/<h3 id="step-coded">[\s\S]*?<figure class="frame wide" id="header-steps">/)[0]);
+  assert.match(after, /For the example, the tree still wins, 111 bits to 159/);
+  assert.match(after, /the tree would cost 581 bits, 469 of them names, against 352 for the lengths/);
+  assert.match(after, /uses 46 literal\/length symbols and 11 distances/);
+});
+
+test("the decode-table figure is the example's real lookup table, used on the example's real data", () => {
+  const tr = trace(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.dynamic));
+  const { lit, dist } = codeLengths(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.dynamic));
+  const codes = Deflate.canonicalCodes(lit);
+  const used = lit.map((l, sym) => ({ sym, l })).filter((x) => x.l).map((x) => ({ ...x, code: codes[x.sym].toString(2).padStart(x.l, "0") }));
+  const BITS = Math.max(...used.map((u) => u.l));
+  assert.equal(BITS, 4);
+  // Build the table the way the figure says: a code of length l fills every index it is a prefix of.
+  const table = Array.from({ length: 1 << BITS }, (_, i) => {
+    const idx = i.toString(2).padStart(BITS, "0"), owners = used.filter((u) => idx.startsWith(u.code));
+    assert.equal(owners.length, 1, `entry ${idx} belongs to exactly one code`);
+    return { idx, ...owners[0] };
+  });
+  for (const u of used) assert.equal(table.filter((e) => e.sym === u.sym).length, 2 ** (BITS - u.l));
+  const DT = JSON.parse(PAGE.match(/const DT = (\{.*\});/)[1]);
+  const ID = { 32: "sp", 97: "a", 98: "b", 99: "c", 100: "d", 114: "r", 256: "end", 258: "l258", 270: "l270" };
+  assert.deepEqual(DT.entries, table.map((e) => ({ idx: e.idx, owner: ID[e.sym], l: e.l })));
+  // The first column is the block's own length list, in symbol order, zeros folded into ranges;
+  // each code starts beside its length and ends in canonical order (by length, then symbol).
+  const unfolded = DT.lengths.flatMap((r) => (r.l ? [r.l] : Array(r.e - r.s + 1).fill(0)));
+  assert.deepEqual(unfolded, lit);
+  assert.deepEqual([lit.length, lit.filter((l) => !l).length], [271, 262]);
+  const sorted = [...used].sort((x, y) => x.l - y.l || x.sym - y.sym).map((u) => ID[u.sym]);
+  assert.deepEqual([...DT.codes].sort((x, y) => x.y - y.y).map((c) => c.id), sorted);
+  const rowY = Object.fromEntries(DT.lengths.map((r, i) => [r.s, 36 + i * 26]));
+  for (const c of DT.codes) assert.equal(c.y0, rowY[used.find((u) => ID[u.sym] === c.id).sym], `${c.id} starts beside its length`);
+  // The data: the block's own bits, in arrival order, up to the first distance code.
+  const data = tr.fields.filter((f) => ["literal", "length", "distance"].includes(f.kind));
+  const firstDist = data.findIndex((f) => f.kind === "distance");
+  assert.equal(DT.stream, data.slice(0, firstDist + 1).map((f) => f.bits).join(""));
+  assert.equal(DT.stream, "0011010100011100011111000");
+  // Decoding with the table: peek 4, consume the entry's length. It gives back the encoder's symbols.
+  const got = [];
+  for (let pos = 0; got.length < firstDist; ) { const e = table.find((x) => x.idx === DT.stream.slice(pos, pos + BITS)); got.push(e.sym); pos += e.l; }
+  assert.deepEqual(got, data.slice(0, firstDist).map((f) => f.value));
+  assert.deepEqual(DT.syms.map((y) => y.start), [0, 2, 6, 9, 11, 15, 17, 21, 24]);
+  assert.deepEqual(DT.readout.map((r) => r.r1), ["peek: 0011", "peek: 1101", "peek: 0100", "peek: 1111", "peek: 1000"]);
+  assert.deepEqual(DT.out, ["a", "ab", "abr", "abracad", "abracadabra"]);
+  assert.ok(EXAMPLE.startsWith(DT.out.at(-1)));
+  // 258 is length 4, then d5 with extra bit 0 is distance 7: the copy that turns abracad into abracadabra.
+  const len = data[firstDist - 1], d = data[firstDist];
+  assert.deepEqual([len.value, len.length, d.value, d.extraBits, d.distance], [258, 4, 5, "0", 7]);
+  assert.deepEqual(dist.map((l, i) => [i, l]).filter(([, l]) => l), [[5, 1], [6, 1]]);
+  // The markup: every entry's label, and the stepper's narration.
+  const fig = PAGE.match(/<figure class="diagram wide" id="decode-table">[\s\S]*?<\/figure>/)[0];
+  const NAME = { 32: "␣", 256: "end", 258: "258", 270: "270" };
+  for (const e of table) assert.match(fig, new RegExp(`data-id="e-${e.idx}">.*?>${NAME[e.sym] ?? String.fromCharCode(e.sym)} · ${e.l} bits<`));
+  const steps = text(PAGE.match(/<bh-stepper for="decode-table">[\s\S]*?<\/bh-stepper>/)[0]);
+  assert.match(steps, /one length per symbol, in symbol order, 271 of them\. The decoder knows each one's symbol by counting: the 98th is symbol 97, a, and it is 2\. 262 of the 271 are 0/);
+  assert.match(steps, /a, the only length 2, gets 00; the four 3s get 010 to 101; the four 4s get 1100 to 1111/);
+  assert.match(steps, /so a fills all four entries from 0000 to 0011/);
+  assert.match(steps, /That makes 4 \+ 4 × 2 \+ 4 × 1 = 16/);
+  assert.match(steps, /The data starts 0011\. Entry 0011 says a, 2 bits/);
+  assert.match(steps, /Four more lookups: 0011 a, 1110 c, 0011 a, 1111 d\. Output so far: abracad\./);
+  assert.match(steps, /1000: 258, 3 bits\.[\s\S]*0 is d5, and its extra bit, 0, makes the distance 7[\s\S]*abracadabra/);
+});
+
 test("the page finishes the fixed scheme before building up to the dynamic one", () => {
   const order = [...PAGE.matchAll(/<h2 id="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(order, ["question", "two-ideas", "lz77", "huffman", "joining", "join-example", "two-alphabets",
     "block-types", "one-block", "fixed-limits",                   // the fixed code, its bit walk, and where it falls short
-    "example-code", "canonical", "dynamic-header", "dynamic-runs", "dynamic-block", // the build-up to a dynamic block, then its walk
+    "example-code", "canonical", "decoding", "dynamic-header", "dynamic-runs", "dynamic-block", // the build-up to a dynamic block, then its walk
     "choosing", "not-symbols", "try-it", "serial", "edge-cases", "terms", "further-reading"]);
 });
 
@@ -586,6 +715,15 @@ test("the send-steps figure is the example's real code-length list", () => {
   assert.match(fig, /Only the 11 marked slots are not zero\. 1,264 bits/);
   assert.match(fig, /so 38 slots go\. 1,122 bits/);
   assert.match(fig, /19 symbols come to 146 bits/);
+  // The extra-bits row: each run's extra bits, as they arrive, and nothing under the other chips.
+  runs.forEach((f, k) => {
+    const m = fig.match(new RegExp(`data-id="r${k}-extra"[^>]*>([01]+)<`));
+    if (f.symbol >= 16) assert.equal(m && m[1], f.extraBits, `r${k}`); else assert.equal(m, null, `r${k} has no extra bits`);
+  });
+  const rev = (bits) => parseInt([...bits].reverse().join(""), 2);
+  assert.deepEqual([runs[0].symbol, runs[0].extraBits, rev(runs[0].extraBits), runs[0].count], [18, "1010100", 21, 32]);
+  for (const f of runs.filter((f) => f.symbol >= 17)) assert.equal((f.symbol === 17 ? 3 : 11) + rev(f.extraBits), f.count);
+  assert.match(text(fig), /Under the first 18, 1010100 read backwards is 0010101, 21, and 18's runs start at 11, so 11 \+ 21 = 32/);
   // Step 3's fans: each joins the stretch of the old list a chip replaced to that chip.
   const SEND = JSON.parse(PAGE.match(/const SEND = (\{.*\});/)[1]);
   for (const id of ["row-sym", "row-sub", "row-code", "row-cost"]) assert.match(fig, new RegExp(`data-id="${id}"`));
