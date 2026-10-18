@@ -343,6 +343,35 @@ no consent banner. It is **added at deploy time and nowhere else**.
   SRI. If that matters later, host a copy and add an integrity hash.
 - **Owner setup:** create a free GoatCounter site, then set `GOATCOUNTER_CODE=<code>`.
 
+### Reading the numbers: `npm run stats`
+
+`npm run stats` exports the hits from GoatCounter and prints views per page, sorted by views,
+joined with each page's title, kind and tags from `docs/*.html` (`scripts/stats.mjs`; no
+dependencies, nothing written to disk).
+
+- **Needs** `GOATCOUNTER_CODE` (the site code) and an API token. Create the token in
+  GoatCounter under *Username → API*, with the **export** permission. The CSV export also needs
+  *Individual pageviews* switched on in the site settings (off by default); without it the export
+  fails and the error says so.
+- **Token:** `GOATCOUNTER_TOKEN` in the environment, or a Password item titled
+  `beautiful-html goatcounter token` in the 1Password vault `$BH_OP_VAULT` (default `Private`),
+  read with `op` like the private-page keys. It is sent only as a `Bearer` header and is never
+  printed, written to disk or committed. With no token the command says so and exits 1.
+- **The join** matches GoatCounter's paths (from `<link rel="canonical">`; query, fragment and the
+  site's sub-path removed) to the page heads in `docs/`. Bot hits and events are not counted;
+  visitors are distinct sessions. Pages nobody viewed print with 0. A path that matches no page
+  (removed, or an example page that is not published) prints under its path as "not in the repo".
+  Sealed pages carry no tag, so they are never counted: they are left out unless a hit shows up
+  for one (then it prints as `(private page)` with its path only, since its title is not in the repo).
+- **It prints unlisted pages by title.** The output, like the dashboard and the export, is private:
+  never paste it into a commit, issue, PR or any public place.
+- `npm run stats -- --file export.csv` (or `.csv.gz`, as the dashboard saves it) reads an export you already have, with no token and no network.
+- **GoatCounter allows one new export per hour** (HTTP 429 otherwise). The run prints the export's id
+  as soon as it starts; if it then fails, `npm run stats -- --export-id <id>` continues that export
+  instead of starting another.
+  Each run is a full export; there is no stored cursor, because keeping the hits locally would put
+  private analytics on disk.
+
 ## Page contract
 
 - Pages are flat files in `docs/` and link `../theme/bh.css` and `../theme/bh.js`. Don't add a build step.
