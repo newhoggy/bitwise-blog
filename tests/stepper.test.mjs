@@ -27,6 +27,11 @@ const barProbe = `(() => [...document.querySelectorAll("bh-stepper.is-ready")].m
   return { id: s.id || s.getAttribute("for"), offsets, first: s.firstElementChild === bar };
 }))()`;
 
+/** What a stepper's figure looks like: every node's attributes, inline style and short text, numbers rounded. */
+const figureSig = `(st) => [...st.target.querySelectorAll("*")].map((n) =>
+  [n.getAttribute("class"), n.getAttribute("style"), ...["x", "y", "width", "height", "transform", "opacity", "d"].map((a) => n.getAttribute(a)),
+    n.children.length ? "" : n.textContent].join("|").replace(/-?\\d+\\.\\d+/g, (m) => (+m).toFixed(1))).join("\\n")`;
+
 /** What a page reports for every stepper that has a highlight on its first step. */
 const probe = `(() => [...document.querySelectorAll("bh-stepper[for]")].map((s) => {
   const first = s.steps && s.steps[0];
@@ -67,6 +72,14 @@ test("every stepper starts on step 1 with step 1's parts lit, and its bar stays 
         assert.ok(p.first, `${p.id}: the bar comes before the steps`);
         assert.ok(p.offsets.every((o) => o === p.offsets[0]), `${p.id}: the bar stays put across steps (offsets: ${p.offsets})`);
       }
+      // A figure a page animates itself (it listens for "bh-step") must also open on step 1. It once
+      // opened on its full picture, because the stepper announced step 1 before the page was listening.
+      const sig = figureSig;
+      const before = await evaluate(`(() => { const sig = ${sig}; return Object.fromEntries([...document.querySelectorAll("bh-stepper.is-ready[for]")].map((s) => [s.getAttribute("for"), sig(s)])); })()`);
+      await evaluate(`document.querySelectorAll("bh-stepper.is-ready[for]").forEach((s) => s.go(0))`);
+      await sleep(1500);
+      const after = await evaluate(`(() => { const sig = ${sig}; return Object.fromEntries([...document.querySelectorAll("bh-stepper.is-ready[for]")].map((s) => [s.getAttribute("for"), sig(s)])); })()`);
+      for (const id of Object.keys(before)) assert.equal(before[id], after[id], `${id}: the figure opens on step 1, not on its full picture`);
       const steppers = await evaluate(probe);
       for (const p of steppers) {
         if (!p.ready) continue; // a stepper in a hidden tab or collapsed section may not have started

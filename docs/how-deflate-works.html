@@ -1579,6 +1579,9 @@ document.addEventListener("DOMContentLoaded", () => {
       tick(t0);
     };
     stepper.addEventListener("bh-step", (e) => show(e.detail.index));
+    // The stepper reports its first step as it starts. If that came before this listener existed,
+    // catch up now, so the figure opens on the step the narration shows and not on the full picture.
+    if (stepper.classList.contains("is-ready")) show(stepper.index, true);
     // Arriving at #<figure>-step-N: the stepper may already have moved before this ran.
     const target = (bh.fragment ? bh.fragment().id : decodeURIComponent(location.hash.slice(1))) || "";
     const m = target.match(new RegExp(`^${id}-step-(\\d+)$`));
