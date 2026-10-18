@@ -715,6 +715,15 @@ test("the send-steps figure is the example's real code-length list", () => {
   assert.match(fig, /Only the 11 marked slots are not zero\. 1,264 bits/);
   assert.match(fig, /so 38 slots go\. 1,122 bits/);
   assert.match(fig, /19 symbols come to 146 bits/);
+  // The extra-bits row: each run's extra bits, as they arrive, and nothing under the other chips.
+  runs.forEach((f, k) => {
+    const m = fig.match(new RegExp(`data-id="r${k}-extra"[^>]*>([01]+)<`));
+    if (f.symbol >= 16) assert.equal(m && m[1], f.extraBits, `r${k}`); else assert.equal(m, null, `r${k} has no extra bits`);
+  });
+  const rev = (bits) => parseInt([...bits].reverse().join(""), 2);
+  assert.deepEqual([runs[0].symbol, runs[0].extraBits, rev(runs[0].extraBits), runs[0].count], [18, "1010100", 21, 32]);
+  for (const f of runs.filter((f) => f.symbol >= 17)) assert.equal((f.symbol === 17 ? 3 : 11) + rev(f.extraBits), f.count);
+  assert.match(text(fig), /Under the first 18, 1010100 read backwards is 0010101, 21, and 18's runs start at 11, so 11 \+ 21 = 32/);
   // Step 3's fans: each joins the stretch of the old list a chip replaced to that chip.
   const SEND = JSON.parse(PAGE.match(/const SEND = (\{.*\});/)[1]);
   for (const id of ["row-sym", "row-sub", "row-code", "row-cost"]) assert.match(fig, new RegExp(`data-id="${id}"`));

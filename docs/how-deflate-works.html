@@ -61,6 +61,7 @@
     #send-steps .send-data-mark { stroke: var(--c2); stroke-width: 2.5; }
     #send-steps .send-ghost { fill: color-mix(in oklab, var(--text-muted) 16%, var(--surface)); stroke: var(--text-muted); stroke-width: 1; }
     #send-steps .send-ghost.used { fill: var(--c6); stroke: var(--c6); }
+    #send-steps .send-extra { fill: var(--text); }
     #send-steps .send-fan { fill: color-mix(in oklab, var(--text-muted) 9%, transparent); stroke: color-mix(in oklab, var(--text-muted) 45%, transparent); stroke-width: 0.75; }
     #send-steps .send-fan.used { fill: color-mix(in oklab, var(--c6) 14%, transparent); stroke: color-mix(in oklab, var(--c6) 70%, transparent); }
     #send-steps .send-row-ghost { fill: var(--text-muted); }
@@ -1075,14 +1076,14 @@
     <h2 id="dynamic-header">Sending a dynamic code</h2>
     <p>A dynamic block must tell the decoder its codes before its data. Thanks to <a href="#canonical">canonical codes</a>, it only needs to send each symbol's code length: 286 literal/length symbols and 30 distance symbols, 316 lengths in all, each from 0 to 15. The question is how to send them cheaply, and it matters: every bit spent on the code comes out of the saving. For the paragraph, the fitted code saved 854 bits on the data, and sending it cost 352 of them. Here are four tries, each fixing the biggest waste in the one before, measured on two blocks: the worked example written as a dynamic block (the one <a href="#dynamic-block">walked through below</a>), and zlib's real block for the 381-byte paragraph.</p>
     <figure class="diagram wide" id="send-steps">
-      <svg viewBox="-16 -16 1184 350" role="img" aria-label="The example's 316 code lengths: 11 used slots in a long bar of zeros, cut after the last used symbol, then collapsed into 19 run symbols, which get codes of their own">
+      <svg viewBox="-16 -16 1184 372" role="img" aria-label="The example's 316 code lengths: 11 used slots in a long bar of zeros, cut after the last used symbol, then collapsed into 19 run symbols, which get codes of their own">
         <text class="label strong send-total" x="1152" y="18" text-anchor="end">159 bits</text>
         <text class="label send-bytes" x="1152" y="44" text-anchor="end">≈ 20 bytes</text>
         <text class="label strong send-delta up" x="1152" y="64" text-anchor="end">+13 bits</text>
         <text class="label send-note" x="1152" y="84" text-anchor="end">14 + 54 + 91</text>
-        <rect class="send-size" x="0" y="214" width="144.9" height="14" rx="3"/>
-        <path class="send-data-mark" d="M37.4 208 V234"/>
-        <text class="label send-data-label" x="43.4" y="248">the data: 41 bits</text>
+        <rect class="send-size" x="0" y="236" width="144.9" height="14" rx="3"/>
+        <path class="send-data-mark" d="M37.4 230 V256"/>
+        <text class="label send-data-label" x="43.4" y="270">the data: 41 bits</text>
         <text class="label send-title" data-id="t-lit" x="0" y="6" opacity="0">literal/length: 286 slots</text>
         <text class="label send-title" data-id="t-dist" x="706.4" y="6" opacity="0">distance: 30</text>
         <text class="label strong send-group" data-id="g-sp" x="78" y="24" text-anchor="middle" opacity="0">␣</text>
@@ -1137,99 +1138,107 @@
         <text class="label strong send-row" data-id="row-sym" x="0" y="119">symbol sent</text>
         <text class="label strong send-row" data-id="row-sub" x="0" y="150">stands for</text>
         <text class="label strong send-row" data-id="row-code" x="0" y="172">its code</text>
-        <text class="label strong send-row" data-id="row-cost" x="0" y="194">bits</text>
+        <text class="label strong send-row" data-id="row-extra" x="0" y="194">extra bits</text>
+        <text class="label strong send-row" data-id="row-cost" x="0" y="216">bits</text>
         <g class="node send-chip send-run" data-id="r0"><rect x="96" y="104" width="48" height="30" rx="5"/><text x="120" y="119">18</text></g>
         <text class="label send-sub" data-id="r0-sub" x="120" y="150" text-anchor="middle">×32</text>
         <text class="mono send-code" data-id="r0-code" x="120" y="172" text-anchor="middle">10</text>
-        <text class="label send-cost" data-id="r0-cost" x="120" y="194" text-anchor="middle">2+7</text>
+        <text class="mono send-extra" data-id="r0-extra" x="120" y="194" text-anchor="middle">1010100</text>
+        <text class="label send-cost" data-id="r0-cost" x="120" y="216" text-anchor="middle">2+7</text>
         <g class="node c6 send-chip send-len" data-id="r1"><rect x="152" y="104" width="48" height="30" rx="5"/><text x="176" y="119">4</text></g>
         <text class="label send-sub" data-id="r1-sub" x="176" y="150" text-anchor="middle">␣</text>
         <text class="mono send-code" data-id="r1-code" x="176" y="172" text-anchor="middle">01</text>
-        <text class="label send-cost" data-id="r1-cost" x="176" y="194" text-anchor="middle">2</text>
+        <text class="label send-cost" data-id="r1-cost" x="176" y="216" text-anchor="middle">2</text>
         <g class="node send-chip send-run" data-id="r2"><rect x="208" y="104" width="48" height="30" rx="5"/><text x="232" y="119">18</text></g>
         <text class="label send-sub" data-id="r2-sub" x="232" y="150" text-anchor="middle">×64</text>
         <text class="mono send-code" data-id="r2-code" x="232" y="172" text-anchor="middle">10</text>
-        <text class="label send-cost" data-id="r2-cost" x="232" y="194" text-anchor="middle">2+7</text>
+        <text class="mono send-extra" data-id="r2-extra" x="232" y="194" text-anchor="middle">1010110</text>
+        <text class="label send-cost" data-id="r2-cost" x="232" y="216" text-anchor="middle">2+7</text>
         <g class="node c6 send-chip send-len" data-id="r3"><rect x="264" y="104" width="48" height="30" rx="5"/><text x="288" y="119">2</text></g>
         <text class="label send-sub" data-id="r3-sub" x="288" y="150" text-anchor="middle">a</text>
         <text class="mono send-code" data-id="r3-code" x="288" y="172" text-anchor="middle">11111</text>
-        <text class="label send-cost" data-id="r3-cost" x="288" y="194" text-anchor="middle">5</text>
+        <text class="label send-cost" data-id="r3-cost" x="288" y="216" text-anchor="middle">5</text>
         <g class="node c6 send-chip send-len" data-id="r4"><rect x="320" y="104" width="48" height="30" rx="5"/><text x="344" y="119">4</text></g>
         <text class="label send-sub" data-id="r4-sub" x="344" y="150" text-anchor="middle">b</text>
         <text class="mono send-code" data-id="r4-code" x="344" y="172" text-anchor="middle">01</text>
-        <text class="label send-cost" data-id="r4-cost" x="344" y="194" text-anchor="middle">2</text>
+        <text class="label send-cost" data-id="r4-cost" x="344" y="216" text-anchor="middle">2</text>
         <g class="node c6 send-chip send-len" data-id="r5"><rect x="376" y="104" width="48" height="30" rx="5"/><text x="400" y="119">4</text></g>
         <text class="label send-sub" data-id="r5-sub" x="400" y="150" text-anchor="middle">c</text>
         <text class="mono send-code" data-id="r5-code" x="400" y="172" text-anchor="middle">01</text>
-        <text class="label send-cost" data-id="r5-cost" x="400" y="194" text-anchor="middle">2</text>
+        <text class="label send-cost" data-id="r5-cost" x="400" y="216" text-anchor="middle">2</text>
         <g class="node c6 send-chip send-len" data-id="r6"><rect x="432" y="104" width="48" height="30" rx="5"/><text x="456" y="119">4</text></g>
         <text class="label send-sub" data-id="r6-sub" x="456" y="150" text-anchor="middle">d</text>
         <text class="mono send-code" data-id="r6-code" x="456" y="172" text-anchor="middle">01</text>
-        <text class="label send-cost" data-id="r6-cost" x="456" y="194" text-anchor="middle">2</text>
+        <text class="label send-cost" data-id="r6-cost" x="456" y="216" text-anchor="middle">2</text>
         <g class="node send-chip send-run" data-id="r7"><rect x="488" y="104" width="48" height="30" rx="5"/><text x="512" y="119">18</text></g>
         <text class="label send-sub" data-id="r7-sub" x="512" y="150" text-anchor="middle">×13</text>
         <text class="mono send-code" data-id="r7-code" x="512" y="172" text-anchor="middle">10</text>
-        <text class="label send-cost" data-id="r7-cost" x="512" y="194" text-anchor="middle">2+7</text>
+        <text class="mono send-extra" data-id="r7-extra" x="512" y="194" text-anchor="middle">0100000</text>
+        <text class="label send-cost" data-id="r7-cost" x="512" y="216" text-anchor="middle">2+7</text>
         <g class="node c6 send-chip send-len" data-id="r8"><rect x="544" y="104" width="48" height="30" rx="5"/><text x="568" y="119">3</text></g>
         <text class="label send-sub" data-id="r8-sub" x="568" y="150" text-anchor="middle">r</text>
         <text class="mono send-code" data-id="r8-code" x="568" y="172" text-anchor="middle">00</text>
-        <text class="label send-cost" data-id="r8-cost" x="568" y="194" text-anchor="middle">2</text>
+        <text class="label send-cost" data-id="r8-cost" x="568" y="216" text-anchor="middle">2</text>
         <g class="node send-chip send-run" data-id="r9"><rect x="600" y="104" width="48" height="30" rx="5"/><text x="624" y="119">18</text></g>
         <text class="label send-sub" data-id="r9-sub" x="624" y="150" text-anchor="middle">×138</text>
         <text class="mono send-code" data-id="r9-code" x="624" y="172" text-anchor="middle">10</text>
-        <text class="label send-cost" data-id="r9-cost" x="624" y="194" text-anchor="middle">2+7</text>
+        <text class="mono send-extra" data-id="r9-extra" x="624" y="194" text-anchor="middle">1111111</text>
+        <text class="label send-cost" data-id="r9-cost" x="624" y="216" text-anchor="middle">2+7</text>
         <g class="node send-chip send-run" data-id="r10"><rect x="656" y="104" width="48" height="30" rx="5"/><text x="680" y="119">17</text></g>
         <text class="label send-sub" data-id="r10-sub" x="680" y="150" text-anchor="middle">×3</text>
         <text class="mono send-code" data-id="r10-code" x="680" y="172" text-anchor="middle">110</text>
-        <text class="label send-cost" data-id="r10-cost" x="680" y="194" text-anchor="middle">3+3</text>
+        <text class="mono send-extra" data-id="r10-extra" x="680" y="194" text-anchor="middle">000</text>
+        <text class="label send-cost" data-id="r10-cost" x="680" y="216" text-anchor="middle">3+3</text>
         <g class="node c6 send-chip send-len" data-id="r11"><rect x="712" y="104" width="48" height="30" rx="5"/><text x="736" y="119">3</text></g>
         <text class="label send-sub" data-id="r11-sub" x="736" y="150" text-anchor="middle">end</text>
         <text class="mono send-code" data-id="r11-code" x="736" y="172" text-anchor="middle">00</text>
-        <text class="label send-cost" data-id="r11-cost" x="736" y="194" text-anchor="middle">2</text>
+        <text class="label send-cost" data-id="r11-cost" x="736" y="216" text-anchor="middle">2</text>
         <g class="node send-chip send-zero" data-id="r12"><rect x="768" y="104" width="48" height="30" rx="5"/><text x="792" y="119">0</text></g>
         <text class="label send-sub" data-id="r12-sub" x="792" y="150" text-anchor="middle">257</text>
         <text class="mono send-code" data-id="r12-code" x="792" y="172" text-anchor="middle">11110</text>
-        <text class="label send-cost" data-id="r12-cost" x="792" y="194" text-anchor="middle">5</text>
+        <text class="label send-cost" data-id="r12-cost" x="792" y="216" text-anchor="middle">5</text>
         <g class="node c6 send-chip send-len" data-id="r13"><rect x="824" y="104" width="48" height="30" rx="5"/><text x="848" y="119">3</text></g>
         <text class="label send-sub" data-id="r13-sub" x="848" y="150" text-anchor="middle">258</text>
         <text class="mono send-code" data-id="r13-code" x="848" y="172" text-anchor="middle">00</text>
-        <text class="label send-cost" data-id="r13-cost" x="848" y="194" text-anchor="middle">2</text>
+        <text class="label send-cost" data-id="r13-cost" x="848" y="216" text-anchor="middle">2</text>
         <g class="node send-chip send-run" data-id="r14"><rect x="880" y="104" width="48" height="30" rx="5"/><text x="904" y="119">18</text></g>
         <text class="label send-sub" data-id="r14-sub" x="904" y="150" text-anchor="middle">×11</text>
         <text class="mono send-code" data-id="r14-code" x="904" y="172" text-anchor="middle">10</text>
-        <text class="label send-cost" data-id="r14-cost" x="904" y="194" text-anchor="middle">2+7</text>
+        <text class="mono send-extra" data-id="r14-extra" x="904" y="194" text-anchor="middle">0000000</text>
+        <text class="label send-cost" data-id="r14-cost" x="904" y="216" text-anchor="middle">2+7</text>
         <g class="node c6 send-chip send-len" data-id="r15"><rect x="936" y="104" width="48" height="30" rx="5"/><text x="960" y="119">3</text></g>
         <text class="label send-sub" data-id="r15-sub" x="960" y="150" text-anchor="middle">270</text>
         <text class="mono send-code" data-id="r15-code" x="960" y="172" text-anchor="middle">00</text>
-        <text class="label send-cost" data-id="r15-cost" x="960" y="194" text-anchor="middle">2</text>
+        <text class="label send-cost" data-id="r15-cost" x="960" y="216" text-anchor="middle">2</text>
         <g class="node send-chip send-run" data-id="r16"><rect x="992" y="104" width="48" height="30" rx="5"/><text x="1016" y="119">17</text></g>
         <text class="label send-sub" data-id="r16-sub" x="1016" y="150" text-anchor="middle">×5</text>
         <text class="mono send-code" data-id="r16-code" x="1016" y="172" text-anchor="middle">110</text>
-        <text class="label send-cost" data-id="r16-cost" x="1016" y="194" text-anchor="middle">3+3</text>
+        <text class="mono send-extra" data-id="r16-extra" x="1016" y="194" text-anchor="middle">010</text>
+        <text class="label send-cost" data-id="r16-cost" x="1016" y="216" text-anchor="middle">3+3</text>
         <g class="node c6 send-chip send-len" data-id="r17"><rect x="1048" y="104" width="48" height="30" rx="5"/><text x="1072" y="119">1</text></g>
         <text class="label send-sub" data-id="r17-sub" x="1072" y="150" text-anchor="middle">d5</text>
         <text class="mono send-code" data-id="r17-code" x="1072" y="172" text-anchor="middle">1110</text>
-        <text class="label send-cost" data-id="r17-cost" x="1072" y="194" text-anchor="middle">4</text>
+        <text class="label send-cost" data-id="r17-cost" x="1072" y="216" text-anchor="middle">4</text>
         <g class="node c6 send-chip send-len" data-id="r18"><rect x="1104" y="104" width="48" height="30" rx="5"/><text x="1128" y="119">1</text></g>
         <text class="label send-sub" data-id="r18-sub" x="1128" y="150" text-anchor="middle">d6</text>
         <text class="mono send-code" data-id="r18-code" x="1128" y="172" text-anchor="middle">1110</text>
-        <text class="label send-cost" data-id="r18-cost" x="1128" y="194" text-anchor="middle">4</text>
-        <text class="label strong send-parts-label" x="1152" y="256" text-anchor="end">what the cost is made of</text>
-        <g class="node send-part" data-id="part-counts"><rect x="0" y="268" width="98.4" height="28" rx="4"/><text x="50.7" y="282">counts</text></g>
-        <text class="label send-formula" data-id="part-counts-f" x="50.7" y="312" text-anchor="middle">5 + 5 + 4 = 14</text>
-        <g class="node send-part" data-id="part-cl"><rect x="101.4" y="268" width="388.2" height="28" rx="4"/><text x="297.1" y="282">code-length code</text></g>
-        <text class="label send-formula" data-id="part-cl-f" x="297.1" y="312" text-anchor="middle">18 × 3 bits = 54</text>
-        <g class="node c6 send-part" data-id="part-body"><rect x="492.7" y="268" width="359.3" height="28" rx="4"/><text x="673.8" y="282">run-symbol codes</text></g>
-        <text class="label send-formula" data-id="part-body-f" x="673.8" y="312" text-anchor="middle">13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50</text>
-        <g class="node send-part" data-id="part-extras"><rect x="854.9" y="268" width="294.1" height="28" rx="4"/><text x="1003.5" y="282">extra bits</text></g>
-        <text class="label send-formula" data-id="part-extras-f" x="1003.5" y="312" text-anchor="middle">5 × 7 + 2 × 3 = 41</text>
+        <text class="label send-cost" data-id="r18-cost" x="1128" y="216" text-anchor="middle">4</text>
+        <text class="label strong send-parts-label" x="1152" y="278" text-anchor="end">what the cost is made of</text>
+        <g class="node send-part" data-id="part-counts"><rect x="0" y="290" width="98.4" height="28" rx="4"/><text x="50.7" y="304">counts</text></g>
+        <text class="label send-formula" data-id="part-counts-f" x="50.7" y="334" text-anchor="middle">5 + 5 + 4 = 14</text>
+        <g class="node send-part" data-id="part-cl"><rect x="101.4" y="290" width="388.2" height="28" rx="4"/><text x="297.1" y="304">code-length code</text></g>
+        <text class="label send-formula" data-id="part-cl-f" x="297.1" y="334" text-anchor="middle">18 × 3 bits = 54</text>
+        <g class="node c6 send-part" data-id="part-body"><rect x="492.7" y="290" width="359.3" height="28" rx="4"/><text x="673.8" y="304">run-symbol codes</text></g>
+        <text class="label send-formula" data-id="part-body-f" x="673.8" y="334" text-anchor="middle">13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50</text>
+        <g class="node send-part" data-id="part-extras"><rect x="854.9" y="290" width="294.1" height="28" rx="4"/><text x="1003.5" y="304">extra bits</text></g>
+        <text class="label send-formula" data-id="part-extras-f" x="1003.5" y="334" text-anchor="middle">5 × 7 + 2 × 3 = 41</text>
       </svg>
-      <figcaption>Notice what the four steps do to the same list: the long bar is almost all zeros, cutting its end barely shortens it, and only collapsing the zeros into run symbols shrinks it. The bar is the cost to scale, against a mark at the example's 41 bits of data: even at its best, the code costs more than the data it describes. The strip under it shows what each step's cost is made of, as shares of that step, with the arithmetic under each part. Each chip is one code-length symbol; under it is what it stands for (×32 means a run of 32 zeros), its code once it has one, and its cost in bits.</figcaption>
+      <figcaption>Notice what the four steps do to the same list: the long bar is almost all zeros, cutting its end barely shortens it, and only collapsing the zeros into run symbols shrinks it. The bar is the cost to scale, against a mark at the example's 41 bits of data: even at its best, the code costs more than the data it describes. The strip under it shows what each step's cost is made of, as shares of that step, with the arithmetic under each part. Each chip is one code-length symbol; under it is what it stands for (×32 means a run of 32 zeros), its code once it has one, a run's extra bits as they arrive, and its cost in bits.</figcaption>
     </figure>
     <bh-stepper for="send-steps">
       <bh-step><p><strong>Step 1: every slot, 4 bits.</strong> All 316 of the example's code lengths, in symbol order. Only the 11 marked slots are not zero. 1,264 bits.</p></bh-step>
       <bh-step><p><strong>Step 2: say how many.</strong> <code>HLIT</code> and <code>HDIST</code> cut each list after its last used symbol, 270 and d6, so 38 slots go. 1,122 bits: the zeros in the middle are still there.</p></bh-step>
-      <bh-step id="send-steps-step-3"><p><strong>Step 3: runs.</strong> Each stretch of zeros collapses into one run symbol: 18 for 11–138 zeros, 17 for 3–10. Each used length becomes one symbol too. The fans show which stretch of the old list each chip replaced.</p><p>Read each column down. <em>Symbol sent</em> is what goes in the stream; <em>stands for</em> is what it means (×32 is a run of 32 zeros, <code>a</code> is <code>a</code>'s length); <em>bits</em> is what it costs: 5 for the symbol, plus extra bits for a run, so an 18 costs 5 + 7. 19 symbols come to 146 bits.</p></bh-step>
+      <bh-step id="send-steps-step-3"><p><strong>Step 3: runs.</strong> Each stretch of zeros collapses into one run symbol: 18 for 11–138 zeros, 17 for 3–10. Each used length becomes one symbol too. The fans show which stretch of the old list each chip replaced.</p><p>Read each column down. <em>Symbol sent</em> is what goes in the stream; <em>stands for</em> is what it means (×32 is a run of 32 zeros, <code>a</code> is <code>a</code>'s length); <em>extra bits</em> follow a run symbol and give its count as a plain number, least significant bit first, counted from the shortest run the symbol allows. Under the first 18, <code>1010100</code> read backwards is <code>0010101</code>, 21, and 18's runs start at 11, so 11 + 21 = 32. <em>bits</em> is what it costs: 5 for the symbol, plus its extra bits, so an 18 costs 5 + 7. 19 symbols come to 146 bits.</p></bh-step>
       <bh-step id="send-steps-step-4"><p><strong>Step 4: code the run symbols.</strong> 18, 3 and 4 get 2-bit codes, 17 gets 3 bits, 1 gets 4, and 0 and 2 get 5. With the 54 bits that describe this code, that makes 159 bits: for this short list, 13 more than step 3.</p></bh-step>
     </bh-stepper>
     <h3 id="step-naive">1. Every length, 4 bits each</h3>
@@ -2326,6 +2335,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : { x: c.row.x, y: SEND.ROW.y, w: SEND.ROW.w, h: SEND.ROW.h, text: 1 };
         s[c.id + "-sub"] = { op: k >= 2 ? 1 : 0 };
         s[c.id + "-code"] = { op: k >= 3 ? 1 : 0 };
+        s[c.id + "-extra"] = { op: k >= 2 ? 1 : 0 };
         s[c.id + "-cost"] = { op: k >= 2 ? 1 : 0, text: k >= 3 ? c.step4 : c.step3 };
       }
       for (const t of SEND.trims) s[t.id] = { op: k === 0 ? 1 : 0 };
@@ -2355,13 +2365,14 @@ document.addEventListener("DOMContentLoaded", () => {
         fade(t, v.text);
         fade(part(c.id + "-sub"), s[c.id + "-sub"].op);
         fade(part(c.id + "-code"), s[c.id + "-code"].op);
+        fade(part(c.id + "-extra"), s[c.id + "-extra"].op);      // runs only; other chips have none
         const cost = part(c.id + "-cost");
         if (cost.textContent !== s[c.id + "-cost"].text) cost.textContent = s[c.id + "-cost"].text;
         fade(cost, s[c.id + "-cost"].op);
       }
       for (const t of SEND.trims) { const g = part(t.id); g.setAttribute("opacity", 1); fade(g, s[t.id].op); }
       for (const c of SEND.chips) { fade(part(c.id + "-ghost"), s.ghost.op); fade(part(c.id + "-fan"), s.ghost.op); }
-      for (const id of ["row-ghost", "row-sym", "row-sub", "row-cost"]) fade(part(id), s.rows.op);
+      for (const id of ["row-ghost", "row-sym", "row-sub", "row-extra", "row-cost"]) fade(part(id), s.rows.op);
       fade(part("row-code"), s.rows.code);
       for (const id of ["t-lit", "t-dist", ...SEND.groups]) { const n = part(id); n.setAttribute("opacity", 1); fade(n, s.bar.op); }
       for (const id of ["cut-lit", "cut-dist"]) { const n = part(id); n.setAttribute("opacity", 1); fade(n, s.cut.op); }
