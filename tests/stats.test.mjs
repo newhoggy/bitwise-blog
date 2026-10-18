@@ -188,11 +188,20 @@ test("fetchExport accepts an uncompressed body and reports failures in words", a
   const plain = async (url) => (url.endsWith("/export") ? json(202, { id: 1 }) : url.endsWith("/download") ? { ok: true, status: 200, arrayBuffer: async () => Buffer.from("a,b\n") } : json(200, { finished_at: "x" }));
   assert.equal(await fetchExport({ code: "s", token: "t", fetch: plain }), "a,b\n");
   await assert.rejects(fetchExport({ code: "s", token: "t", fetch: async () => json(403, { error: "no" }) }), /refused the token.*Individual pageviews/);
-  await assert.rejects(fetchExport({ code: "s", token: "t", fetch: async () => json(429, {}) }), /rate limiting/);
+  await assert.rejects(fetchExport({ code: "s", token: "t", fetch: async () => json(429, {}) }), /one new export per hour.*--export-id/);
   await assert.rejects(fetchExport({ code: "s", token: "t", fetch: async () => json(400, { error: "exports disabled" }) }), /HTTP 400: exports disabled/);
   await assert.rejects(fetchExport({ code: "Bad Code", token: "t", fetch: plain }), /GOATCOUNTER_CODE must contain only/);
   const never = async (url) => (url.endsWith("/export") ? json(202, { id: 1 }) : json(200, { finished_at: null }));
   await assert.rejects(fetchExport({ code: "s", token: "t", fetch: never, sleep: async () => {}, maxPolls: 2 }), /not ready after/);
+  // A failure after the export started names its id, and --export-id resumes it without a POST.
+  const dl403 = async (url) => (url.endsWith("/export") ? json(202, { id: 9 }) : url.endsWith("/download") ? json(500, {}) : json(200, { finished_at: "x" }));
+  const started = [];
+  await assert.rejects(fetchExport({ code: "s", token: "t", fetch: dl403, onStart: (id) => started.push(id) }), /rerun with --export-id 9/);
+  assert.deepEqual(started, [9]);
+  const methods = [];
+  const resume = async (url, init = {}) => { methods.push(init.method || "GET"); return url.endsWith("/download") ? { ok: true, status: 200, arrayBuffer: async () => Buffer.from("x\n") } : json(200, { finished_at: "x" }); };
+  assert.equal(await fetchExport({ code: "s", token: "t", exportId: "9", fetch: resume }), "x\n");
+  assert.ok(!methods.includes("POST"));
   const broken = async (url) => (url.endsWith("/export") ? json(202, { id: 1 }) : json(200, { error: "disk full" }));
   await assert.rejects(fetchExport({ code: "s", token: "t", fetch: broken }), /disk full/);
 });
@@ -229,6 +238,7 @@ test("main says plainly when no token is set, and when the site code is missing"
 test("main rejects bad arguments and unreadable files", async () => {
   assert.equal(await main(["--wat"], {}, capture().sink), 2);
   assert.equal(await main(["--file"], {}, capture().sink), 2);
+  assert.equal(await main(["--export-id", "abc"], {}, capture().sink), 2);
   const { out, sink } = capture();
   assert.equal(await main(["--file", "/nonexistent/x.csv"], {}, sink), 1);
   assert.match(out.error[0], /can't read/);

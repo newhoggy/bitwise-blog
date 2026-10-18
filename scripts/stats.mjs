@@ -245,49 +245,66 @@ async function failure(res, what) {
     detail = body.error || (body.errors ? JSON.stringify(body.errors) : "");
   } catch { /* not JSON */ }
   if (res.status === 401 || res.status === 403) return new Error(`GoatCounter refused the token while trying to ${what} (HTTP ${res.status}). ${hint}`);
-  if (res.status === 429) return new Error(`GoatCounter is rate limiting exports (HTTP 429); wait a minute and try again.`);
+  if (res.status === 429) return new Error(`GoatCounter allows one new export per hour, and one was started within the last hour (HTTP 429). Wait up to an hour, or finish the earlier export with --export-id <id> (the id was printed when it started).`);
   return new Error(`GoatCounter failed to ${what} (HTTP ${res.status}${detail ? `: ${detail}` : ""}). ${hint}`);
 }
 
-/** Run an export and return its CSV text. `fetch` and `sleep` are injectable for tests. */
-export async function fetchExport({ code, token, fetch: rawFetch = globalThis.fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), intervalMs = 1000, maxPolls = 120 }) {
+/**
+ * Run an export and return its CSV text. GoatCounter allows one new export per hour, so `onStart(id)`
+ * reports the id as soon as it exists and a failure afterwards names it: `exportId` resumes that
+ * export (no POST) instead of starting another. `fetch` and `sleep` are injectable for tests.
+ */
+export async function fetchExport({ code, token, exportId, onStart = () => {}, fetch: rawFetch = globalThis.fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), intervalMs = 1000, maxPolls = 120 }) {
   if (!CODE_RE.test(code || "")) throw new Error("GOATCOUNTER_CODE must contain only lowercase letters, digits and hyphens (a-z, 0-9, -)");
   const fetch = (url, init = {}) => rawFetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   const api = `https://${code}.goatcounter.com/api/v0`;
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-  let res = await fetch(`${api}/export`, { method: "POST", headers, body: "{}" });
-  if (!res.ok) throw await failure(res, "start an export");
-  const started = await res.json();
-  if (started.id == null) throw new Error("GoatCounter did not return an export id");
-  for (let polls = 0; ; polls++) {
-    res = await fetch(`${api}/export/${started.id}`, { headers });
-    if (!res.ok) throw await failure(res, "check the export");
-    const state = await res.json();
-    if (state.error) throw new Error(`GoatCounter could not build the export: ${state.error}`);
-    if (state.finished_at) break;
-    if (polls >= maxPolls) throw new Error(`the export was not ready after ${Math.round((maxPolls * intervalMs) / 1000)} seconds; run it again later`);
-    await sleep(intervalMs);
+  let id = exportId;
+  if (id == null) {
+    const res = await fetch(`${api}/export`, { method: "POST", headers, body: "{}" });
+    if (!res.ok) throw await failure(res, "start an export");
+    id = (await res.json()).id;
+    if (id == null) throw new Error("GoatCounter did not return an export id");
   }
-  res = await fetch(`${api}/export/${started.id}/download`, { headers });
-  if (!res.ok) throw await failure(res, "download the export");
-  const bytes = Buffer.from(await res.arrayBuffer());
-  return (bytes[0] === 0x1f && bytes[1] === 0x8b ? zlib.gunzipSync(bytes) : bytes).toString("utf8");
+  onStart(id);
+  try {
+    for (let polls = 0; ; polls++) {
+      const res = await fetch(`${api}/export/${id}`, { headers });
+      if (!res.ok) throw await failure(res, "check the export");
+      const state = await res.json();
+      if (state.error) throw new Error(`GoatCounter could not build the export: ${state.error}`);
+      if (state.finished_at) break;
+      if (polls >= maxPolls) throw new Error(`the export was not ready after ${Math.round((maxPolls * intervalMs) / 1000)} seconds`);
+      await sleep(intervalMs);
+    }
+    const res = await fetch(`${api}/export/${id}/download`, { headers });
+    if (!res.ok) throw await failure(res, "download the export");
+    const bytes = Buffer.from(await res.arrayBuffer());
+    return (bytes[0] === 0x1f && bytes[1] === 0x8b ? zlib.gunzipSync(bytes) : bytes).toString("utf8");
+  } catch (e) {
+    // The hour's export is spent; say how to pick it up again rather than start a new one.
+    e.message += ` Export ${id} was started: rerun with --export-id ${id} to continue it without starting another.`;
+    throw e;
+  }
 }
 
 // ---- main ----------------------------------------------------------------------------
 
-const USAGE = `npm run stats [-- --file <export.csv>]
+const USAGE = `npm run stats [-- --file <export.csv> | --export-id <id>]
 
 Prints views per post (from GoatCounter's CSV export) with each page's title, kind and tags.
   GOATCOUNTER_CODE   the site code (the subdomain of <code>.goatcounter.com)
   GOATCOUNTER_TOKEN  an API token with the export permission (or the 1Password item "${OP_TOKEN_ITEM}")
-  --file <csv>       read an export you already have instead of calling GoatCounter`;
+  --file <csv>       read an export you already have instead of calling GoatCounter
+  --export-id <id>   continue an export that was already started (GoatCounter allows one new export per hour)`;
 
 export async function main(argv = process.argv.slice(2), env = process.env, out = console, root = ROOT) {
-  let file = "";
+  let file = "", exportId;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--help" || argv[i] === "-h") { out.log(USAGE); return 0; }
-    if (argv[i] === "--file") { file = argv[++i] || ""; if (!file) { out.error("--file needs a path"); return 2; } } else { out.error(`unknown argument "${argv[i]}"\n${USAGE}`); return 2; }
+    else if (argv[i] === "--file") { file = argv[++i] || ""; if (!file) { out.error("--file needs a path"); return 2; } }
+    else if (argv[i] === "--export-id") { exportId = argv[++i] || ""; if (!/^\d+$/.test(exportId)) { out.error("--export-id needs the number printed when the export started"); return 2; } }
+    else { out.error(`unknown argument "${argv[i]}"\n${USAGE}`); return 2; }
   }
   let csv;
   if (file) {
@@ -297,7 +314,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, out 
     if (error) { out.error(error); return 1; }
     const code = (env.GOATCOUNTER_CODE || "").trim();
     if (!code) { out.error("GOATCOUNTER_CODE is not set: export it as your GoatCounter site code (the part before .goatcounter.com)."); return 1; }
-    try { csv = await fetchExport({ code, token }); } catch (e) { out.error(`stats: ${e.message}`); return 1; }
+    try { csv = await fetchExport({ code, token, exportId, onStart: (id) => { if (exportId == null) out.error(`Started GoatCounter export ${id}. If this run fails, continue it with: npm run stats -- --export-id ${id}`); } }); } catch (e) { out.error(`stats: ${e.message}`); return 1; }
   }
   let counts;
   try { counts = countViews(parseHits(csv).hits); } catch (e) { out.error(`stats: ${e.message}`); return 1; }

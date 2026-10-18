@@ -366,6 +366,9 @@ dependencies, nothing written to disk).
 - **It prints unlisted pages by title.** The output, like the dashboard and the export, is private:
   never paste it into a commit, issue, PR or any public place.
 - `npm run stats -- --file export.csv` reads a CSV you already have, with no token and no network.
+- **GoatCounter allows one new export per hour** (HTTP 429 otherwise). The run prints the export's id
+  as soon as it starts; if it then fails, `npm run stats -- --export-id <id>` continues that export
+  instead of starting another.
   Each run is a full export; there is no stored cursor, because keeping the hits locally would put
   private analytics on disk.
 
