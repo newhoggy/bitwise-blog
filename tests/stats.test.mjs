@@ -32,8 +32,9 @@ function repo(t) {
   w("how-deflate-works.html", page({ title: "How DEFLATE works", tags: "compression, deflate" }));
   w("announcing-patchcov.html", page({ title: "Announcing patchcov &amp; friends", tags: "tools", kind: "explainer" }));
   w("quiet-draft.html", page({ title: "Quiet draft", tags: "misc", extra: '<meta name="bh:unlisted" content="true">' }));
-  w("unread.html", page({ title: "Nobody read this", kind: "decision" }));
+  w("unread.html", page({ title: "Nobody\n    read   this", kind: "decision" }));
   w("secret-notes.html", '<!doctype html><html><head><title>Private page</title><meta name="bh:sealed" content="1"></head><body><script id="sealed-payload"></script></body></html>');
+  w("secret-two.html", '<!doctype html><html><head><title>Private page</title><meta name="bh:sealed" content="1"></head><body><script id="sealed-payload"></script></body></html>');
   w("secret-notes.private.html", page({ title: "Launch plan SECRET-TITLE" }));
   return root;
 }
@@ -80,6 +81,8 @@ test("toHref normalises GoatCounter paths", () => {
   assert.equal(toHref("/docs/x?utm=1"), "docs/x.html");
   assert.equal(toHref("/blog/docs/x.html", "/blog/"), "docs/x.html");
   assert.equal(toHref("/blog/", "/blog/"), "index.html");
+  assert.equal(toHref("/blog", "/blog/"), "index.html");
+  assert.equal(toHref("/blogger/docs/x.html", "/blog/"), "blogger/docs/x.html");
 });
 
 test("sitePath comes from homepage, BH_SITE_URL overrides it", (t) => {
@@ -100,7 +103,7 @@ test("readCatalogue reads titles, kinds, tags and flags; sealed pages carry no t
 
 test("joinViews sorts by views, folds path variants, lists unread pages and tolerates unknown paths", (t) => {
   const counts = countViews(parseHits(csv).hits);
-  const { rows, unmatched } = joinViews(counts, readCatalogue(repo(t)));
+  const { rows, unmatched, sealedOmitted } = joinViews(counts, readCatalogue(repo(t)));
   const by = Object.fromEntries(rows.map((r) => [r.href, r]));
   assert.equal(by["docs/how-deflate-works.html"].views, 4); // plain, #fragment and extensionless paths fold together
   assert.equal(by["docs/how-deflate-works.html"].visitors, 3);
@@ -109,7 +112,9 @@ test("joinViews sorts by views, folds path variants, lists unread pages and tole
   assert.deepEqual(rows.map((r) => r.views), [...rows.map((r) => r.views)].sort((a, b) => b - a));
   assert.equal(rows[0].href, "docs/how-deflate-works.html");
   assert.equal(by["docs/secret-notes.html"].views, 1);
-  assert.deepEqual(unmatched.map((u) => [u.title, u.views, u.notes]), [["/docs/removed-post.html", 1, ["not in the repo"]]]);
+  assert.deepEqual(unmatched.map((u) => [u.title, u.views, u.notes]), [["/docs/removed-post.html  A post that was deleted", 1, ["not in the repo"]]]);
+  assert.ok(!by["docs/secret-two.html"]); // sealed and never hit: left out, not shown as 0
+  assert.equal(sealedOmitted, 1);
 });
 
 test("formatReport prints a table with titles, tags and notes, and never a private page's title", (t) => {
@@ -120,8 +125,10 @@ test("formatReport prints a table with titles, tags and notes, and never a priva
   assert.match(lines[2], /^\s*4\s+3\s+explainer\s+How DEFLATE works\s+compression, deflate$/);
   assert.match(text, /Quiet draft\s+misc\s+unlisted/);
   assert.match(text, /\(private page\) docs\/secret-notes\.html\s+private/);
-  assert.match(text, /\/docs\/removed-post\.html\s+not in the repo/);
-  assert.match(text, /Nobody read this/);
+  assert.match(text, /\/docs\/removed-post\.html  A post that was deleted\s+not in the repo/);
+  assert.match(text, /1 sealed page is not listed/);
+  assert.doesNotMatch(text, /secret-two/);
+  assert.match(text, /Nobody read this/); // a title wrapped over source lines stays on one row
   assert.match(text, /10 pageviews, 2026-10-09 to 2026-10-13\. Left out: 2 bot hits, 1 events\. 1 path matched no page in the repo\./);
   assert.doesNotMatch(text, /SECRET-TITLE/);
   assert.match(text, /Do not paste it/);
@@ -142,6 +149,8 @@ test("resolveToken prefers the environment, then 1Password, then explains plainl
   assert.doesNotMatch(none.error, /found\. \(/); // op simply absent: no extra reason
   const missing = resolveToken({ env: {}, readItem: () => { throw Object.assign(new Error("x"), { stderr: '"beautiful-html goatcounter token" isn\'t an item in the "Private" vault' }); } });
   assert.match(missing.error, /No GoatCounter API token found\.\n/);
+  const vault = resolveToken({ env: {}, readItem: () => { throw Object.assign(new Error("x"), { stderr: '"Typo" isn\'t a vault in this account: vault not found' }); } });
+  assert.match(vault.error, /\(1Password: "Typo" isn't a vault/);
   const locked = resolveToken({ env: {}, readItem: () => { throw Object.assign(new Error("x"), { stderr: "[ERROR] account is locked\nmore" }); } });
   assert.match(locked.error, /\(1Password: \[ERROR\] account is locked\)/);
 });
@@ -195,9 +204,9 @@ function capture() {
   return { out, sink: { log: (s) => out.log.push(s), error: (s) => out.error.push(s) } };
 }
 
-test("main --file prints the report with no token and no network", async () => {
+test("main --file prints the report with no token and no network", async (t) => {
   const { out, sink } = capture();
-  const code = await main(["--file", FIXTURE_CSV], {}, sink);
+  const code = await main(["--file", FIXTURE_CSV], {}, sink, repo(t));
   assert.equal(code, 0);
   assert.match(out.log.join("\n"), /How DEFLATE works/);
   assert.deepEqual(out.error, []);

@@ -361,7 +361,8 @@ dependencies, nothing written to disk).
   site's sub-path removed) to the page heads in `docs/`. Bot hits and events are not counted;
   visitors are distinct sessions. Pages nobody viewed print with 0. A path that matches no page
   (removed, or an example page that is not published) prints under its path as "not in the repo".
-  A sealed page prints as `(private page)` with its path only: its title is not in the repo.
+  Sealed pages carry no tag, so they are never counted: they are left out unless a hit shows up
+  for one (then it prints as `(private page)` with its path only, since its title is not in the repo).
 - **It prints unlisted pages by title.** The output, like the dashboard and the export, is private:
   never paste it into a commit, issue, PR or any public place.
 - `npm run stats -- --file export.csv` reads a CSV you already have, with no token and no network.

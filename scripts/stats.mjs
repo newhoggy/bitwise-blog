@@ -73,6 +73,8 @@ export function parseHits(text) {
   return { version, hits };
 }
 
+const oneLine = (s) => String(s).replace(/\s+/g, " ").trim();
+
 // ---- Counting and joining ------------------------------------------------------------
 
 /** Views per path, ignoring events and bots. Visitors are distinct sessions. */
@@ -82,7 +84,7 @@ export function countViews(hits) {
   for (const h of hits) {
     if (h.event) { events++; continue; }
     if (h.bot) { bots++; continue; }
-    const entry = byPath.get(h.path) || { views: 0, sessions: new Set() };
+    const entry = byPath.get(h.path) || { views: 0, sessions: new Set(), title: oneLine(h.title) };
     entry.views++;
     if (h.session) entry.sessions.add(h.session);
     byPath.set(h.path, entry);
@@ -111,7 +113,7 @@ export function sitePath(root = ROOT, env = process.env) {
 export function toHref(goatPath, base = "/") {
   let p = String(goatPath).split(/[?#]/)[0];
   if (!p.startsWith("/")) p = "/" + p;
-  if (base !== "/" && p.startsWith(base)) p = "/" + p.slice(base.length);
+  if (base !== "/" && (p.startsWith(base) || p === base.slice(0, -1))) p = "/" + p.slice(base.length);
   p = p.replace(/^\/+/, "");
   if (p === "" || p === "index.html") return "index.html";
   if (p.endsWith("/")) p += "index.html";
@@ -135,7 +137,7 @@ export function readCatalogue(root = ROOT) {
     const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || "";
     const href = `docs/${file}`;
     if (/<meta\s+name="bh:sealed"/i.test(head) || /\bid="sealed-payload"/i.test(html)) {
-      pages.set(href, { href, title: `(private page) ${href}`, kind: "", tags: [], notes: ["private"] });
+      pages.set(href, { href, title: `(private page) ${href}`, kind: "", tags: [], notes: ["private"], sealed: true });
       continue;
     }
     const notes = [];
@@ -143,7 +145,7 @@ export function readCatalogue(root = ROOT) {
     if (meta(head, "bh:example") === "true") notes.push("example");
     pages.set(href, {
       href,
-      title: unescape((head.match(/<title>([^<]*)<\/title>/i) || [])[1]?.trim() ?? file),
+      title: oneLine(unescape((head.match(/<title>([^<]*)<\/title>/i) || [])[1] ?? file)),
       kind: meta(head, "bh:kind") || "explainer",
       tags: meta(head, "bh:tags").split(",").map((t) => t.trim()).filter(Boolean),
       notes,
@@ -154,34 +156,37 @@ export function readCatalogue(root = ROOT) {
 
 /** Rows for the report: one per repo page (0 views if unseen), then one per path that matches no page. Sorted by views. */
 export function joinViews(counts, catalogue, base = "/") {
-  const merged = new Map(); // href -> { views, sessions, paths }
+  const merged = new Map(); // href -> { views, sessions, paths, title }
   for (const [goatPath, entry] of counts.byPath) {
     const href = toHref(goatPath, base);
-    const m = merged.get(href) || { views: 0, sessions: new Set(), paths: [] };
+    const m = merged.get(href) || { views: 0, sessions: new Set(), paths: [], title: "" };
     m.views += entry.views;
     for (const s of entry.sessions) m.sessions.add(s);
     m.paths.push(goatPath);
+    m.title ||= entry.title;
     merged.set(href, m);
   }
   const rows = [];
+  let sealedOmitted = 0;
   for (const page of catalogue.values()) {
     const m = merged.get(page.href);
+    if (page.sealed && !m) { sealedOmitted++; continue; } // sealed pages carry no tag, so "0 views" would only mislead
     rows.push({ ...page, views: m?.views ?? 0, visitors: m?.sessions.size ?? 0 });
   }
   const unmatched = [];
   for (const [href, m] of merged) {
     if (catalogue.has(href)) continue;
-    unmatched.push({ href, title: m.paths[0], kind: "", tags: [], notes: ["not in the repo"], views: m.views, visitors: m.sessions.size });
+    unmatched.push({ href, title: m.title ? `${m.paths[0]}  ${m.title}` : m.paths[0], kind: "", tags: [], notes: ["not in the repo"], views: m.views, visitors: m.sessions.size });
   }
   const order = (a, b) => b.views - a.views || a.title.localeCompare(b.title);
-  return { rows: rows.sort(order), unmatched: unmatched.sort(order) };
+  return { rows: rows.sort(order), unmatched: unmatched.sort(order), sealedOmitted };
 }
 
 // ---- Report --------------------------------------------------------------------------
 
 const day = (iso) => (Number.isNaN(Date.parse(iso)) ? "" : new Date(iso).toISOString().slice(0, 10));
 
-export function formatReport({ rows, unmatched }, counts) {
+export function formatReport({ rows, unmatched, sealedOmitted = 0 }, counts) {
   const all = [...rows, ...unmatched];
   const cells = all.map((r) => [String(r.views), String(r.visitors), r.kind, r.title, r.tags.join(", "), r.notes.join(", ")]);
   const head = ["Views", "Visitors", "Kind", "Title", "Tags", "Notes"];
@@ -195,6 +200,7 @@ export function formatReport({ rows, unmatched }, counts) {
     ...cells.map(line),
     "",
     `${total} pageviews, ${range}. Left out: ${counts.bots} bot hits, ${counts.events} events.` + (unmatched.length ? ` ${unmatched.length} path${unmatched.length === 1 ? "" : "s"} matched no page in the repo.` : ""),
+    ...(sealedOmitted ? [`${sealedOmitted} sealed page${sealedOmitted === 1 ? " is" : "s are"} not listed: their shells carry no GoatCounter tag, so they are never counted.`] : []),
     "Private data: this output names unlisted pages. Do not paste it into a commit, issue, PR or any public place.",
   ].join("\n");
 }
@@ -216,18 +222,19 @@ export function resolveToken({ env = process.env, readItem = readOpItem } = {}) 
     if (fromOp) return { token: fromOp };
     why = "the 1Password item is empty";
   } catch (e) {
-    if (e.code !== "ENOENT" && !/isn't an item|not found/i.test(String(e.stderr || e.message))) why = `1Password: ${String(e.stderr || e.message).trim().split("\n")[0]}`;
+    if (e.code !== "ENOENT" && !/isn't an item/i.test(String(e.stderr || e.message))) why = `1Password: ${String(e.stderr || e.message).trim().split("\n")[0]}`;
   }
   return { error: noToken(why) };
 }
 
 /** The password field of a 1Password item. The secret travels on stdout only. */
 function readOpItem(title, vault) {
-  return execFileSync("op", ["item", "get", title, "--vault", vault, "--fields", "label=password", "--reveal"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  return execFileSync("op", ["item", "get", title, "--vault", vault, "--fields", "label=password", "--reveal"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 60_000 });
 }
 
 // ---- GoatCounter export --------------------------------------------------------------
 
+const REQUEST_TIMEOUT_MS = 30_000;
 const hint = "CSV exports need “Individual pageviews” turned on in the GoatCounter site settings, and a token with the export permission.";
 
 /** Why a response failed, in words: GoatCounter reports `error` or `errors` in the JSON body. */
@@ -243,8 +250,9 @@ async function failure(res, what) {
 }
 
 /** Run an export and return its CSV text. `fetch` and `sleep` are injectable for tests. */
-export async function fetchExport({ code, token, fetch = globalThis.fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), intervalMs = 1000, maxPolls = 120 }) {
+export async function fetchExport({ code, token, fetch: rawFetch = globalThis.fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), intervalMs = 1000, maxPolls = 120 }) {
   if (!CODE_RE.test(code || "")) throw new Error("GOATCOUNTER_CODE must contain only lowercase letters, digits and hyphens (a-z, 0-9, -)");
+  const fetch = (url, init = {}) => rawFetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   const api = `https://${code}.goatcounter.com/api/v0`;
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   let res = await fetch(`${api}/export`, { method: "POST", headers, body: "{}" });
@@ -275,7 +283,7 @@ Prints views per post (from GoatCounter's CSV export) with each page's title, ki
   GOATCOUNTER_TOKEN  an API token with the export permission (or the 1Password item "${OP_TOKEN_ITEM}")
   --file <csv>       read an export you already have instead of calling GoatCounter`;
 
-export async function main(argv = process.argv.slice(2), env = process.env, out = console) {
+export async function main(argv = process.argv.slice(2), env = process.env, out = console, root = ROOT) {
   let file = "";
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--help" || argv[i] === "-h") { out.log(USAGE); return 0; }
@@ -293,8 +301,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, out 
   }
   let counts;
   try { counts = countViews(parseHits(csv).hits); } catch (e) { out.error(`stats: ${e.message}`); return 1; }
-  out.log(formatReport(joinViews(counts, readCatalogue(ROOT), sitePath(ROOT, env)), counts));
+  out.log(formatReport(joinViews(counts, readCatalogue(root), sitePath(root, env)), counts));
   return 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exit(await main());
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await main();
