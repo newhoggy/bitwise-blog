@@ -517,6 +517,28 @@ test("the tree-cost figure is the example's tree, walked in pre-order, and the p
   const code = Object.fromEntries(EXTREE.leaves.map((l) => [l.id, l.code]));
   assert.deepEqual([code["x-a"], code["x-sp"], code["x-d"]], ["10", "1100", "1111"]);
   assert.match(sec, /a becomes 11, and ␣, b, c and d become 1000 to 1011/);
+  // The round trip for a: slot 97 holds 2, the canonical rule gives 00, and 00 decodes to byte 97.
+  const exLens = codeLengths(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.dynamic));
+  const litCodes = Deflate.canonicalCodes(exLens.lit);
+  assert.equal("a".charCodeAt(0), 97);
+  assert.equal(exLens.lit[97], 2);
+  assert.equal(exLens.lit.filter((l) => l === 2).length, 1, "a is the only 2-bit symbol");
+  assert.equal(litCodes[97].toString(2).padStart(exLens.lit[97], "0"), "00");
+  assert.equal((97).toString(2).padStart(9, "0"), "001100001");
+  assert.match(fig, />a \(97\)</);
+  assert.match(text(fig), /a is symbol 97, 001100001\. It is neither a's code nor the byte it decodes to/);
+  assert.match(sec, /so the 98th is symbol 97's, which is a's\. Nothing in the stream says 97; the position does/);
+  const trip = text(PAGE.match(/<ol id="round-trip"[\s\S]*?<\/ol>/)[0]);
+  assert.match(trip, /Slot 97, the 98th length, is a's because a is symbol 97, and it holds 2/);
+  assert.match(trip, /a is the only symbol of length 2, so it gets 00/);
+  assert.match(trip, /builds a lookup table from code to symbol/);
+  // zlib's table: a 9-bit index, cut to the longest code when shorter (inflate_table: root = min(9, max)).
+  const tables = text(PAGE.match(/<details class="disclosure" id="lookup-tables"[\s\S]*?<\/details>/)[0]);
+  const maxLen = Math.max(...exLens.lit);
+  assert.deepEqual([2 ** (9 - 2), maxLen, 2 ** maxLen, 2 ** (maxLen - exLens.lit[97])], [128, 4, 16, 4]);
+  assert.match(tables, /in a 9-bit table a 2-bit code fills every entry that starts with its two bits, 128 of them/);
+  assert.match(tables, /whose longest literal\/length code is 4 bits, the whole table is 16 entries, and a's 00 fills 4 of them/);
+  assert.match(trip, /reads 00, looks it up and gets symbol 97\. A symbol below 256 is a literal, so it outputs byte 97, 01100001: a/);
   const after = text(PAGE.match(/<h3 id="step-coded">[\s\S]*?<figure class="frame wide" id="header-steps">/)[0]);
   assert.match(after, /For the example, the tree still wins, 111 bits to 159/);
   assert.match(after, /the tree would cost 581 bits, 469 of them names, against 352 for the lengths/);
