@@ -565,6 +565,24 @@ test("the send-steps figure is the example's real code-length list", () => {
   const dataBits = tr.fields.filter((f) => ["literal", "length", "distance", "end"].includes(f.kind)).reduce((s, f) => s + f.bits.length + (f.extraBits || "").length, 0);
   assert.equal(dataBits, 41);
   assert.ok(Math.abs(+fig.match(/class="send-data-mark" d="M([\d.]+)/)[1] - 41 * width / 1264) < 0.1);
+  // What each step is made of: every part's bits come from the stream, and the parts add up to the step's total.
+  const PARTS = JSON.parse(PAGE.match(/const PARTS = (\[[\s\S]*?\]);\n/)[1]);
+  const byLen = (n) => runs.filter((f) => f.bits.length === n).length, extraOf = (n) => runs.filter((f) => f.extraBits.length === n).length;
+  assert.deepEqual([byLen(2), byLen(3), byLen(4), byLen(5)], [13, 2, 2, 2]);
+  assert.deepEqual([extraOf(7), extraOf(3)], [5, 2]);
+  const codeBits = runs.reduce((s, f) => s + f.bits.length, 0);
+  const want = [
+    [["body", 316 * 4]],
+    [["counts", 10], ["body", (b.hlit + b.hdist) * 4]],
+    [["counts", 10], ["body", runs.length * 5], ["extras", extra]],
+    [["counts", 14], ["cl", cl * 3], ["body", codeBits], ["extras", extra]],
+  ];
+  PARTS.forEach((parts, k) => {
+    assert.deepEqual(parts.map((p) => [p[0], p[2]]), want[k], `step ${k + 1}`);
+    assert.equal(parts.reduce((s, p) => s + p[2], 0), [1264, 1122, 146, 159][k]);
+  });
+  assert.equal(PARTS[3][2][3], "13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50");
+  assert.equal(PARTS[2][2][3], "5 × 7 + 2 × 3 = 41");
   assert.match(fig, /Only the 11 marked slots are not zero\. 1,264 bits/);
   assert.match(fig, /so 38 slots go\. 1,122 bits/);
   assert.match(fig, /19 symbols at 5 bits each, plus their extra bits: 146 bits/);

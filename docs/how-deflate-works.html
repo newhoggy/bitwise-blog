@@ -59,6 +59,9 @@
     #send-steps .send-delta.up { fill: var(--danger); }
     #send-steps .send-size { fill: var(--c6); }
     #send-steps .send-data-mark { stroke: var(--c2); stroke-width: 2.5; }
+    #send-steps .send-part > rect { fill: color-mix(in oklab, var(--text-muted) 12%, var(--surface)); }
+    #send-steps .send-part.c6 > rect { fill: color-mix(in oklab, var(--c6) 22%, var(--surface)); }
+    #send-steps .send-formula { font-family: var(--font-mono); }
     #send-steps .send-zero > rect, #send-steps .send-run > rect { fill: color-mix(in oklab, var(--text-muted) 10%, var(--surface)); }
     @media (max-width: 640px) { #send-steps > svg { min-width: 900px; } }
     #join .node.sym text:not(.sub), #join .node.tok text { font-family: var(--font-mono); }
@@ -814,7 +817,7 @@
     <h2 id="dynamic-header">Sending a dynamic code</h2>
     <p>A dynamic block must tell the decoder its codes before its data. Thanks to <a href="#canonical">canonical codes</a>, it only needs to send each symbol's code length: 286 literal/length symbols and 30 distance symbols, 316 lengths in all, each from 0 to 15. The question is how to send them cheaply, and it matters: every bit spent on the code comes out of the saving. For the paragraph, the fitted code saved 854 bits on the data, and sending it cost 352 of them. Here are four tries, each fixing the biggest waste in the one before, measured on two blocks: the worked example written as a dynamic block (the one <a href="#dynamic-block">walked through below</a>), and zlib's real block for the 381-byte paragraph.</p>
     <figure class="diagram wide" id="send-steps">
-      <svg viewBox="-16 -16 1088 290" role="img" aria-label="The example's 316 code lengths: 11 used slots in a long bar of zeros, cut after the last used symbol, then collapsed into 19 run symbols, which get codes of their own">
+      <svg viewBox="-16 -16 1088 350" role="img" aria-label="The example's 316 code lengths: 11 used slots in a long bar of zeros, cut after the last used symbol, then collapsed into 19 run symbols, which get codes of their own">
         <text class="label strong send-total" x="1056" y="18" text-anchor="end">159 bits</text>
         <text class="label send-bytes" x="1056" y="44" text-anchor="end">≈ 20 bytes</text>
         <text class="label strong send-delta up" x="1056" y="64" text-anchor="end">+13 bits</text>
@@ -910,8 +913,17 @@
         <text class="label send-sub" data-id="r18-sub" x="1032" y="150" text-anchor="middle">d6</text>
         <text class="mono send-code" data-id="r18-code" x="1032" y="172" text-anchor="middle">1110</text>
         <text class="label send-cost" data-id="r18-cost" x="1032" y="194" text-anchor="middle">4</text>
+        <text class="label strong send-parts-label" x="1056" y="256" text-anchor="end">what the cost is made of</text>
+        <g class="node send-part" data-id="part-counts"><rect x="0" y="268" width="90.0" height="28" rx="4"/><text x="46.5" y="282">counts</text></g>
+        <text class="label send-formula" data-id="part-counts-f" x="46.5" y="312" text-anchor="middle">5 + 5 + 4 = 14</text>
+        <g class="node send-part" data-id="part-cl"><rect x="93.0" y="268" width="355.6" height="28" rx="4"/><text x="272.3" y="282">code-length code</text></g>
+        <text class="label send-formula" data-id="part-cl-f" x="272.3" y="312" text-anchor="middle">18 × 3 bits = 54</text>
+        <g class="node c6 send-part" data-id="part-body"><rect x="451.6" y="268" width="329.1" height="28" rx="4"/><text x="617.7" y="282">run-symbol codes</text></g>
+        <text class="label send-formula" data-id="part-body-f" x="617.7" y="312" text-anchor="middle">13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50</text>
+        <g class="node send-part" data-id="part-extras"><rect x="783.7" y="268" width="269.3" height="28" rx="4"/><text x="919.8" y="282">extra bits</text></g>
+        <text class="label send-formula" data-id="part-extras-f" x="919.8" y="312" text-anchor="middle">5 × 7 + 2 × 3 = 41</text>
       </svg>
-      <figcaption>Notice what the four steps do to the same list: the long bar is almost all zeros, cutting its end barely shortens it, and only collapsing the zeros into run symbols shrinks it. The bar along the bottom is the cost to scale, against a mark at the example's 41 bits of data: even at its best, the code costs more than the data it describes. Each chip is one code-length symbol; under it is what it stands for (×32 means a run of 32 zeros), its code once it has one, and its cost in bits.</figcaption>
+      <figcaption>Notice what the four steps do to the same list: the long bar is almost all zeros, cutting its end barely shortens it, and only collapsing the zeros into run symbols shrinks it. The bar is the cost to scale, against a mark at the example's 41 bits of data: even at its best, the code costs more than the data it describes. The strip under it shows what each step's cost is made of, as shares of that step, with the arithmetic under each part. Each chip is one code-length symbol; under it is what it stands for (×32 means a run of 32 zeros), its code once it has one, and its cost in bits.</figcaption>
     </figure>
     <bh-stepper for="send-steps">
       <bh-step><p><strong>Step 1: every slot, 4 bits.</strong> All 316 of the example's code lengths, in symbol order. Only the 11 marked slots are not zero. 1,264 bits.</p></bh-step>
@@ -1955,6 +1967,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const TOTAL = [1264, 1122, 146, 159];
     const NOTE = ["316 slots × 4 bits", "10 + 278 × 4", "10 + 19 × 5 + 41 extra bits", "14 + 54 + 91"];
     const DELTA = ["no tricks yet", "−142 bits", "−976 bits", "+13 bits"];
+    // What each step's total is made of: [part, name, bits, the arithmetic]. Parts keep their identity
+    // from step to step, so a part that changes (the lengths becoming run symbols) resizes in place.
+    const PARTS = [[["body", "316 lengths", 1264, "316 × 4 bits = 1,264"]], [["counts", "counts", 10, "5 + 5 = 10"], ["body", "278 lengths", 1112, "(271 + 7) × 4 bits = 1,112"]], [["counts", "counts", 10, "5 + 5 = 10"], ["body", "19 run symbols", 95, "19 × 5 bits = 95"], ["extras", "extra bits", 41, "5 × 7 + 2 × 3 = 41"]], [["counts", "counts", 14, "5 + 5 + 4 = 14"], ["cl", "code-length code", 54, "18 × 3 bits = 54"], ["body", "run-symbol codes", 50, "13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50"], ["extras", "extra bits", 41, "5 × 7 + 2 × 3 = 41"]]];
+    const PART_ORDER = ["counts", "cl", "body", "extras"], PART_W = 1056, PART_GAP = 3;
     const sendState = (k) => {
       const s = {};
       for (const c of SEND.chips) {
@@ -1969,6 +1985,13 @@ document.addEventListener("DOMContentLoaded", () => {
       s.bar = { op: k <= 1 ? 1 : 0 };
       s.cut = { op: k === 1 ? 1 : 0 };
       s.total = { n: TOTAL[k], note: NOTE[k], delta: DELTA[k] };
+      const parts = PARTS[k], sum = parts.reduce((t, p) => t + p[2], 0);
+      let x = 0;
+      for (const id of PART_ORDER) {
+        const p = parts.find((q) => q[0] === id), w = p ? (p[2] / sum) * PART_W : 0;
+        s[`part-${id}`] = { x, w, op: p ? 1 : 0, name: p ? p[1] : "", formula: p ? p[3] : "", coded: k === 3 && id === "body" ? "yes" : "no" };
+        x += w;
+      }
       return s;
     };
     const fig = document.getElementById("send-steps");
@@ -1996,6 +2019,19 @@ document.addEventListener("DOMContentLoaded", () => {
       bytes.textContent = `${n % 8 ? "≈" : "="} ${Math.ceil(n / 8).toLocaleString("en")} bytes`;
       size.setAttribute("width", Math.round(s.total.n * SEND.SCALE * 10) / 10);
       if (note.textContent !== s.total.note) note.textContent = s.total.note;
+      for (const id of PART_ORDER) {
+        const v = s[`part-${id}`], g = part(`part-${id}`), f = part(`part-${id}-f`), [r, t] = g.children;
+        const w = Math.max(0, v.w - PART_GAP), cx = v.x + v.w / 2;
+        r.setAttribute("x", v.x); r.setAttribute("width", w);
+        if (t.textContent !== v.name) t.textContent = v.name;
+        t.setAttribute("x", cx);
+        fade(t, w > v.name.length * 8.5 + 8 ? 1 : 0);      // a name shows only where it fits
+        if (f.textContent !== v.formula) f.textContent = v.formula;
+        // Keep the arithmetic on the page when its part is a sliver at the left edge.
+        f.setAttribute("x", Math.max(cx, v.formula.length * 3.6));
+        fade(g, v.op); fade(f, v.op);
+        g.classList.toggle("c6", v.coded === "yes");
+      }
       if (delta.textContent !== s.total.delta) {
         delta.textContent = s.total.delta;
         delta.classList.toggle("down", s.total.delta.startsWith("−"));
