@@ -585,7 +585,18 @@ test("the send-steps figure is the example's real code-length list", () => {
   assert.equal(PARTS[2][2][3], "5 × 7 + 2 × 3 = 41");
   assert.match(fig, /Only the 11 marked slots are not zero\. 1,264 bits/);
   assert.match(fig, /so 38 slots go\. 1,122 bits/);
-  assert.match(fig, /19 symbols at 5 bits each, plus their extra bits: 146 bits/);
+  assert.match(fig, /19 symbols come to 146 bits/);
+  // Step 3's fans: each joins the stretch of the old list a chip replaced to that chip.
+  const SEND = JSON.parse(PAGE.match(/const SEND = (\{.*\});/)[1]);
+  for (const id of ["row-sym", "row-sub", "row-code", "row-cost"]) assert.match(fig, new RegExp(`data-id="${id}"`));
+  for (const c of SEND.chips) {
+    const ghost = fig.match(new RegExp(`data-id="${c.id}-ghost" x="([\\d.]+)" y="[\\d.]+" width="([\\d.]+)"`));
+    const fan = fig.match(new RegExp(`data-id="${c.id}-fan" points="([^"]+)"`));
+    assert.ok(ghost && fan, c.id);
+    const pts = fan[1].split(" ").map((p) => p.split(",").map(Number));
+    assert.deepEqual([+ghost[1], +ghost[2]], [c.bar.x, Math.max(c.bar.w, SEND.SLOT)], c.id);
+    assert.deepEqual([pts[0][0], pts[3][0], pts[2][0]], [c.bar.x, c.row.x, c.row.x + SEND.ROW.w], c.id);
+  }
   assert.match(fig, /With the 54 bits that describe this code, that makes 159 bits: for this short list, 13 more than step 3/);
 });
 
