@@ -249,6 +249,9 @@ async function failure(res, what) {
   return new Error(`GoatCounter failed to ${what} (HTTP ${res.status}${detail ? `: ${detail}` : ""}). ${hint}`);
 }
 
+/** An export's bytes as text: GoatCounter serves (and the dashboard saves) it gzipped; a plain CSV is fine too. */
+export const csvText = (bytes) => (bytes[0] === 0x1f && bytes[1] === 0x8b ? zlib.gunzipSync(bytes) : bytes).toString("utf8");
+
 /**
  * Run an export and return its CSV text. GoatCounter allows one new export per hour, so `onStart(id)`
  * reports the id as soon as it exists and a failure afterwards names it: `exportId` resumes that
@@ -279,8 +282,7 @@ export async function fetchExport({ code, token, exportId, onStart = () => {}, f
     }
     const res = await fetch(`${api}/export/${id}/download`, { headers });
     if (!res.ok) throw await failure(res, "download the export");
-    const bytes = Buffer.from(await res.arrayBuffer());
-    return (bytes[0] === 0x1f && bytes[1] === 0x8b ? zlib.gunzipSync(bytes) : bytes).toString("utf8");
+    return csvText(Buffer.from(await res.arrayBuffer()));
   } catch (e) {
     // The hour's export is spent; say how to pick it up again rather than start a new one.
     e.message += ` Export ${id} was started: rerun with --export-id ${id} to continue it without starting another.`;
@@ -295,7 +297,7 @@ const USAGE = `npm run stats [-- --file <export.csv> | --export-id <id>]
 Prints views per post (from GoatCounter's CSV export) with each page's title, kind and tags.
   GOATCOUNTER_CODE   the site code (the subdomain of <code>.goatcounter.com)
   GOATCOUNTER_TOKEN  an API token with the export permission (or the 1Password item "${OP_TOKEN_ITEM}")
-  --file <csv>       read an export you already have instead of calling GoatCounter
+  --file <csv|csv.gz>  read an export you already have (plain or gzipped) instead of calling GoatCounter
   --export-id <id>   continue an export that was already started (GoatCounter allows one new export per hour)`;
 
 export async function main(argv = process.argv.slice(2), env = process.env, out = console, root = ROOT) {
@@ -308,7 +310,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, out 
   }
   let csv;
   if (file) {
-    try { csv = fs.readFileSync(file, "utf8"); } catch (e) { out.error(`stats: can't read ${file}: ${e.message}`); return 1; }
+    try { csv = csvText(fs.readFileSync(file)); } catch (e) { out.error(`stats: can't read ${file}: ${e.message}`); return 1; }
   } else {
     const { token, error } = resolveToken({ env });
     if (error) { out.error(error); return 1; }

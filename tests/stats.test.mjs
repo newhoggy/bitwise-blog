@@ -221,6 +221,15 @@ test("main --file prints the report with no token and no network", async (t) => 
   assert.deepEqual(out.error, []);
 });
 
+test("main --file also reads a gzipped export", async (t) => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "bh-stats-gz-")), "export.csv.gz");
+  t.after(() => fs.rmSync(path.dirname(file), { recursive: true, force: true }));
+  fs.writeFileSync(file, zlib.gzipSync(csv));
+  const { out, sink } = capture();
+  assert.equal(await main(["--file", file], {}, sink, repo(t)), 0);
+  assert.match(out.log.join("\n"), /How DEFLATE works/);
+});
+
 test("main says plainly when no token is set, and when the site code is missing", async () => {
   // The env has no token; point op at nothing by shadowing PATH so the 1Password fallback cannot answer.
   const { out, sink } = capture();
