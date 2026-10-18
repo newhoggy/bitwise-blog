@@ -337,8 +337,8 @@ no consent banner. It is **added at deploy time and nowhere else**.
   takes the path from `<link rel="canonical">`, which every public page has, and excludes the URL
   fragment, so `#unlisted=true`, section ids and `#k=` keys never reach GoatCounter. It skips
   `localhost` by default.
-- **Unlisted pages are counted.** The GoatCounter dashboard lists their slugs, so keep it
-  private: never enable public stats or the public visitor counter.
+- **Unlisted pages are counted.** Their paths reach GoatCounter and its dashboard lists their
+  slugs, so keep the dashboard private and unshared: never enable public stats or the public visitor counter.
 - **Trade-off.** `count.js` is a moving file on `gc.zgo.at` and is deliberately not pinned with
   SRI. If that matters later, host a copy and add an integrity hash.
 - **Owner setup:** create a free GoatCounter site, then set `GOATCOUNTER_CODE=<code>`.

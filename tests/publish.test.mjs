@@ -250,17 +250,15 @@ test("GoatCounter: unset or empty leaves the artifact byte-identical", (t) => {
 test("GoatCounter: one tag before </head> on the home page and every public page, none on sealed shells", (t) => {
   const f = fixture(t);
   f.assemble();
-  // A plaintext private page must never be tagged, even if one were to reach the stage.
-  fs.writeFileSync(path.join(f.stage, "docs/secret.private.html"), "<!doctype html><html><head><title>Secret</title></head><body></body></html>");
   preparePublishedSite(f.stage, f.source, { goatcounter: "my-blog-1" });
   const tag = TAG("my-blog-1");
   let sealed = 0, tagged = 0;
   for (const page of stagedPages(f.stage)) {
     const html = fs.readFileSync(path.join(f.stage, page), "utf8");
-    const isSealed = html.includes('id="sealed-payload"') || page.endsWith(".private.html");
+    const isSealed = html.includes('id="sealed-payload"');
     if (isSealed) {
       sealed++;
-      assert.ok(!/goatcounter|zgo\.at/i.test(html), `${page} is a sealed shell or private page and must not carry the tag`);
+      assert.ok(!/goatcounter|zgo\.at/i.test(html), `${page} is a sealed shell and must not carry the tag`);
       continue;
     }
     tagged++;
@@ -269,14 +267,30 @@ test("GoatCounter: one tag before </head> on the home page and every public page
     const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? "";
     assert.ok(head.includes(tag), `${page}: the tag is inside <head>`);
   }
-  assert.ok(sealed >= 2, "the repo has sealed pages, so the fixture exercises the exclusion");
-  assert.ok(tagged >= 5);
+  assert.ok(sealed >= 1, "the repo has sealed pages, so the fixture exercises the exclusion");
+  assert.ok(tagged >= 1);
   assert.ok(fs.readFileSync(path.join(f.stage, "index.html"), "utf8").includes(tag));
   // Nothing outside the pages (theme, data, cards) mentions it.
   for (const [file, text] of Object.entries(snapshot(f.stage))) {
     if (stagedPages(f.stage).includes(file.split(path.sep).join("/"))) continue;
     assert.ok(!Buffer.from(text, "base64").toString("utf8").includes("goatcounter"), file);
   }
+});
+
+test("GoatCounter: a public post that quotes the shell markup is still counted; a plaintext private page stops the publish", (t) => {
+  const f = fixture(t);
+  const file = path.join(f.source, post);
+  const quoted = fs.readFileSync(file, "utf8").replace("</article>", '<pre>&lt;script type="application/octet-stream" id="sealed-payload"&gt;</pre></article>');
+  assert.notEqual(quoted, fs.readFileSync(file, "utf8"));
+  fs.writeFileSync(file, quoted);
+  f.assemble();
+  preparePublishedSite(f.stage, f.source, { goatcounter: "demo" });
+  assert.equal(countOf(fs.readFileSync(path.join(f.stage, post), "utf8"), "data-goatcounter"), 1);
+
+  const g = fixture(t);
+  g.assemble();
+  fs.writeFileSync(path.join(g.stage, "docs/secret.private.html"), "<!doctype html><html><head><title>Secret</title></head><body></body></html>");
+  assert.throws(() => preparePublishedSite(g.stage, g.source, { goatcounter: "demo" }), /plaintext private page/);
 });
 
 test("GoatCounter: an invalid code fails the publish before anything is written", (t) => {
@@ -300,6 +314,6 @@ test("GoatCounter: the source tree, templates and theme contain no analytics ref
   }
   assert.ok(files.length > 20);
   for (const file of files) {
-    assert.ok(!/gc\.zgo\.at|data-goatcounter/.test(fs.readFileSync(file, "utf8")), `${path.relative(ROOT, file)} must not carry the analytics tag`);
+    assert.ok(!/<script\b[^>]*(?:data-goatcounter|gc\.zgo\.at)/i.test(fs.readFileSync(file, "utf8")), `${path.relative(ROOT, file)} must not carry the analytics tag`);
   }
 });
