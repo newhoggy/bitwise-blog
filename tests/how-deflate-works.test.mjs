@@ -551,9 +551,52 @@ test("the send-steps figure is the example's real code-length list", () => {
   assert.deepEqual([used, 286 - b.hlit + 30 - b.hdist, runs.length, extra, cl * 3, b.headerBits - 14 - cl * 3], [11, 38, 19, 41, 54, 91]);
   assert.match(PAGE, /const TOTAL = \[1264, 1122, 146, 159\];/);
   assert.match(PAGE, /const NOTE = \["316 slots × 4 bits", "10 \+ 278 × 4", "10 \+ 19 × 5 \+ 41 extra bits", "14 \+ 54 \+ 91"\];/);
+  // The headline's change from step to step, and its static (last-step) values.
+  const totals = [1264, 1122, 146, 159], deltas = totals.slice(1).map((x, i) => x - totals[i]);
+  assert.deepEqual(deltas, [-142, -976, 13]);
+  assert.match(PAGE, /const DELTA = \["no tricks yet", "−142 bits", "−976 bits", "\+13 bits"\];/);
+  assert.match(fig, /class="label strong send-total"[^>]*>159 bits</);
+  assert.match(fig, /class="label send-bytes"[^>]*>≈ 20 bytes</);
+  assert.equal(Math.ceil(159 / 8), 20);
+  assert.match(fig, /class="label strong send-delta up"[^>]*>\+13 bits</);
+  // The bar is to scale: full width is step 1, and the mark is the example's data.
+  const width = +fig.match(/viewBox="-16 -16 (\d+)/)[1] - 32, bar = +fig.match(/class="send-size"[^>]*width="([\d.]+)"/)[1];
+  assert.ok(Math.abs(bar - 159 * width / 1264) < 0.1);
+  const dataBits = tr.fields.filter((f) => ["literal", "length", "distance", "end"].includes(f.kind)).reduce((s, f) => s + f.bits.length + (f.extraBits || "").length, 0);
+  assert.equal(dataBits, 41);
+  assert.ok(Math.abs(+fig.match(/class="send-data-mark" d="M([\d.]+)/)[1] - 41 * width / 1264) < 0.1);
+  // What each step is made of: every part's bits come from the stream, and the parts add up to the step's total.
+  const PARTS = JSON.parse(PAGE.match(/const PARTS = (\[[\s\S]*?\]);\n/)[1]);
+  const byLen = (n) => runs.filter((f) => f.bits.length === n).length, extraOf = (n) => runs.filter((f) => f.extraBits.length === n).length;
+  assert.deepEqual([byLen(2), byLen(3), byLen(4), byLen(5)], [13, 2, 2, 2]);
+  assert.deepEqual([extraOf(7), extraOf(3)], [5, 2]);
+  const codeBits = runs.reduce((s, f) => s + f.bits.length, 0);
+  const want = [
+    [["body", 316 * 4]],
+    [["counts", 10], ["body", (b.hlit + b.hdist) * 4]],
+    [["counts", 10], ["body", runs.length * 5], ["extras", extra]],
+    [["counts", 14], ["cl", cl * 3], ["body", codeBits], ["extras", extra]],
+  ];
+  PARTS.forEach((parts, k) => {
+    assert.deepEqual(parts.map((p) => [p[0], p[2]]), want[k], `step ${k + 1}`);
+    assert.equal(parts.reduce((s, p) => s + p[2], 0), [1264, 1122, 146, 159][k]);
+  });
+  assert.equal(PARTS[3][2][3], "13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50");
+  assert.equal(PARTS[2][2][3], "5 × 7 + 2 × 3 = 41");
   assert.match(fig, /Only the 11 marked slots are not zero\. 1,264 bits/);
   assert.match(fig, /so 38 slots go\. 1,122 bits/);
-  assert.match(fig, /19 symbols at 5 bits each, plus their extra bits: 146 bits/);
+  assert.match(fig, /19 symbols come to 146 bits/);
+  // Step 3's fans: each joins the stretch of the old list a chip replaced to that chip.
+  const SEND = JSON.parse(PAGE.match(/const SEND = (\{.*\});/)[1]);
+  for (const id of ["row-sym", "row-sub", "row-code", "row-cost"]) assert.match(fig, new RegExp(`data-id="${id}"`));
+  for (const c of SEND.chips) {
+    const ghost = fig.match(new RegExp(`data-id="${c.id}-ghost" x="([\\d.]+)" y="[\\d.]+" width="([\\d.]+)"`));
+    const fan = fig.match(new RegExp(`data-id="${c.id}-fan" points="([^"]+)"`));
+    assert.ok(ghost && fan, c.id);
+    const pts = fan[1].split(" ").map((p) => p.split(",").map(Number));
+    assert.deepEqual([+ghost[1], +ghost[2]], [c.bar.x, Math.max(c.bar.w, SEND.SLOT)], c.id);
+    assert.deepEqual([pts[0][0], pts[3][0], pts[2][0]], [c.bar.x, c.row.x, c.row.x + SEND.ROW.w], c.id);
+  }
   assert.match(fig, /With the 54 bits that describe this code, that makes 159 bits: for this short list, 13 more than step 3/);
 });
 
