@@ -24,7 +24,28 @@ const readData = (root, file, global) => {
 const writeData = (root, file, global, data) => fs.writeFileSync(path.join(root, file),
   `/* GENERATED for publication by scripts/publish.mjs. Do not edit. */\nwindow.${global} = ${JSON.stringify(data, null, 1)};\n`);
 
-export function preparePublishedSite(stage, source = ROOT) {
+// GoatCounter page-view counting is added to the staged copy only (never to sources, templates,
+// theme or bundles), so a sealed page's decrypted title cannot reach a third party.
+const GOATCOUNTER_CODE = /^[a-z0-9-]+$/;
+const goatcounterTag = (code) => `<script data-goatcounter="https://${code}.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>`;
+function addGoatcounter(stage, code) {
+  const tag = goatcounterTag(code);
+  let tagged = 0, skipped = 0;
+  for (const page of ["index.html", ...fs.readdirSync(path.join(stage, "docs")).filter((f) => f.endsWith(".html")).sort().map((f) => `docs/${f}`)]) {
+    const file = path.join(stage, page), html = fs.readFileSync(file, "utf8");
+    if (/id="sealed-payload"/.test(html) || page.endsWith(".private.html")) { skipped++; continue; }
+    if (!/<\/head>/i.test(html)) throw new Error(`Cannot add the GoatCounter tag: ${page} has no </head>`);
+    fs.writeFileSync(file, html.replace(/<\/head>/i, () => `  ${tag}\n</head>`));
+    tagged++;
+  }
+  return { tagged, skipped };
+}
+
+export function preparePublishedSite(stage, source = ROOT, { goatcounter = "" } = {}) {
+  // Validate before anything is deleted or written, so a bad value publishes nothing.
+  if (goatcounter && !GOATCOUNTER_CODE.test(goatcounter)) {
+    throw new Error("GOATCOUNTER_CODE must contain only lowercase letters, digits and hyphens (a-z, 0-9, -)");
+  }
   stage = path.resolve(stage);
   if (stage === path.resolve(source) || stage === ROOT) {
     throw new Error("Refusing to prune the source checkout");
@@ -77,11 +98,14 @@ export function preparePublishedSite(stage, source = ROOT) {
   for (const href of marked) delete unlistedReviews[href];
   writeData(stage, "theme/unlisted-reviews.js", "BH_REVIEWS", unlistedReviews);
   writeData(stage, "theme/site.js", "BH_SITE", site);
+  // Last, so the generators above can never copy a tag into (or out of) the published data.
+  const counted = goatcounter ? addGoatcounter(stage, goatcounter) : null;
   console.log(`Removed ${marked.length} example pages and ${marked.length} social cards; rebuilt published index, glossary, search, backlinks, reviews and unlisted data`);
+  if (counted) console.log(`Added the GoatCounter tag to ${counted.tagged} pages; left ${counted.skipped} sealed pages untouched`);
   return marked;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { preparePublishedSite(path.join(ROOT, "_site")); }
+  try { preparePublishedSite(path.join(ROOT, "_site"), ROOT, { goatcounter: process.env.GOATCOUNTER_CODE || "" }); }
   catch (error) { console.error(`Publication failed: ${error.message}`); process.exitCode = 1; }
 }

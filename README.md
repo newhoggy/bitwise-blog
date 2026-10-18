@@ -103,6 +103,10 @@ need Node ≥ 22 and a local Chrome.)
   It stays off until you opt in:
   1. Go to Settings → Pages and set the source to **GitHub Actions**.
   2. Add the repository variable `PAGES_ENABLED=true`.
+  Optional page-view counting: set the repository variable `GOATCOUNTER_CODE` to your
+  [GoatCounter](https://www.goatcounter.com/) site code and the publication step adds its tag to
+  the home page and every public page (never to encrypted private pages, and never to the source
+  or to bundles). Keep the GoatCounter dashboard private. See "Page-view counting" in `CLAUDE.md`.
   The custom domain is a Pages setting (Settings → Pages → Custom domain, plus DNS), not a file in
   the repo. Pages also work under a project sub-path such as `/beautiful-html/`; a fork sets
   `homepage` in `package.json` (or `BH_SITE_URL`) to wherever it is served from.

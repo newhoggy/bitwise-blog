@@ -4,6 +4,8 @@ name: Publish to GitHub Pages
 #   1. Settings → Pages → Build and deployment → Source: GitHub Actions
 #   2. Settings → Secrets and variables → Actions → Variables → New variable:
 #      PAGES_ENABLED = true
+#   3. Optional page-view counting: add the variable GOATCOUNTER_CODE = <your GoatCounter
+#      site code>. Unset or empty means no tag (see "Page-view counting" in CLAUDE.md).
 on:
   push:
     branches: [main]
@@ -52,6 +54,8 @@ jobs:
 
       - name: Remove example pages and rebuild published data
         run: node scripts/publish.mjs
+        env:
+          GOATCOUNTER_CODE: ${{ vars.GOATCOUNTER_CODE }}
 
       - uses: actions/configure-pages@v5
 
