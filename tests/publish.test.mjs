@@ -217,3 +217,103 @@ test("publication ships the encrypted card file and its module unchanged", (t) =
   }
   assert.match(fs.readFileSync(path.join(f.stage, "index.html"), "utf8"), /<ul[^>]*id="doc-list"[^>]*data-private-cards/);
 });
+
+// GoatCounter: injected into the staged copy only, never into a sealed shell.
+const TAG = (code) => `<script data-goatcounter="https://${code}.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>`;
+const stagedPages = (stage) => ["index.html", ...fs.readdirSync(path.join(stage, "docs")).filter((n) => n.endsWith(".html")).map((n) => `docs/${n}`)];
+const countOf = (text, needle) => text.split(needle).length - 1;
+function snapshot(dir) {
+  const out = {};
+  const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+    const p = path.join(d, e.name);
+    if (e.isDirectory()) walk(p); else out[path.relative(dir, p)] = fs.readFileSync(p).toString("base64");
+  } };
+  walk(dir);
+  return out;
+}
+
+test("GoatCounter: unset or empty leaves the artifact byte-identical", (t) => {
+  const baseline = fixture(t);
+  baseline.assemble();
+  preparePublishedSite(baseline.stage, baseline.source);
+  for (const options of [{ goatcounter: "" }, { goatcounter: undefined }, {}]) {
+    const f = fixture(t);
+    f.assemble();
+    preparePublishedSite(f.stage, f.source, options);
+    assert.deepEqual(snapshot(f.stage), snapshot(baseline.stage));
+  }
+  for (const [file, text] of Object.entries(snapshot(baseline.stage))) {
+    assert.ok(!Buffer.from(text, "base64").toString("utf8").includes("goatcounter"), file);
+  }
+});
+
+test("GoatCounter: one tag before </head> on the home page and every public page, none on sealed shells", (t) => {
+  const f = fixture(t);
+  f.assemble();
+  preparePublishedSite(f.stage, f.source, { goatcounter: "my-blog-1" });
+  const tag = TAG("my-blog-1");
+  let sealed = 0, tagged = 0;
+  for (const page of stagedPages(f.stage)) {
+    const html = fs.readFileSync(path.join(f.stage, page), "utf8");
+    const isSealed = html.includes('id="sealed-payload"');
+    if (isSealed) {
+      sealed++;
+      assert.ok(!/goatcounter|zgo\.at/i.test(html), `${page} is a sealed shell and must not carry the tag`);
+      continue;
+    }
+    tagged++;
+    assert.equal(countOf(html, tag), 1, `${page} carries exactly one tag`);
+    assert.equal(countOf(html, "data-goatcounter"), 1, page);
+    const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? "";
+    assert.ok(head.includes(tag), `${page}: the tag is inside <head>`);
+  }
+  assert.ok(sealed >= 1, "the repo has sealed pages, so the fixture exercises the exclusion");
+  assert.ok(tagged >= 1);
+  assert.ok(fs.readFileSync(path.join(f.stage, "index.html"), "utf8").includes(tag));
+  // Nothing outside the pages (theme, data, cards) mentions it.
+  for (const [file, text] of Object.entries(snapshot(f.stage))) {
+    if (stagedPages(f.stage).includes(file.split(path.sep).join("/"))) continue;
+    assert.ok(!Buffer.from(text, "base64").toString("utf8").includes("goatcounter"), file);
+  }
+});
+
+test("GoatCounter: a public post that quotes the shell markup is still counted; a plaintext private page stops the publish", (t) => {
+  const f = fixture(t);
+  const file = path.join(f.source, post);
+  const quoted = fs.readFileSync(file, "utf8").replace("</article>", '<pre>&lt;script type="application/octet-stream" id="sealed-payload"&gt;</pre></article>');
+  assert.notEqual(quoted, fs.readFileSync(file, "utf8"));
+  fs.writeFileSync(file, quoted);
+  f.assemble();
+  preparePublishedSite(f.stage, f.source, { goatcounter: "demo" });
+  assert.equal(countOf(fs.readFileSync(path.join(f.stage, post), "utf8"), "data-goatcounter"), 1);
+
+  const g = fixture(t);
+  g.assemble();
+  fs.writeFileSync(path.join(g.stage, "docs/secret.private.html"), "<!doctype html><html><head><title>Secret</title></head><body></body></html>");
+  assert.throws(() => preparePublishedSite(g.stage, g.source, { goatcounter: "demo" }), /plaintext private page/);
+});
+
+test("GoatCounter: an invalid code fails the publish before anything is written", (t) => {
+  for (const code of ["Bad_Code", "UPPER", "a b", "a.b", 'x"><script>alert(1)</script>', "x/../y", "a\nb"]) {
+    const f = fixture(t);
+    f.assemble();
+    const before = snapshot(f.stage);
+    assert.throws(() => preparePublishedSite(f.stage, f.source, { goatcounter: code }), /GOATCOUNTER_CODE/, JSON.stringify(code));
+    assert.deepEqual(snapshot(f.stage), before, "nothing is written or removed");
+  }
+});
+
+test("GoatCounter: the source tree, templates and theme contain no analytics reference", () => {
+  const files = [path.join(ROOT, "index.html")];
+  for (const dir of ["docs", "templates", "theme"]) {
+    const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p); else if (/\.(html|js|css|svg)$/.test(e.name)) files.push(p);
+    } };
+    walk(path.join(ROOT, dir));
+  }
+  assert.ok(files.length > 20);
+  for (const file of files) {
+    assert.ok(!/<script\b[^>]*(?:data-goatcounter|gc\.zgo\.at)/i.test(fs.readFileSync(file, "utf8")), `${path.relative(ROOT, file)} must not carry the analytics tag`);
+  }
+});

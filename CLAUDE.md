@@ -312,6 +312,37 @@ the sealed-page shell (frozen, so as not to make every sealed page stale) reads
 `#k=<key>[&rest]` and, after decrypting, keeps `rest` (`unlisted=true&my-section`) in the address
 bar for `bh.js`; `#unlisted=true&k=<key>` does not open a sealed page.
 
+## Page-view counting
+
+The published site counts page views with [GoatCounter](https://www.goatcounter.com/): cookieless,
+no consent banner. It is **added at deploy time and nowhere else**.
+
+- **Switch.** The repository variable `GOATCOUNTER_CODE` (Settings → Secrets and variables →
+  Actions → Variables; a variable, not a secret) is passed to `scripts/publish.mjs` by
+  `pages.yml`. Unset or empty means no tag, and the published artifact is byte-identical to one
+  built without this feature. A value that is not `[a-z0-9-]+` fails the publish before anything
+  is written.
+- **Injection.** After everything else, `preparePublishedSite` adds one
+  `<script data-goatcounter="https://<code>.goatcounter.com/count" async src="https://gc.zgo.at/count.js">`
+  before `</head>` in the staged `index.html` and every staged `docs/*.html` that is not a sealed
+  shell. Sources, templates, `theme/`, generated data, local previews, `npm run check` and
+  `npm run bundle` never contain it. **Never put the tag in a page, template or theme file.**
+- **Sealed pages are excluded by construction.** A sealed shell (recognised by
+  `id="sealed-payload"`) is skipped, and the decrypted page comes from the source, which has no
+  tag. This matters: after decrypting, the shell does `document.write`, so a tag in the source
+  would run in the decrypted page, and `count.js` sends `document.title`, which is the private
+  page's real title.
+- **What is sent:** the path, the page title, the referrer, the screen size and the user agent
+  (for browser and system statistics). No cookies, and GoatCounter stores no IP address. `count.js`
+  takes the path from `<link rel="canonical">`, which every public page has, and excludes the URL
+  fragment, so `#unlisted=true`, section ids and `#k=` keys never reach GoatCounter. It skips
+  `localhost` by default.
+- **Unlisted pages are counted.** Their paths reach GoatCounter and its dashboard lists their
+  slugs, so keep the dashboard private and unshared: never enable public stats or the public visitor counter.
+- **Trade-off.** `count.js` is a moving file on `gc.zgo.at` and is deliberately not pinned with
+  SRI. If that matters later, host a copy and add an integrity hash.
+- **Owner setup:** create a free GoatCounter site, then set `GOATCOUNTER_CODE=<code>`.
+
 ## Page contract
 
 - Pages are flat files in `docs/` and link `../theme/bh.css` and `../theme/bh.js`. Don't add a build step.
