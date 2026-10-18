@@ -551,6 +551,20 @@ test("the send-steps figure is the example's real code-length list", () => {
   assert.deepEqual([used, 286 - b.hlit + 30 - b.hdist, runs.length, extra, cl * 3, b.headerBits - 14 - cl * 3], [11, 38, 19, 41, 54, 91]);
   assert.match(PAGE, /const TOTAL = \[1264, 1122, 146, 159\];/);
   assert.match(PAGE, /const NOTE = \["316 slots × 4 bits", "10 \+ 278 × 4", "10 \+ 19 × 5 \+ 41 extra bits", "14 \+ 54 \+ 91"\];/);
+  // The headline's change from step to step, and its static (last-step) values.
+  const totals = [1264, 1122, 146, 159], deltas = totals.slice(1).map((x, i) => x - totals[i]);
+  assert.deepEqual(deltas, [-142, -976, 13]);
+  assert.match(PAGE, /const DELTA = \["no tricks yet", "−142 bits", "−976 bits", "\+13 bits"\];/);
+  assert.match(fig, /class="label strong send-total"[^>]*>159 bits</);
+  assert.match(fig, /class="label send-bytes"[^>]*>≈ 20 bytes</);
+  assert.equal(Math.ceil(159 / 8), 20);
+  assert.match(fig, /class="label strong send-delta up"[^>]*>\+13 bits</);
+  // The bar is to scale: full width is step 1, and the mark is the example's data.
+  const width = +fig.match(/viewBox="-16 -16 (\d+)/)[1] - 32, bar = +fig.match(/class="send-size"[^>]*width="([\d.]+)"/)[1];
+  assert.ok(Math.abs(bar - 159 * width / 1264) < 0.1);
+  const dataBits = tr.fields.filter((f) => ["literal", "length", "distance", "end"].includes(f.kind)).reduce((s, f) => s + f.bits.length + (f.extraBits || "").length, 0);
+  assert.equal(dataBits, 41);
+  assert.ok(Math.abs(+fig.match(/class="send-data-mark" d="M([\d.]+)/)[1] - 41 * width / 1264) < 0.1);
   assert.match(fig, /Only the 11 marked slots are not zero\. 1,264 bits/);
   assert.match(fig, /so 38 slots go\. 1,122 bits/);
   assert.match(fig, /19 symbols at 5 bits each, plus their extra bits: 146 bits/);
