@@ -43,6 +43,10 @@ test("the committed feed lists exactly the listed posts, newest first, and check
   assert.match(f.feed(), /^<\?xml version="1\.0" encoding="utf-8"\?>/);
   assert.match(f.feed(), new RegExp(`<link rel="self" type="application/atom\\+xml" href="${SITE}feed\\.xml"/>`));
   assert.match(f.feed(), new RegExp(`<updated>${metaOf(posts[0].html, "bh:date")}T00:00:00Z</updated>`));
+  // Sealed pages are shells of an encrypted page: none may be listed.
+  const sealed = fs.readdirSync(path.join(source, "docs")).filter((n) => n.endsWith(".html") && /name="bh:sealed"/.test(fs.readFileSync(path.join(source, "docs", n), "utf8")));
+  assert.ok(sealed.length >= 1, "the repo should have a sealed page to test against");
+  for (const n of sealed) assert.ok(!f.feed().includes(n.replace(/\.html$/, "")), `${n} is sealed and must not be in the feed`);
   const check = f.bh("check");
   assert.equal(check.status, 0, check.stdout);
   assert.match(check.stdout, /atom feed/);
@@ -72,6 +76,23 @@ test("index keeps examples, unlisted, reference and sealed pages out of the feed
   assert.match(xml, /<updated>2099-01-02T00:00:00Z<\/updated>/);
   // The feed-level author covers an entry that names none.
   assert.match(xml, /<\/updated>\n  <author><name>Bitwise Engineering<\/name><\/author>/);
+});
+
+test("a post with an impossible date is left out of the feed", (t) => {
+  const f = fixture(t);
+  assert.equal(f.bh("new", "explainer", "bad-date", "Bad date").status, 0);
+  f.edit("docs/bad-date.html", /name="bh:date" content="[^"]*"/, 'name="bh:date" content="2026-13-45"');
+  assert.equal(f.bh("index").status, 0);
+  assert.ok(!f.feed().includes("bad-date"));
+  assert.ok(!f.feed().includes("2026-13-45"));
+});
+
+test("a template keeps its own title on the feed link; a page gets the site's", (t) => {
+  const f = fixture(t);
+  f.edit("templates/adr.html", 'title="Bitwise Engineering" href="../feed.xml"', 'title="Old Name" href="../feed.xml"');
+  assert.doesNotMatch(f.bh("check").stdout, /templates\/adr\.html[\s\S]*?feed autodiscovery link must be/);
+  assert.equal(f.bh("new", "adr", "fresh-adr", "Fresh ADR").status, 0);
+  assert.match(f.read("docs/fresh-adr.html"), /title="Bitwise Engineering" href="\.\.\/feed\.xml"/);
 });
 
 test("check fails on a stale or hand-edited feed, and on an entry the site keeps off its listings", (t) => {

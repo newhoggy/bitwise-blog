@@ -569,11 +569,13 @@ const FEED_OUT = path.join(ROOT, "feed.xml");
 const FEED_FILE = "feed.xml";
 const FEED_NON_POST_KINDS = new Set(["reference"]);
 const FEED_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** A real calendar date: "2026-13-45" has the shape but would make an invalid Atom timestamp. */
+const validFeedDate = (d) => FEED_DATE.test(d) && !Number.isNaN(Date.parse(d)) && new Date(d).toISOString().startsWith(d);
 
 /** The pages that belong in the feed, newest first. */
 function feedPosts() {
   return listedDocFiles().map(readDoc)
-    .filter((d) => !d.example && !FEED_NON_POST_KINDS.has(d.kind) && FEED_DATE.test(d.date))
+    .filter((d) => !d.example && !FEED_NON_POST_KINDS.has(d.kind) && validFeedDate(d.date))
     .sort(byDateThenTitle);
 }
 
@@ -582,8 +584,7 @@ const xmlEscape = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").
 const xmlText = (html) => xmlEscape(decodeHtml(html));
 const atomDate = (d) => `${d}T00:00:00Z`;
 
-function buildFeed() {
-  const posts = feedPosts();
+function buildFeed(posts = feedPosts()) {
   const home = stripComments(fs.readFileSync(INDEX, "utf8"));
   const list = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
   const entries = posts.map((d) => [
@@ -626,9 +627,12 @@ const feedPrefix = (file) => (file === INDEX ? "" : "../");
 /** `raw` with its autodiscovery link written (replacing any other feed link, after the icon links). */
 function withFeedLink(raw, file) {
   const tag = `  ${feedLinkTag(feedPrefix(file))}\n`;
-  const stripped = raw.replace(FEED_LINK_RE, "");
-  const at = stripped.search(/^[ \t]*<link rel="stylesheet"/m);
-  return at >= 0 ? stripped.slice(0, at) + tag + stripped.slice(at) : stripped.replace(/^[ \t]*<\/head>/m, () => tag + "</head>");
+  const end = raw.search(/<\/head>/i);
+  if (end < 0) return raw;
+  // Only the <head>, and not inside a comment: that is what `check` reads too.
+  const head = raw.slice(0, end).replace(new RegExp(`<!--[\\s\\S]*?-->|${FEED_LINK_RE.source}`, "gm"), (m) => (m.startsWith("<!--") ? m : ""));
+  const at = head.search(/^[ \t]*<link rel="stylesheet"/m);
+  return (at >= 0 ? head.slice(0, at) + tag + head.slice(at) : head.replace(/([ \t]*)$/, () => tag)) + raw.slice(end);
 }
 
 /** Problems in feed text: not well-formed, or an entry that should not be there. `eligible` is the set of page URLs allowed in. */
@@ -667,14 +671,14 @@ function feedTextProblems(text, eligible) {
 }
 
 /** Everything `check` says about the feed and the links that advertise it. */
-function feedProblems() {
+function feedProblems(posts = feedPosts()) {
   const problems = [];
-  const expected = buildFeed();
+  const expected = buildFeed(posts);
   const rel = path.relative(ROOT, FEED_OUT);
   const current = fs.existsSync(FEED_OUT) ? fs.readFileSync(FEED_OUT, "utf8") : null;
   if (current === null) problems.push(`${rel} is missing: run \`npm run index\``);
   else {
-    problems.push(...feedTextProblems(current, new Set(feedPosts().map((d) => pageUrl(d.href)))));
+    problems.push(...feedTextProblems(current, new Set(posts.map((d) => pageUrl(d.href)))));
     if (current !== expected) problems.push(`${rel} is stale: run \`npm run index\``);
   }
   return problems;
@@ -707,14 +711,14 @@ function cmdIndex() {
   console.log(c.green(`Social meta written for ${docFiles().length + 1} pages`) + c.dim(` (${social} updated)`));
 
   // The feed, and the autodiscovery link every public page carries.
-  const feedText = buildFeed();
+  const posts = feedPosts(), feedText = buildFeed(posts);
   if (!fs.existsSync(FEED_OUT) || fs.readFileSync(FEED_OUT, "utf8") !== feedText) fs.writeFileSync(FEED_OUT, feedText);
   let linked = 0;
   for (const file of [INDEX, ...docFiles()]) {
     const raw = fs.readFileSync(file, "utf8"), next = withFeedLink(raw, file);
     if (next !== raw) { fs.writeFileSync(file, next); linked++; }
   }
-  console.log(c.green(`Wrote ${FEED_FILE} (${feedPosts().length} post${feedPosts().length === 1 ? "" : "s"})`) + c.dim(` (${linked} autodiscovery links updated)`));
+  console.log(c.green(`Wrote ${FEED_FILE} (${posts.length} post${posts.length === 1 ? "" : "s"})`) + c.dim(` (${linked} autodiscovery links updated)`));
 
   const g = compileGlossary();
   const prev = fs.existsSync(GLOSSARY_OUT) ? fs.readFileSync(GLOSSARY_OUT, "utf8") : "";
@@ -1355,8 +1359,8 @@ function cmdCheck() {
   }
   // The Atom feed: present, current, well-formed, and free of pages the site keeps off its listings.
   {
-    const problems = feedProblems();
-    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + `atom feed (${feedPosts().length} post${feedPosts().length === 1 ? "" : "s"})`);
+    const posts = feedPosts(), problems = feedProblems(posts);
+    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + `atom feed (${posts.length} post${posts.length === 1 ? "" : "s"})`);
     problems.forEach((p) => console.log(c.red("  error  ") + p));
     errors += problems.length;
   }
@@ -1450,7 +1454,8 @@ function cmdCheck() {
       const prefix = feedPrefix(file), tag = feedLinkTag(prefix);
       const links = [...html.split("</head>")[0].matchAll(new RegExp(FEED_LINK_RE.source, "gm"))].map((m) => m[0].trim());
       if (links.length !== 1) err(`needs exactly one feed autodiscovery link in <head> (found ${links.length}): ${tag}`);
-      else if (links[0] !== tag) err(`feed autodiscovery link must be ${tag}`);
+      // A template's title is whatever the site was called when it was written: `new` + `index` set the real one on a page.
+      else if (links[0] !== tag && !(isTemplate && links[0].replace(/ title="[^"]*"/, "") === tag.replace(/ title="[^"]*"/, ""))) err(`feed autodiscovery link must be ${tag}`);
       const footer = (html.match(/<footer class="bh-footer"[^>]*>([\s\S]*?)<\/footer>/) || [])[1] || "";
       if (!footer.includes(feedFooterLink(prefix))) err(`the <footer class="bh-footer"> needs a Subscribe link: ${feedFooterLink(prefix)}`);
     }

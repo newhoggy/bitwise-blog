@@ -325,6 +325,8 @@ The site publishes an Atom 1.0 feed at `feed.xml` in the site root
   newest first by `bh:date`. Left out, so the feed can never reveal them: example pages
   (`bh:example`), unlisted pages (`bh:unlisted`), private and sealed pages, and `reference`
   pages. A new kind of non-post page is added to `FEED_NON_POST_KINDS` in `scripts/bh.mjs`.
+  `bh:status` does not filter: the home page lists drafts, so the feed does too. A page whose
+  `bh:date` is not a real calendar date is left out.
 - **Each entry** has `id` and `link` = the page's canonical URL, `title`, `summary` = the page's
   `description` (summary-only, so readers come to the page: the interactive parts do not survive
   in a reader), `published` and `updated` = `bh:date`, one `author` per `bh:authors` entry and one
@@ -336,7 +338,7 @@ The site publishes an Atom 1.0 feed at `feed.xml` in the site root
   (`feed.xml` on the home page), next to the icon links. It is relative, so it needs no
   `homepage`, and it is a plain line in the template, not part of the generated social block.
   `npm run index` inserts or repairs it in the home page and public docs; `check` requires exactly
-  one, with the expected `href` and `title`, in each of them and in the templates. Sealed shells
+  one, with the expected `href` and `title` (a template may keep an older title: `new` and `index` set the site's), in each of them and in the templates. Sealed shells
   are frozen and have none.
 - **Subscribe.** The footer of the home page, every public page and every template has a
   `<a href="../feed.xml">Subscribe</a>` (`feed.xml` on the home page) in its own `<span>`; `check`
