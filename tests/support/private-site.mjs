@@ -39,7 +39,7 @@ export function site(t) {
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const root = path.join(temp, "site"), bin = path.join(temp, "bin"), state = path.join(temp, "op-state.json");
   fs.mkdirSync(root); fs.mkdirSync(bin);
-  for (const entry of ["scripts", "theme", "docs", "templates", "reviews", "package.json", "index.html"]) {
+  for (const entry of ["scripts", "theme", "docs", "templates", "reviews", "package.json", "index.html", "feed.xml"]) {
     fs.cpSync(path.join(ROOT, entry), path.join(root, entry), { recursive: true });
   }
   // The real sealed pages, and any plaintext unsealed from them, belong to the real vault: this site starts with none.

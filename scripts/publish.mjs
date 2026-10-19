@@ -91,7 +91,7 @@ export function preparePublishedSite(stage, source = ROOT, { goatcounter = "" } 
     for (const entry of ["index.html", "docs", "theme"]) fs.cpSync(path.join(stage, entry), path.join(temp, entry), { recursive: true });
     for (const entry of ["scripts", "package.json", "reviews"]) fs.cpSync(path.join(source, entry), path.join(temp, entry), { recursive: true });
     execFileSync(process.execPath, [path.join(temp, "scripts/bh.mjs"), "index"], { cwd: temp, stdio: "pipe" });
-    for (const entry of ["index.html", "theme/glossary.js", "theme/site.js", "theme/search-index.js", "theme/reviews.js", "theme/unlisted-pages.js", "theme/unlisted-slugs.js", "theme/unlisted-reviews.js"]) {
+    for (const entry of ["index.html", "feed.xml", "theme/glossary.js", "theme/site.js", "theme/search-index.js", "theme/reviews.js", "theme/unlisted-pages.js", "theme/unlisted-slugs.js", "theme/unlisted-reviews.js"]) {
       fs.copyFileSync(path.join(temp, entry), path.join(stage, entry));
     }
   } finally { fs.rmSync(temp, { recursive: true, force: true }); }
@@ -105,7 +105,7 @@ export function preparePublishedSite(stage, source = ROOT, { goatcounter = "" } 
   writeData(stage, "theme/site.js", "BH_SITE", site);
   // Last, so the generators above can never copy a tag into (or out of) the published data.
   const counted = goatcounter ? addGoatcounter(stage, goatcounter) : null;
-  console.log(`Removed ${marked.length} example pages and ${marked.length} social cards; rebuilt published index, glossary, search, backlinks, reviews and unlisted data`);
+  console.log(`Removed ${marked.length} example pages and ${marked.length} social cards; rebuilt published index, feed, glossary, search, backlinks, reviews and unlisted data`);
   if (counted) console.log(`Added the GoatCounter tag to ${counted.tagged.length} pages; left ${counted.sealed.length} sealed shells untouched`);
   return marked;
 }

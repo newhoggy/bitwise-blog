@@ -15,7 +15,7 @@ function fixture(t) {
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const source = path.join(temp, "source"), stage = path.join(temp, "stage");
   fs.mkdirSync(source); fs.mkdirSync(stage);
-  for (const entry of ["scripts", "theme", "docs", "reviews", "package.json", "index.html"]) {
+  for (const entry of ["scripts", "theme", "docs", "reviews", "package.json", "index.html", "feed.xml"]) {
     fs.cpSync(path.join(ROOT, entry), path.join(source, entry), { recursive: true });
   }
   return { source, stage, assemble() {
@@ -82,6 +82,11 @@ test("published artifact omits examples, keeps posts and local source, and serve
     assert.equal(reviews[href], undefined);
     assert.ok(!fs.readFileSync(path.join(f.stage, "index.html"), "utf8").includes(href));
   }
+  // The feed is rebuilt into the artifact (assembly does not copy it): the posts are in, no removed example is.
+  const feed = fs.readFileSync(path.join(f.stage, "feed.xml"), "utf8");
+  assert.ok(feed.includes(`<id>https://bitwise.john-ky.io/${post}</id>`));
+  for (const href of removed) assert.ok(!feed.includes(href), `${href} must not be in the published feed`);
+  assert.equal(feed, fs.readFileSync(path.join(f.source, "feed.xml"), "utf8"), "the published feed matches the source feed, which never lists examples");
   const publishedPost = fs.readFileSync(path.join(f.stage, post), "utf8");
   for (const href of links) assert.ok(!publishedPost.includes(`href="${href}"`));
   assert.ok(publishedPost.includes('<em>Example words</em>'));
