@@ -1,0 +1,64 @@
+{
+  "skill_name": "pedagogical-writing",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review docs/how-deflate-works.html for clarity. Where would a reader new to compression give up?",
+      "expected_output": "A ranked review that leads with the single biggest leap, gives its location, what the reader is missing and a concrete fix, lists unpaid promises, and says what already works.",
+      "files": [],
+      "expectations": [
+        "The review ran or used the output of scripts/page-stats.mjs (words per section, voice rates or the promise list)",
+        "The first finding is one specific section or transition, named by heading or id, not a general remark",
+        "Each finding gives a location, the missing beat (need, naive attempt, crack or fix), and a concrete fix",
+        "At least one finding is about a term or mechanism introduced before the reader needs it, or a fix given without the crack that motivates it",
+        "It reports promises (simplifications, deferrals) that are unflagged or never paid off, or states that none were found",
+        "The review names at least one thing that already works and should be kept",
+        "It does not suggest moving the .tldr below the first section or removing it"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Outline a new explainer page for this blog on how Bloom filters work. Just the outline: sections, the running example and where the interactive goes.",
+      "expected_output": "An outline that builds Bloom filters from a felt need through a naive attempt and its crack, with one clean running example and one centrepiece interactive.",
+      "files": [],
+      "expectations": [
+        "The first section after the TL;DR opens with a concrete need or puzzle, not a definition",
+        "A naive approach (such as storing the whole set, or a single hash into a bit array) appears and its failure is shown before the Bloom filter is named",
+        "The crack is located (which lookups go wrong and why), and the fix follows from it",
+        "Each section introduces exactly one new idea that follows from the one before",
+        "One running example is used throughout, with small numbers that come out clean",
+        "The term 'false positive' or the formula for the error rate appears only after the reader has seen a collision",
+        "There is exactly one centrepiece interactive, with a stated purpose",
+        "The TL;DR may state what a Bloom filter achieves but does not give away the mechanism"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "This paragraph is going into an explainer on rate limiting. Rewrite it so a newcomer can follow it:\n\nA token bucket with capacity B and refill rate r admits a request iff tokens >= 1, decrementing on admit; tokens = min(B, tokens + r * dt). This bounds burst size to B and long-run throughput to r, unlike a fixed window counter, which permits 2x bursts at window boundaries.",
+      "expected_output": "A rewrite that motivates the bucket from a problem, uses a concrete example with clean numbers, and introduces capacity and refill rate after the reader sees why they are needed.",
+      "files": [],
+      "expectations": [
+        "The rewrite opens with the problem (bursts, or the fixed-window boundary failure) before describing the bucket",
+        "It uses concrete numbers (for example a capacity of 10 and a refill of 1 per second) rather than only symbols",
+        "Symbols such as B, r or dt are either removed or introduced after their plain meaning",
+        "It addresses the reader directly (you, we or let's) at least once",
+        "The fixed-window comparison is shown as the crack that motivates the bucket, not appended at the end"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Plan a three-page series for this blog on succinct rank and select over bit vectors: what each page covers, how the pages connect, and what stays consistent across them.",
+      "expected_output": "A series plan with a map of the whole, one concept per page, explicit prerequisites linked by title, simplifications that are flagged and closed on later pages, and a consistent measure carried across pages.",
+      "files": [],
+      "expectations": [
+        "Each page teaches one concept, and the plan says what the reader can do after each page",
+        "The first page starts from a naive approach (scanning and counting, or storing every answer) and measures its cost",
+        "Prerequisites between pages are named by title or slug, not by page number",
+        "Each page after the first opens by restating the one earlier idea it needs",
+        "At least one simplification made on an early page is named and scheduled to be closed on a later page",
+        "A single measure (space overhead in bits, or query time) is carried across all three pages",
+        "Optional or formal material is identified as skippable, with what a skipper still keeps"
+      ]
+    }
+  ]
+}
