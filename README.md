@@ -233,6 +233,7 @@ See [CLAUDE.md](CLAUDE.md) for the house style used when writing pages, by hand 
 
 The code (`scripts/`, `theme/`, `templates/`, `tests/`) is [MIT](LICENSE). The written content
 (`docs/`, `reviews/` and the social cards) is [CC BY 4.0](docs/LICENSE): reuse it with credit to
-John Ky and Bitwise Engineering. The logo in `theme/logo/` is all rights reserved. The root
+John Ky and Bitwise Engineering; every page footer carries a generated link back to the blog and
+repo to make that easy (see CLAUDE.md, "Attribution link"). The logo in `theme/logo/` is all rights reserved. The root
 [LICENSE](LICENSE) has the exact scope.
 Review files submitted to `reviews/inbox/` are accepted under the same CC BY 4.0 terms.
