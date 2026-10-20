@@ -138,6 +138,7 @@ function resolveDocLink(file, value) {
 const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
 const SITE_URL = String(process.env.BH_SITE_URL || PKG.homepage || "").replace(/\/*$/, "/");
 const SITE_NAME = PKG.bh?.siteName || "Bitwise Engineering";
+const REPO_URL = String(process.env.BH_REPO_URL || PKG.bh?.repoUrl || "").replace(/\/*$/, "");
 const SHARED_CARD = "theme/logo/og.png"; // the home page's card, and the fallback for every other
 const SHARED_CARD_ALT = "Bitwise Engineering: functional programming, succinct data structures and AI workflows";
 const LOGO_TILE = path.join(ROOT, "theme", "logo", "mark-tile.svg");
@@ -624,6 +625,17 @@ const feedFooterLink = (prefix) => `<a href="${prefix}${FEED_FILE}">Subscribe</a
 const FEED_LINK_RE = /^[ \t]*<link\b(?=[^>]*\brel="alternate")(?=[^>]*\btype="application\/atom\+xml")[^>]*>\n?/gm;
 const feedPrefix = (file) => (file === INDEX ? "" : "../");
 
+/** The attribution every footer carries: absolute links back to the blog and its repo, so it still works in a bundle or a copy. */
+const attributionSpan = () => `<span data-attribution>From <a href="${attr(SITE_URL)}">${escapeHtml(SITE_NAME)}</a> · <a href="${attr(REPO_URL)}">source</a></span>`;
+const ATTRIBUTION_RE = /^([ \t]*)<span data-attribution>[\s\S]*?<\/span>\n?/m;
+
+/** `raw` with its footer attribution written: replaced if present, else added after the Subscribe link. */
+function withAttribution(raw) {
+  const span = attributionSpan();
+  if (ATTRIBUTION_RE.test(raw)) return raw.replace(ATTRIBUTION_RE, (m, indent) => `${indent}${span}\n`);
+  return raw.replace(/^([ \t]*)(<span><a href="(?:\.\.\/)?feed\.xml">Subscribe<\/a><\/span>)\n/m, (m, indent, sub) => `${indent}${sub}\n${indent}${span}\n`);
+}
+
 /** `raw` with its autodiscovery link written (replacing any other feed link, after the icon links). */
 function withFeedLink(raw, file) {
   const tag = `  ${feedLinkTag(feedPrefix(file))}\n`;
@@ -717,6 +729,10 @@ function cmdIndex() {
   for (const file of [INDEX, ...docFiles()]) {
     const raw = fs.readFileSync(file, "utf8"), next = withFeedLink(raw, file);
     if (next !== raw) { fs.writeFileSync(file, next); linked++; }
+  }
+  for (const file of [INDEX, ...docFiles(), ...(fs.existsSync(TEMPLATES) ? fs.readdirSync(TEMPLATES).filter((f) => f.endsWith(".html")).map((f) => path.join(TEMPLATES, f)) : [])]) {
+    const raw = fs.readFileSync(file, "utf8"), next = withAttribution(raw);
+    if (next !== raw) fs.writeFileSync(file, next);
   }
   console.log(c.green(`Wrote ${FEED_FILE} (${posts.length} post${posts.length === 1 ? "" : "s"})`) + c.dim(` (${linked} autodiscovery links updated)`));
 
@@ -1458,6 +1474,8 @@ function cmdCheck() {
       else if (links[0] !== tag && !(isTemplate && links[0].replace(/ title="[^"]*"/, "") === tag.replace(/ title="[^"]*"/, ""))) err(`feed autodiscovery link must be ${tag}`);
       const footer = (html.match(/<footer class="bh-footer"[^>]*>([\s\S]*?)<\/footer>/) || [])[1] || "";
       if (!footer.includes(feedFooterLink(prefix))) err(`the <footer class="bh-footer"> needs a Subscribe link: ${feedFooterLink(prefix)}`);
+      if (!REPO_URL) err("package.json needs bh.repoUrl (the repo the footer attribution links to)");
+      else if ((footer.match(/<span data-attribution>/g) || []).length !== 1 || !footer.includes(attributionSpan())) err(`the <footer class="bh-footer"> needs exactly this attribution link (run npm run index): ${attributionSpan()}`);
     }
 
     // Example pages are shown or hidden by theme/examples.js, which must run in <head> before first paint.
