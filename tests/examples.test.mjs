@@ -150,7 +150,7 @@ test("index cards, site data and the search index flag exactly the marked pages"
 function scratchRepo(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bh-examples-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  for (const f of ["scripts", "templates", "theme", "docs", "reviews", "package.json", "index.html"]) {
+  for (const f of ["scripts", "templates", "theme", "docs", "reviews", "package.json", "index.html", "feed.xml"]) {
     fs.cpSync(path.join(source, f), path.join(dir, f), { recursive: true });
   }
   return dir;

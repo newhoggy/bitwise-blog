@@ -17,7 +17,7 @@ const review = (comments, extra = {}) => ({ format: "bh-review/1", document, bui
 function fixture(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bh-reexports-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  for (const name of ["scripts", "theme", "docs", "templates", "index.html", "package.json"]) fs.cpSync(path.join(source, name), path.join(dir, name), { recursive: true });
+  for (const name of ["scripts", "theme", "docs", "templates", "index.html", "feed.xml", "package.json"]) fs.cpSync(path.join(source, name), path.join(dir, name), { recursive: true });
   fs.mkdirSync(path.join(dir, "reviews/inbox"), { recursive: true });
   const write = (name, data) => {
     const file = path.join(dir, "reviews/inbox", name);
