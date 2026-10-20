@@ -35,11 +35,11 @@ every page and key, so the rebrand changes the site's name and not these.
   are built from those tags (a topic with no posts yet gets no chip).
 - **Examples.** The rate-limiting design doc, its two ADRs and the token-bucket explainer
   are worked examples of the document kinds, not posts. They carry `<meta name="bh:example"
-  content="true">`. On a local host (`npm run serve`, `file://`) they appear as always, labelled
-  "Example · …"; on the published site they are hidden from the home page, search and
-  backlinks. Pages deployment removes their HTML and social cards, so their addresses return
-  404. `?examples` and `?examples=off` switch the view in the local source copy; they cannot
-  restore files omitted from the deployed site (see CLAUDE.md, "Example pages").
+  content="true">`. They are hidden by default, locally as well as on the published site: no home-page
+  card, search result or backlink. Open any page with `?examples` (remembered for the tab) to
+  see them, labelled "Example · …"; `?examples=off` or `=auto` hides them again. Pages
+  deployment removes their HTML and social cards, so their addresses return 404, and no
+  override can restore them there (see CLAUDE.md, "Example pages").
 - **Unlisted pages.** A page with `<meta name="bh:unlisted" content="true">` (`npm run new --
   --unlisted …`) is published and opens from its direct link, but stays off the home page,
   search, backlinks and links unless a page is opened with `#unlisted=true` (remembered for the
@@ -140,7 +140,7 @@ theme/
   reviews.js            GENERATED: published review threads from reviews/
   print.css             Print: chrome removed, all steps and tabs expanded
   bh.js                 Runtime: chrome, TOC/scroll-spy, web components, lazy Prism/Mermaid
-  examples.js           Early <head> script: which hosts show example pages (and the ?examples override)
+  examples.js           Early <head> script: whether example pages are shown (hidden unless ?examples)
   unlisted.js           Early <head> script: the #unlisted flag and the page-fragment parser
   unlisted-pages.js     GENERATED: unlisted pages' cards, search text and backlinks (loaded only with the flag)
   unlisted-slugs.js     GENERATED: unlisted pages' paths, so links to them can be made inert

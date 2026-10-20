@@ -245,7 +245,7 @@ try {
   chrome = await launchChrome();
   for (const k of cases) {
     let png;
-    try { png = await capture(chrome.send, base + k.file, k.v); }
+    try { png = await capture(chrome.send, base + k.file + "?examples", k.v); }  // examples are hidden by default
     catch (e) {
       results.push({ ...k, status: "changed", error: e.message });
       console.log(c.red("✗ ") + k.name + c.dim(` ${e.message}`));

@@ -39,8 +39,7 @@ function load(url, { bundled = false, example = false, store = {}, storageThrows
 
 const visible = (url, opts) => load(url, opts).api.visible;
 
-test("local hosts show examples", () => {
-  for (const url of [
+const LOCAL = [
     "http://localhost:8000/",
     "http://LOCALHOST/docs/x.html",
     "http://localhost./",
@@ -51,11 +50,13 @@ test("local hosts show examples", () => {
     "http://printer.local/",
     "http://my-laptop.local:8080/",
     "file:///Users/me/blog/docs/x.html",
-  ]) assert.equal(visible(url), true, url);
+];
+
+test("local hosts are recognised", () => {
+  for (const url of LOCAL) assert.equal(load(url).api.local, true, url);
 });
 
-test("anything else hides them, including look-alikes and LAN addresses", () => {
-  for (const url of [
+const NOT_LOCAL = [
     "https://bitwise.john-ky.io/",
     "https://localhost.evil.com/",
     "https://evil-localhost.com/",
@@ -67,8 +68,19 @@ test("anything else hides them, including look-alikes and LAN addresses", () => 
     "http://10.0.0.7/",
     "http://127.0.0.2/",
     "http://0.0.0.0/",
-    "http://blog.dev.test/", // a custom dev domain is not local; use ?examples
-  ]) assert.equal(visible(url), false, url);
+    "http://blog.dev.test/", // a custom dev domain is not local
+];
+
+test("look-alikes and LAN addresses are not local", () => {
+  for (const url of NOT_LOCAL) assert.equal(load(url).api.local, false, url);
+});
+
+test("examples are hidden by default on every host, local ones included", () => {
+  for (const url of [...LOCAL, ...NOT_LOCAL]) {
+    const found = load(url);
+    assert.equal(found.api.visible, false, url);
+    assert.equal(found.api.source, "host", url);
+  }
 });
 
 test("the early script marks the document before first paint", () => {
@@ -76,13 +88,17 @@ test("the early script marks the document before first paint", () => {
   assert.equal(off.attrs.get("data-examples"), "off");
   assert.equal(off.attrs.has("data-example-page"), true);
   assert.equal(off.api.page, true);
-  const on = load("http://localhost:8000/docs/x.html");
+  const local = load("http://localhost:8000/docs/x.html", { example: true });
+  assert.equal(local.attrs.get("data-examples"), "off", "a local host hides them too");
+  const on = load("http://localhost:8000/docs/x.html?examples", { example: true });
   assert.equal(on.attrs.get("data-examples"), "on");
-  assert.equal(on.attrs.has("data-example-page"), false);
-  assert.equal(on.api.page, false);
+  assert.equal(on.attrs.has("data-example-page"), true, "the page marker does not depend on visibility");
+  const plain = load("http://localhost:8000/docs/x.html");
+  assert.equal(plain.attrs.has("data-example-page"), false);
+  assert.equal(plain.api.page, false);
 });
 
-test("?examples overrides the host and is remembered for the session", () => {
+test("?examples overrides the default and is remembered for the session", () => {
   const store = {};
   assert.equal(visible("https://bitwise.john-ky.io/?examples", { store }), true);
   assert.equal(store["bh-examples"], "on");
@@ -90,11 +106,14 @@ test("?examples overrides the host and is remembered for the session", () => {
   const next = load("https://bitwise.john-ky.io/docs/x.html", { store });
   assert.equal(next.api.visible, true);
   assert.equal(next.api.source, "session");
-  // ?examples=off previews the published view locally.
+  // ?examples=off hides them again, and that choice is remembered too.
   assert.equal(visible("http://localhost:8000/?examples=off", { store }), false);
   assert.equal(visible("http://localhost:8000/docs/x.html", { store }), false);
-  // ?examples=auto forgets the override.
-  assert.equal(visible("http://localhost:8000/?examples=auto", { store }), true);
+  assert.equal(store["bh-examples"], "off");
+  // ?examples=on works locally as on a domain.
+  assert.equal(visible("http://localhost:8000/?examples", { store }), true);
+  // ?examples=auto forgets the override: back to the default, which is hidden.
+  assert.equal(visible("http://localhost:8000/?examples=auto", { store }), false);
   assert.deepEqual(store, {});
 });
 
@@ -109,7 +128,8 @@ test("override spellings", () => {
 test("an unreadable sessionStorage falls back to the host, and an override still applies once", () => {
   assert.equal(visible("https://bitwise.john-ky.io/", { storageThrows: true }), false);
   assert.equal(visible("https://bitwise.john-ky.io/?examples", { storageThrows: true }), true);
-  assert.equal(visible("http://localhost/", { storageThrows: true }), true);
+  assert.equal(visible("http://localhost/?examples", { storageThrows: true }), true);
+  assert.equal(visible("http://localhost/", { storageThrows: true }), false);
 });
 
 test("a bundled single file always shows its own content", () => {

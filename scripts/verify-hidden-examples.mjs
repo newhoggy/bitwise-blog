@@ -66,7 +66,7 @@ for(const engine of ['chrome','firefox']){
    const local='http://localhost:'+server.address().port+'/index.html';
    await goto(local+'?examples=off'); await checkHome(page,false);
    await goto(local);await checkHome(page,false);assert.equal(await page.evaluate(()=>bhExamples.source),'session');
-   await goto(local+'?examples=auto');await checkHome(page,true);assert.equal(await page.evaluate(()=>sessionStorage.getItem('bh-examples')),null);
+   await goto(local+'?examples=auto');await checkHome(page,false);assert.equal(await page.evaluate(()=>sessionStorage.getItem('bh-examples')),null);
    observation.behavior='PASS';
    assert.deepEqual(errors,[]);
    results.push({label,version:browser.version(),home,override,status:'PASS'});console.log('PASS',label,JSON.stringify(home));

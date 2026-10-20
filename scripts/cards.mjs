@@ -101,7 +101,8 @@ async function captureVisual(send, base, job, systemFonts) {
       await s("Network.enable");
       await s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
     }
-    await s("Page.navigate", { url: base + job.href });
+    // ?examples: an example page is hidden by default, and the card is drawn from the page itself.
+    await s("Page.navigate", { url: base + job.href + "?examples" });
     await waitFor(s, "document.readyState === 'complete' && document.documentElement.hasAttribute('data-bh-ready')", 20000, `${job.href} never signalled data-bh-ready`);
     if (!systemFonts) await loadFonts(s, ['400 16px "IBM Plex Sans"', '600 16px "IBM Plex Sans"', '700 16px "IBM Plex Sans"']);
     const sel = job.selection;
