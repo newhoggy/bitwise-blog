@@ -1,6 +1,7 @@
 {
   "name": "beautiful-html",
   "private": true,
+  "license": "(MIT AND CC-BY-4.0)",
   "type": "module",
   "description": "Bitwise Engineering: a software engineering blog, built on the beautiful-html theme.",
   "repository": "github:newhoggy/beautiful-html",
