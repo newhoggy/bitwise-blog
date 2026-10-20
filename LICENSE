@@ -1,0 +1,49 @@
+Bitwise Engineering is licensed in parts.
+
+  Code (MIT, the text below)
+    Everything in this repository that is not listed under "Written content" or "Logo"
+    below. That includes scripts/, theme/, templates/, tests/, .github/, .claude/,
+    reviews/schema.json, package.json, CLAUDE.md, README.md and the other files at the root.
+
+  Written content (CC BY 4.0, see docs/LICENSE)
+    docs/ (the posts, the glossary, the component gallery and the social cards in
+    docs/assets/og/) and reviews/, except reviews/schema.json.
+
+    Generated files that quote the text of those pages are CC BY 4.0 too: index.html,
+    feed.xml, and in theme/: glossary.js, search-index.js, site.js, reviews.js,
+    unlisted-pages.js, unlisted-reviews.js and unlisted-slugs.js.
+
+  Logo (all rights reserved)
+    The logo artwork: the files in theme/logo/, and the same glyph wherever it is embedded
+    (LOGO_SVG in theme/bh.js, scripts/, templates/, the icons and the social cards, which are
+    otherwise CC BY 4.0). The MIT licence above does not extend to it. Replace it in a fork.
+    The IBM Plex Sans outlines in the wordmark stay under the SIL Open Font License 1.1,
+    which the font is published under.
+
+Third-party fonts (Fraunces, IBM Plex Sans, JetBrains Mono, from Google Fonts) and Mermaid
+are loaded from their CDNs when a page is viewed. They are not part of this repository and
+keep their own licences.
+
+----------------------------------------------------------------------------------------
+
+MIT License
+
+Copyright (c) 2026 John Ky
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
