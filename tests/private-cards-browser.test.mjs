@@ -83,7 +83,7 @@ test("the home page shows the private cards a key opens", { skip, timeout: 24000
     assert.equal(await p.evaluate("document.querySelector('[data-private-slug=alpha-plan] a').getAttribute('href')"), `docs/alpha-plan.html#k=${group}`);
     assert.equal(await p.evaluate("getComputedStyle(document.querySelector('.card-private')).display !== 'none'"), true);
     // The filter covers them: the search box, and the Type chips (an "Explainer" chip exists either way).
-    await p.evaluate("(() => { const i = document.querySelector('.bh-filter input'); i.value = 'alpha'; i.dispatchEvent(new Event('input')); })()");
+    await p.evaluate("(() => { const i = document.querySelector('.bh-filter input'); i.value = 'alpha plan'; i.dispatchEvent(new Event('input')); })()");
     assert.deepEqual(await p.evaluate(titles), ["Alpha plan"]);
     // The tab remembers the key: a reload still shows the cards.
     await p.goto(`${base}index.html`);

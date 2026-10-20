@@ -1363,7 +1363,10 @@
     if (by && hero) {
       hero.after(el("aside", { class: "callout warn bh-superseded", role: "note" }, [
         el("p", { class: "callout-title", text: "Superseded" }),
-        el("p", {}, ["This decision has been replaced by ", by, ". It is kept as the record of why things were once done this way."]),
+        // A decision is kept as a record; any other page (an explainer rewritten as a series) as an archive.
+        meta("bh:kind") === "decision"
+          ? el("p", {}, ["This decision has been replaced by ", by, ". It is kept as the record of why things were once done this way."])
+          : el("p", {}, ["This page has been replaced by ", by, ". It is kept as an archive, so links to it still work."]),
       ]));
     }
   }

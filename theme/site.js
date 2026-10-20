@@ -44,6 +44,16 @@ window.BH_SITE = {
    "supersededBy": ""
   },
   {
+   "href": "docs/deflate-format-reference.html",
+   "title": "DEFLATE format reference",
+   "kind": "reference",
+   "status": "draft",
+   "date": "2026-10-20",
+   "description": "Every range, field and bit-order rule in a DEFLATE stream in one place: the two alphabets, the plain fields, the edge cases and the terms.",
+   "supersedes": "",
+   "supersededBy": ""
+  },
+  {
    "href": "docs/edge-rate-limiting-design.html",
    "title": "Moving rate limiting to the edge",
    "kind": "design",
@@ -65,14 +75,34 @@ window.BH_SITE = {
    "supersededBy": ""
   },
   {
+   "href": "docs/how-deflate-compresses.html",
+   "title": "How DEFLATE compresses",
+   "kind": "explainer",
+   "status": "draft",
+   "date": "2026-10-20",
+   "description": "DEFLATE, inside gzip, zlib, PNG and ZIP, makes two separate savings: LZ77 removes repetition, then Huffman coding removes skew. Built up from one 35-byte string, down to the last bit.",
+   "supersedes": "docs/how-deflate-works.html",
+   "supersededBy": ""
+  },
+  {
+   "href": "docs/how-deflate-sends-its-code.html",
+   "title": "How a DEFLATE block sends its own code",
+   "kind": "explainer",
+   "status": "draft",
+   "date": "2026-10-20",
+   "description": "A Huffman code fitted to the data pays only if the decoder can be told it cheaply. Four tries take the description from 1,264 bits to 159, by sending code lengths and nothing else.",
+   "supersedes": "",
+   "supersededBy": ""
+  },
+  {
    "href": "docs/how-deflate-works.html",
    "title": "How DEFLATE works",
    "kind": "explainer",
-   "status": "draft",
+   "status": "superseded",
    "date": "2026-10-17",
    "description": "DEFLATE, the format inside gzip, zlib, PNG and ZIP, is two ideas stacked: LZ77 removes repetition, then Huffman coding removes skew. Here is each, step by step.",
    "supersedes": "",
-   "supersededBy": ""
+   "supersededBy": "docs/how-deflate-compresses.html"
   },
   {
    "href": "docs/token-bucket-rate-limiting.html",
@@ -113,8 +143,137 @@ window.BH_SITE = {
     "section": "Glossary terms"
    },
    {
+    "href": "docs/deflate-format-reference.html#terms",
+    "title": "DEFLATE format reference",
+    "section": "Terms used on this page"
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#terms",
+    "title": "How DEFLATE compresses",
+    "section": "Terms used on this page"
+   },
+   {
+    "href": "docs/how-deflate-sends-its-code.html#terms",
+    "title": "How a DEFLATE block sends its own code",
+    "section": "Terms used on this page"
+   },
+   {
     "href": "docs/how-deflate-works.html#terms",
     "title": "How DEFLATE works",
+    "section": "Terms used on this page"
+   }
+  ],
+  "docs/how-deflate-compresses.html": [
+   {
+    "href": "docs/deflate-format-reference.html",
+    "title": "DEFLATE format reference",
+    "section": ""
+   },
+   {
+    "href": "docs/deflate-format-reference.html#two-alphabets",
+    "title": "DEFLATE format reference",
+    "section": "Every range, and the decoder's loop"
+   },
+   {
+    "href": "docs/deflate-format-reference.html#not-symbols",
+    "title": "DEFLATE format reference",
+    "section": "Everything in the stream that isn't a symbol"
+   },
+   {
+    "href": "docs/deflate-format-reference.html#terms",
+    "title": "DEFLATE format reference",
+    "section": "Terms used on this page"
+   },
+   {
+    "href": "docs/glossary.html",
+    "title": "Glossary",
+    "section": ""
+   },
+   {
+    "href": "docs/how-deflate-sends-its-code.html",
+    "title": "How a DEFLATE block sends its own code",
+    "section": ""
+   },
+   {
+    "href": "docs/how-deflate-sends-its-code.html#recap",
+    "title": "How a DEFLATE block sends its own code",
+    "section": "Where part 1 left off"
+   },
+   {
+    "href": "docs/how-deflate-sends-its-code.html#example-code",
+    "title": "How a DEFLATE block sends its own code",
+    "section": "The example's own code"
+   },
+   {
+    "href": "docs/how-deflate-sends-its-code.html#canonical",
+    "title": "How a DEFLATE block sends its own code",
+    "section": "Send lengths, not trees"
+   },
+   {
+    "href": "docs/how-deflate-sends-its-code.html#dynamic-block",
+    "title": "How a DEFLATE block sends its own code",
+    "section": "The same tokens as a dynamic block"
+   },
+   {
+    "href": "docs/how-deflate-sends-its-code.html#terms",
+    "title": "How a DEFLATE block sends its own code",
+    "section": "Terms used on this page"
+   }
+  ],
+  "docs/how-deflate-sends-its-code.html": [
+   {
+    "href": "docs/deflate-format-reference.html",
+    "title": "DEFLATE format reference",
+    "section": ""
+   },
+   {
+    "href": "docs/deflate-format-reference.html#not-symbols",
+    "title": "DEFLATE format reference",
+    "section": "Everything in the stream that isn't a symbol"
+   },
+   {
+    "href": "docs/deflate-format-reference.html#terms",
+    "title": "DEFLATE format reference",
+    "section": "Terms used on this page"
+   },
+   {
+    "href": "docs/glossary.html",
+    "title": "Glossary",
+    "section": ""
+   },
+   {
+    "href": "docs/how-deflate-compresses.html",
+    "title": "How DEFLATE compresses",
+    "section": ""
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#huffman",
+    "title": "How DEFLATE compresses",
+    "section": "Huffman: short codes for common symbols"
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#joining",
+    "title": "How DEFLATE compresses",
+    "section": "How the two ideas join"
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#block-types",
+    "title": "How DEFLATE compresses",
+    "section": "Blocks, and the fixed code"
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#fixed-limits",
+    "title": "How DEFLATE compresses",
+    "section": "Where the fixed code falls short"
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#serial",
+    "title": "How DEFLATE compresses",
+    "section": "Why decoding is serial"
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#terms",
+    "title": "How DEFLATE compresses",
     "section": "Terms used on this page"
    }
   ],
@@ -132,18 +291,38 @@ window.BH_SITE = {
     "section": "Decision"
    }
   ],
-  "docs/how-deflate-works.html": [
+  "docs/announcing-patchcov.html": [
    {
     "href": "docs/glossary.html",
     "title": "Glossary",
     "section": ""
    }
   ],
-  "docs/announcing-patchcov.html": [
+  "docs/deflate-format-reference.html": [
    {
-    "href": "docs/glossary.html",
-    "title": "Glossary",
+    "href": "docs/how-deflate-compresses.html",
+    "title": "How DEFLATE compresses",
     "section": ""
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#joining",
+    "title": "How DEFLATE compresses",
+    "section": "How the two ideas join"
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#one-block",
+    "title": "How DEFLATE compresses",
+    "section": "One real block, bit by bit"
+   },
+   {
+    "href": "docs/how-deflate-sends-its-code.html",
+    "title": "How a DEFLATE block sends its own code",
+    "section": ""
+   },
+   {
+    "href": "docs/how-deflate-sends-its-code.html#what-it-costs",
+    "title": "How a DEFLATE block sends its own code",
+    "section": "What a block's code costs"
    }
   ]
  },
