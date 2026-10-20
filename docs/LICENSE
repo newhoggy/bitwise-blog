@@ -5,7 +5,7 @@ Copyright (c) 2026 John Ky
 The written content of this repository is licensed under the Creative Commons
 Attribution 4.0 International licence (CC BY 4.0), the full text of which follows. It
 covers everything in docs/ (posts, glossary, component gallery and the social cards in
-docs/assets/og/) and everything in reviews/, as well as the generated files that quote
+docs/assets/og/) and everything in reviews/ except reviews/schema.json, as well as the generated files that quote
 those pages (see ../LICENSE for the list).
 
 Credit "John Ky, Bitwise Engineering (https://bitwise.john-ky.io/)", link to the licence

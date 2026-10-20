@@ -235,3 +235,4 @@ The code (`scripts/`, `theme/`, `templates/`, `tests/`) is [MIT](LICENSE). The w
 (`docs/`, `reviews/` and the social cards) is [CC BY 4.0](docs/LICENSE): reuse it with credit to
 John Ky and Bitwise Engineering. The logo in `theme/logo/` is all rights reserved. The root
 [LICENSE](LICENSE) has the exact scope.
+Review files submitted to `reviews/inbox/` are accepted under the same CC BY 4.0 terms.
