@@ -33,11 +33,13 @@ function fixture(t) {
 const ids = (xml) => [...xml.matchAll(/<entry>\s*<id>([^<]*)<\/id>/g)].map((m) => m[1]);
 const metaOf = (html, name) => (html.match(new RegExp(`<meta name="${name}" content="([^"]*)"`)) || [])[1] || "";
 
+const title = (html) => (html.match(/<title>([^<]*)<\/title>/) || [])[1] || "";
+
 test("the committed feed lists exactly the listed posts, newest first, and check accepts it", (t) => {
   const f = fixture(t);
   const posts = fs.readdirSync(path.join(source, "docs")).filter((n) => n.endsWith(".html")).map((n) => ({ n, html: fs.readFileSync(path.join(source, "docs", n), "utf8") }))
     .filter(({ html }) => !/name="bh:sealed"/.test(html) && metaOf(html, "bh:example") !== "true" && metaOf(html, "bh:unlisted") !== "true" && metaOf(html, "bh:kind") !== "reference")
-    .sort((a, b) => metaOf(b.html, "bh:date").localeCompare(metaOf(a.html, "bh:date")) || a.n.localeCompare(b.n));
+    .sort((a, b) => metaOf(b.html, "bh:date").localeCompare(metaOf(a.html, "bh:date")) || title(a.html).localeCompare(title(b.html))); // as the generator: date, then title
   assert.ok(posts.length >= 1, "the repo should have at least one post to list");
   assert.deepEqual(ids(f.feed()), posts.map(({ n }) => `${SITE}docs/${n}`));
   assert.match(f.feed(), /^<\?xml version="1\.0" encoding="utf-8"\?>/);
