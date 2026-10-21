@@ -4,8 +4,11 @@
 // Prints the numbers the review audits use: words per h2 section, voice rates
 // compared with the 3Blue1Brown medians, predict folds, and every promise phrase
 // ("for now", "later", "remember"…) with the section it is in, so each can be
-// matched to its payoff. HTML is reduced to the prose of <article>; SVG, code,
-// scripts and styles are dropped. No dependencies.
+// matched to its payoff. It also lists phrases for the claim and sentence
+// audits: "obviously" and its kin, signposts that talk about the document
+// instead of the subject, and empty verbs hiding an action ("performs a
+// computation"). HTML is reduced to the prose of <article>; SVG, code, scripts
+// and styles are dropped. No dependencies.
 import fs from "node:fs";
 
 const file = process.argv[2];
@@ -59,6 +62,19 @@ const PROMISE = new RegExp("\\b(" + [
   "ignore (this|that|for)", "take (it|this|them|that) for granted", "taking (it|this|them|that) for granted",
   "we skip", "skip(ped|ping)? (this|over)", "postpone\\w*", "in a moment",
 ].join("|") + ")\\b", "gi");
+// Claims that something is obvious: each should be shown, or say where it stands (Halmos).
+const OBVIOUS = /\b(obviously|clearly|trivially|of course|needless to say|it is (easy to see|clear that)|it's (easy to see|clear that))\b/gi;
+// Signposts about the document rather than the subject (Pinker), and Wilf's
+// "Consider the following", which usually marks a missing need.
+const DOC_TALK = new RegExp("\\b(" + [
+  "this (section|post|page|article|chapter) (explains|describes|discusses|covers|shows|presents|will)",
+  "in (this|the following|the next) (section|post|page|article|chapter)",
+  "the following (section|paragraph)", "consider the following",
+  "as (mentioned|discussed|described|noted|stated) (above|below|earlier|previously)",
+].join("|") + ")\\b", "gi");
+// An empty verb plus an action noun: "performs a computation" for "computes" (Williams).
+// Only -tion/-sion/-ment nouns: -ance/-ence caught "makes the distance 7" and "make a difference".
+const EMPTY_VERB = /\b(perform(s|ed|ing)?|conduct(s|ed|ing)?|carr(y|ies|ied|ying) out|do(es)?|did|mak(e|es|ing)|made|giv(e|es|ing)|gave) (a|an|the) (\w+ )?\w+(tion|sion|ment)s?\b/gi;
 
 const secs = sections();
 const all = secs.map(s => s.text).join(" ");
@@ -87,13 +103,22 @@ if (isHtml) {
   }
 }
 
-console.log("\n## Promise phrases (match each to its payoff)\n");
-let found = 0;
-for (const s of secs) {
-  for (const m of s.text.matchAll(PROMISE)) {
-    const a = Math.max(0, m.index - 70), b = Math.min(s.text.length, m.index + m[0].length + 70);
-    console.log(`#${s.id}: …${s.text.slice(a, b)}…`);
-    found++;
+// Print every match of `re` with its section and some context; return the count.
+function listMatches(heading, re, none) {
+  console.log(`\n## ${heading}\n`);
+  let found = 0;
+  for (const s of secs) {
+    for (const m of s.text.matchAll(re)) {
+      const a = Math.max(0, m.index - 70), b = Math.min(s.text.length, m.index + m[0].length + 70);
+      console.log(`#${s.id}: …${s.text.slice(a, b)}…`);
+      found++;
+    }
   }
+  if (!found) console.log(none);
 }
-if (!found) console.log("(none found: either the page makes no promises, or it makes them silently)");
+
+listMatches("Promise phrases (match each to its payoff)", PROMISE,
+  "(none found: either the page makes no promises, or it makes them silently)");
+listMatches("\"Obviously\" and kin (show it, or say where it stands)", OBVIOUS, "(none found)");
+listMatches("Signposts about the document (ask about the subject instead)", DOC_TALK, "(none found)");
+listMatches("Empty verbs hiding an action (use the verb)", EMPTY_VERB, "(none found)");
