@@ -85,8 +85,13 @@ test("the join: exact distances barely repeat, and naming them costs more than i
   assert.ok(prose.includes(`length 3 appears ${byLen(3)} times, length 5 nine times`) && byLen(5) === 9);
   const codeBits = [...new Set(p.oD.filter(Boolean))].sort().join(" or ");
   assert.equal(codeBits, "4 or 5");
-  assert.ok(prose.includes(`${p.byDist.size} distances used once each still get 4- or 5-bit codes`.replace(`${p.byDist.size} distances used once each`, "29 distances used once each")));
-  assert.ok(prose.includes(`describing the obvious code takes ${p.oHeader} bits, against ${p.r.headerBits} for DEFLATE's`));
+  assert.ok(prose.includes("the paragraph's distances still get 4- or 5-bit codes"));
+  assert.ok(prose.includes(`with this page's encoder, describing the obvious code takes ${p.oHeader} bits, against ${p.r.headerBits} for DEFLATE's`));
+  // The budget argument: 256 bytes at 9 bits use half the code space; the other 33,025 symbols share the rest.
+  assert.equal(256 + 1 + 256 + 32768, 33281);
+  assert.equal(Math.round(Math.log2((256 + 1 + 256 + 32768 - 256) / 0.5)), 16);
+  assert.ok(prose.includes("The other 33,025 symbols, the lengths and distances, share the other half, so each gets about 16 bits"));
+  assert.ok(prose.includes("down to 316: 286 in the first alphabet and 30 in the second"));
   assert.ok(prose.includes(`the block comes out ${Math.round((p.obviousTotal / p.deflateTotal - 1) * 100)}% larger`));
 
   const e = bothAlphabets(ENGLISH);
@@ -122,6 +127,37 @@ test("back to the question: every one of the 103 bits", () => {
   assert.ok(prose.includes(`two copies stand for 27 of the 35 bytes, in ${rows[2][1] + rows[4][1]} bits`));
   const saved = (r.bits.fixed - 3) - (r.bits.dynamic - 3 - r.headerBits);
   assert.ok(prose.includes(`would save ${saved} bits on the data but cost ${r.headerBits} bits to describe`));
+});
+
+test("the playground's question: where the paragraph switches from fixed to dynamic", () => {
+  const best = (n) => Deflate.encode(utf8(PARAGRAPH.slice(0, n))).best;
+  assert.equal(best(68), "fixed");
+  for (let n = 69; n <= PARAGRAPH.length; n++) assert.equal(best(n), "dynamic", `${n} bytes`);
+  const header = Deflate.encode(utf8(PARAGRAPH.slice(0, 69))).headerBits;
+  assert.ok(Math.abs(header - 230) <= 5, `${header} bits is about 230`);
+  assert.ok(plain(PART1).includes("From 69 bytes on, this page's encoder writes a dynamic block; at 68 and below, a fixed one. Describing a fitted code costs about 230 bits"));
+});
+
+test("the optional copy exercise is the encoder's mapping", () => {
+  assert.deepEqual(Deflate.lengthSymbol(10), { sym: 264, extra: 0, nExtra: 0 });
+  assert.deepEqual(Deflate.distanceCode(100), { code: 13, extra: 3, nExtra: 5 });
+  assert.ok(plain(PART1).includes("Distance 100 falls in d13, \"97–128 back\", which has 5 extra bits; they hold 100 − 97 = 3"));
+});
+
+test("part 2's data accounting: 41 bits against 100, 59 saved, and a 1.3% description for 16 KB", () => {
+  const r = Deflate.encode(utf8(EXAMPLE));
+  const saved = (r.bits.fixed - 3) - (r.bits.dynamic - 3 - r.headerBits);
+  assert.equal(r.bits.fixed - 3, 85 + 10 + 5);
+  assert.equal(r.bits.dynamic - 3 - r.headerBits, 34 + 2 + 5);
+  assert.equal(saved, 59);
+  const p2 = plain(PART2);
+  assert.ok(p2.includes("the example's data costs 34 + 2 + 5 = 41 bits, against 85 + 10 + 5 = 100 with the fixed code: 59 bits saved"));
+  assert.ok(p2.includes("nearly three times the 59 bits the code saves"));
+  const e = Deflate.encode(utf8(ENGLISH));
+  assert.equal(e.headerBits, 718);
+  assert.equal(Math.round(e.headerBits / e.bits.dynamic * 1000) / 10, 1.3);
+  assert.ok(p2.includes("For 16 KB of English text, describing the code takes 718 bits, about 1.3% of the block"));
+  assert.ok(p2.includes("for 16 KB of English text the whole description is about 1.3% of the block"));
 });
 
 test("part 2 states the dynamic block's result before its walk", () => {

@@ -279,9 +279,9 @@
       <figcaption>Notice that the two savings are independent. The token count falls because of repetition (35 bytes, 10 tokens); the bits per token fall because of skew. These four colours keep the same meaning in every figure below.</figcaption>
     </figure>
     <p>The two stages are independent, and each is useful alone. A file of random English words has little exact repetition but plenty of skew. A file of one byte repeated is all repetition. DEFLATE needs both because real data has both.</p>
-    <p>So let's take them in that order: LZ77 on its own, then Huffman coding on its own, then the one part that isn't obvious, how DEFLATE joins them. Then we read a real block bit by bit, and come back to the opening question with every bit accounted for. If you'd rather experiment as you go, <a href="#try-it">the playground</a> runs all of it on your own text.</p>
+    <p>So let's take them in that order: LZ77 on its own, then Huffman coding on its own, then the one part that isn't obvious, how DEFLATE joins them. Then we read a real block bit by bit, and come back to the opening question with every bit accounted for. If you already know LZ77 and Huffman coding, skip to <a href="#joining">the join</a>: it is the part you are least likely to have seen. If you'd rather experiment as you go, <a href="#try-it">the playground</a> runs all of it on your own text.</p>
     <h2 id="lz77">LZ77: say it once, then point back</h2>
-    <p>Read the input left to right. Keep everything already read in a <em>sliding window</em> (DEFLATE's holds the last 32,768 bytes). At each position, look for the longest run of upcoming bytes that already appears in the window. If it is at least 3 bytes long, emit a <em>back-reference</em>: copy <em>length</em> bytes, starting <em>distance</em> bytes back. Otherwise emit the byte itself as a literal.</p>
+    <p>Read the input left to right. Keep everything already read in a <em>sliding window</em> (DEFLATE's holds the last 32,768 bytes). At each position, look for the longest run of upcoming bytes that already appears in the window. If it is at least 3 bytes long, emit a <em>back-reference</em>: copy <em>length</em> bytes, starting <em>distance</em> bytes back. Otherwise emit the byte itself as a literal.<span class="sidenote">Why 3? A short copy costs about 12 to 25 bits once it is coded, as <a href="#one-block">the bit walk</a> shows (its 4-byte copy takes 13). Two literals cost 16, so a 2-byte copy would rarely pay; three cost 24.</span></p>
     <figure class="diagram wide" id="window">
       <svg viewBox="-16 -16 800 172" role="img" aria-label="The 35 input bytes in a row, with two arcs pointing back to earlier copies, and the ten tokens they become: seven letters, (4,7), a space and (23,12)">
         <rect class="zone win-zone" x="-4" y="34" width="708" height="40" rx="6"/>
@@ -348,11 +348,13 @@
       <bh-step highlight="t7 c7 c8 c9 c10"><p><strong>Emit (4, 7).</strong> The four bytes collapse into one token: <em>copy 4 bytes from 7 back</em>. Four letters cost one token.</p></bh-step>
       <bh-step highlight="t8 c11"><p><strong>The space is new</strong>, so it goes out as a literal.</p></bh-step>
       <bh-step highlight="arc2 arc2-label t9 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11"><p><strong>A long match that overlaps.</strong> Everything that is left, 23 bytes, repeats what started 12 bytes back. Only 12 bytes lie between the source and the cursor, so the copy runs into its own output.</p></bh-step>
-      <bh-step highlight="t0 t1 t2 t3 t4 t5 t6 t7 t8 t9"><p><strong>Emit (23, 12).</strong> The decoder copies one byte at a time, so by the time it needs byte 13 of the copy, it has already written it. 35 bytes are now 10 tokens.</p></bh-step>
+      <bh-step highlight="t0 t1 t2 t3 t4 t5 t6 t7 t8 t9"><p><strong>Emit (23, 12).</strong> The decoder copies one byte at a time, so when it writes byte 24 it reads byte 12, which this same copy wrote 12 steps earlier. 35 bytes are now 10 tokens.</p></bh-step>
     </bh-stepper>
     <p>Overlap is not a corner case. It is how LZ77 encodes runs: <code>aaaaaaaa</code> is the literal <code>a</code> followed by <code>(7, 1)</code>, "copy 7 bytes from 1 back".</p>
     <h2 id="huffman">Huffman: short codes for common symbols</h2>
-    <p>LZ77 has removed the repetition, but it leaves every literal at a full 8 bits: the common <code>a</code> costs as much as the rare <code>d</code>. Eight bits per letter is fair only if every letter is equally likely. In <code>abracadabra</code> the counts are a×5, b×2, r×2, c×1 and d×1, so <em>a</em> should get the shortest code. Huffman's algorithm finds the best codes for known counts, and it is greedy: <strong>repeatedly join the two rarest things.</strong></p>
+    <p>LZ77 has removed the repetition, but it leaves every literal at a full 8 bits: the common <code>a</code> costs as much as the rare <code>d</code>. Eight bits per letter is fair only if every letter is equally likely. In <code>abracadabra</code> the counts are a×5, b×2, r×2, c×1 and d×1, so <em>a</em> should get the shortest code.</p>
+    <p>A first try: hand out the shortest codes in order of count. <code>a</code> gets <code>0</code>, <code>b</code> <code>1</code>, <code>r</code> <code>10</code>, <code>c</code> <code>11</code>, <code>d</code> <code>100</code>. That looks cheap, but it can't be read back. The codes go out back to back with nothing between them, so <code>10</code> could be <code>r</code>, or <code>b</code> then <code>a</code>. The trouble is that <code>b</code>'s code is the start of <code>r</code>'s. So a usable code needs one property: <strong>no code may be the start of another</strong>. Then a decoder can stop the moment the bits so far match a code.</p>
+    <p>Drawing the codes as a tree gives that property for free. Each 0 goes left and each 1 goes right, and the letters sit only at the leaves. A code then ends at a leaf, and nothing passes through a leaf to make a longer code. What is left is to choose the tree. Huffman's algorithm finds the best one for known counts, and it is greedy: <strong>repeatedly join the two rarest things.</strong></p>
     <p>Here the symbols are the letters themselves, to keep the tree small. DEFLATE runs the same algorithm on the output of LZ77 instead, as <a href="#joining">the join</a> below shows: on counts of literals, lengths and distances, not of raw bytes.</p>
     <figure class="diagram wide" id="huffman-tree">
       <svg viewBox="-16 -16 872 392" role="img" aria-label="A Huffman tree for abracadabra: a sits one level below the root with code 0; b, r, c and d sit three levels down with three-bit codes">
@@ -406,10 +408,10 @@
       <bh-step highlight="a n3 root e-root-a e-root-n3"><p><strong>The last join</strong> makes the root, 11, which is every letter. The common <em>a</em> joined last, so it ends up nearest the root.</p></bh-step>
       <bh-step><p><strong>Read the codes.</strong> Label every left branch 0 and every right branch 1. A letter's code is the path from the root to it: <code>a</code> is <code>0</code>, <code>c</code> <code>100</code>, <code>d</code> <code>101</code>, <code>b</code> <code>110</code>, <code>r</code> <code>111</code>.</p></bh-step>
       <bh-step><p><strong>Count the bits.</strong> A code's length is the letter's depth in the tree: <code>a</code> has 1 bit, the others 3. Weighted by the counts, the total falls from 88 bits to 23.</p></bh-step>
-      <bh-step><p><strong>As a table.</strong> The tree has done its job. What remains is each letter with its code and its length, back in the table it started from.</p></bh-step>
+      <bh-step><p><strong>As a table.</strong> The tree has done its job. What remains is each letter with its code and its length, back in the table it started from: <code>a</code> <code>0</code>, 1 bit; <code>b</code>, <code>r</code>, <code>c</code> and <code>d</code> 3 bits each.</p></bh-step>
     </bh-stepper>
-    <details class="predict">
-      <summary>At the second join, three nodes tied at weight 2. Join a different pair and you get a different tree. Does the total change?</summary>
+    <details class="disclosure" id="tie-break" data-linkable>
+      <summary>Go deeper: at the second join, three nodes tied at weight 2. Join a different pair and you get a different tree. Does the total change?</summary>
       <p><strong>No: it is still 23 bits.</strong> Join c+d with b instead, and the code lengths become a 1, r 2, b 3, c 4 and d 4. The tree is different, but 5×1 + 2×2 + 2×3 + 1×4 + 1×4 = 23 as well. Huffman's algorithm gives <em>an</em> optimal code, not <em>the</em> optimal code. Remember this one: that ambiguity is what DEFLATE removes when a block sends its own code, in <a href="how-deflate-sends-its-code.html#canonical">part 2</a>.</p>
     </details>
     <h2 id="joining">How the two ideas join</h2>
@@ -418,20 +420,21 @@
     <ol class="steps">
       <li><strong>LZ77</strong> turns the block's bytes into tokens: literals and (length, distance) copies.</li>
       <li><strong>Map</strong> every token to <em>symbols</em> from two alphabets, described below. This is the join.</li>
-      <li><strong>Count</strong> the symbols and build two Huffman codes from the counts: one for literals and lengths, one for distances.</li>
-      <li><strong>Write</strong> the block: its header (for a dynamic block, including the two codes), then each token's symbols as Huffman codes, each followed by its extra bits, then the end-of-block code.</li>
+      <li><strong>Code</strong> the symbols: one Huffman code for each alphabet. Where those codes come from is <a href="#block-types">a later section</a>.</li>
+      <li><strong>Write</strong> the block: a short header, then each token's symbols as their codes, then the end-of-block code.</li>
     </ol>
-    <p>So Huffman coding never sees the raw bytes, or the tokens themselves. It counts and codes the symbols LZ77's output maps to, while the extra bits travel alongside, uncoded. The join is therefore a choice of alphabet for everything LZ77 can produce.</p>
+    <p>So Huffman coding never codes LZ77's tokens as they are. A literal passes through as its own symbol, but a copy has to become symbols first. The join is therefore a choice of alphabet for everything LZ77 can produce.</p>
     <p>The obvious alphabet gives every value its own symbol: one per byte, one for the end of the block, one per length from 3 to 258 and one per distance from 1 to 32,768, 33,281 symbols in all. Huffman coding would then count exact values and give the common ones short codes. Let's see what that costs.</p>
     <p>Look at what LZ77 actually produces. In the 381-byte paragraph from <a href="#try-it">the playground</a>, this page's encoder finds 32 copies at 29 different distances, and 26 of those distances turn up exactly once. Lengths do repeat (length 3 appears 13 times, length 5 nine times), but exact distances barely do.</p>
-    <p>You might expect the codes to suffer, and they don't: 29 distances used once each still get 4- or 5-bit codes. The cost is elsewhere. A block that brings its own code has to tell the decoder what that code is, and with this alphabet the description needs room for every distance a copy might have used.<span class="sidenote">How a block describes its code is the subject of <a href="how-deflate-sends-its-code.html">part 2</a>. Here we only need its size, measured with the same method for both alphabets.</span> For the paragraph, describing the obvious code takes 567 bits, against 358 for DEFLATE's, and the block comes out 6% larger. On 16 KB of English documentation, where copies reach thousands of bytes back at 1,877 different distances, the description takes 13,075 bits against 718, and the block comes out 14% larger.</p>
+    <p>That breaks the obvious alphabet, and you can work out how with nothing but a budget. Some blocks use a code fixed by the format, which can't know which symbols are common (<a href="#block-types">below</a>). A code of <em>L</em> bits uses up 2<sup>−<em>L</em></sup> of all bit patterns, since no other code may start with it, and the shares can't add up to more than 1. Give the 256 bytes 9 bits each and they use half of it. The other 33,025 symbols, the lengths and distances, share the other half, so each gets about 16 bits. A copy is a length and a distance, about 32 bits, so copying 4 bytes would save almost nothing over sending them as 4 literals at 9 bits each, 36.</p>
+    <p>A code fitted to the block's own counts doesn't escape either. Its codes are fine: the paragraph's distances still get 4- or 5-bit codes. But a block with its own code has to tell the decoder what that code is, and with this alphabet the description needs room for every distance a copy might have used.<span class="sidenote">How a block describes its code is the subject of <a href="how-deflate-sends-its-code.html">part 2</a>. Here we only need its size, measured with the same method for both alphabets.</span> For the paragraph, with this page's encoder, describing the obvious code takes 567 bits, against 358 for DEFLATE's, and the block comes out 6% larger. On 16 KB of English documentation, where copies reach thousands of bytes back at 1,877 different distances, the description takes 13,075 bits against 718, and the block comes out 14% larger.</p>
     <p>So the waste is in naming exact distances. What does repeat is roughly <em>how far back</em> a copy reaches. In that 16 KB there are about 3 copies per distance value within 100 bytes back, and about 0.1 per value at 4,000 to 6,000 bytes back, yet neighbouring distances are about equally likely. Whatever replaces the obvious alphabet has to put <em>how far back</em> in the Huffman code, where its skew can be used, and send <em>exactly which distance</em> as plain bits, where a code would find nothing to save.</p>
     <p>DEFLATE does exactly that, with two changes:</p>
     <ol class="steps">
       <li><strong>A length or distance is a range, then extra bits.</strong> Distance 12 has no symbol of its own. It is one symbol meaning "9 to 12 bytes back", followed by 2 plain bits that pick 12. The ranges double in width as they reach further back, so the symbol says roughly how far and its <em>extra bits</em> say exactly where. The extra bits are written as they are, not Huffman-coded, because within a range every value is about equally likely. Lengths work the same way: length 23 is the symbol for "23 to 26" plus 2 extra bits. Short lengths (3–10) and distances (1–4) keep exact symbols, because they are the most common.</li>
       <li><strong>Distances get an alphabet of their own.</strong> The bytes, the end of the block and the length ranges share the first alphabet, so one code tells the decoder whether a literal or a copy comes next. A distance always follows a length, so the decoder always knows to read it with the second code.</li>
     </ol>
-    <p>That takes 33,281 symbols down to 316. Pick something LZ77 can produce and see which symbol it becomes. The format numbers the symbols (lengths 23–26 are symbol 270, distances 9–12 are <code>d6</code>), but the numbers matter only to a decoder; the <a href="deflate-format-reference.html#two-alphabets">format reference</a> lists them all.</p>
+    <p>That takes 33,281 symbols down to 316: 286 in the first alphabet and 30 in the second. It also fixes the budget problem. With only 30 distance symbols, the fixed code can give each one 5 bits, so distance 7 costs 5 bits plus 1 extra bit, where the obvious alphabet needed about 16. Pick something LZ77 can produce and see which symbol it becomes. The format numbers the symbols (lengths 23–26 are symbol 270, distances 9–12 are <code>d6</code>), but the numbers matter only to a decoder; the <a href="deflate-format-reference.html#two-alphabets">format reference</a> lists them all.</p>
     <bh-playground class="wide" id="alphabet-lab">
       <div class="al-pick">
         <div class="al-kinds" role="group" aria-label="What LZ77 gives">
@@ -471,6 +474,10 @@
       <p class="al-cells-title" id="al-cells-title">Symbol 270 covers 4 lengths. The extra bits say which one:</p>
       <div class="al-cells" id="al-cells"><span aria-current="true">23<small>+0</small></span><span>24<small>+1</small></span><span>25<small>+2</small></span><span>26<small>+3</small></span></div>
     </bh-playground>
+    <details class="disclosure" id="try-a-copy" data-linkable>
+      <summary>Optional: try one yourself. Which symbols and extra bits does the copy (10, 100) become?</summary>
+      <p>Length 10 is still short enough to have a symbol of its own, 264, with no extra bits. Distance 100 falls in d13, "97–128 back", which has 5 extra bits; they hold 100 − 97 = 3. So the copy becomes two symbols, 264 from the first alphabet and d13 from the second, followed by 5 plain bits.</p>
+    </details>
     <h2 id="join-example">The join, token by token</h2>
     <p>Here is the mapping applied to the ten tokens from the <a href="#window">window figure</a>, and then the codes that turn the symbols into bits.</p>
     <figure class="diagram wide" id="join">
@@ -526,16 +533,16 @@
     <bh-stepper for="join">
       <bh-step highlight="k0 k1 k2 k3 k4 k5 k6 k7 k8 k9"><p><strong>Start from LZ77's output:</strong> eight literals and two back-references.</p></bh-step>
       <bh-step highlight="k0 k1 k2 k3 k4 k5 k6 k8 s0 s1 s2 s3 s4 s5 s6 s9"><p><strong>A literal is its own symbol.</strong> The byte <code>a</code> becomes the symbol for <code>a</code> in the <em>literal/length alphabet</em>; its number there is the byte's value, 97, in small print. All eight literals map this way.</p></bh-step>
-      <bh-step highlight="k7 k9 s7 s8 s10 s11"><p><strong>A back-reference becomes two symbols.</strong> Length 4 is short and common, so it has a symbol of its own in the same alphabet. Distance 7 falls in the range "7–8 back" of the second, <em>distance alphabet</em>, so 1 extra bit follows to pick 7. (23, 12) becomes "lengths 23–26" with 2 extra bits, then "9–12 back" with 2 more.</p></bh-step>
+      <bh-step highlight="k7 k9 s7 s8 s10 s11"><p><strong>A back-reference becomes two symbols.</strong> Length 4 is short and common, so it has a symbol of its own in the same alphabet, number 258. A symbol's number is only its place in the alphabet: 258 means "length 4", not length 258. Distance 7 falls in the range "7–8 back" of the second, <em>distance alphabet</em>, so 1 extra bit follows to pick 7. (23, 12) becomes "lengths 23–26" with 2 extra bits, then "9–12 back" with 2 more.</p></bh-step>
       <bh-step highlight="s12"><p><strong>The block must end.</strong> Symbol 256, end-of-block, comes from the literal/length alphabet, so it sits among the literals and lengths and gets a code like them.</p></bh-step>
-      <bh-step><p><strong>Huffman codes turn symbols into bits.</strong> Each symbol is replaced by its code from its own alphabet's table. For now, take the tables as given: this block uses a set of codes fixed by the format, 8 bits per literal, 7 for the end and the short lengths, 5 per distance, and <a href="#block-types">the next section</a> says where they come from, along with the 3 bits at the start that tell the decoder which tables to use. Extra bits go out as they are, uncoded. That makes 103 bits, the number in the first figure.</p></bh-step>
+      <bh-step><p><strong>Huffman codes turn symbols into bits.</strong> Each symbol is replaced by its code from its own alphabet. For now, take the codes as given: this block uses a set of codes fixed by the format, 8 bits per literal, 7 for the end and the short lengths, 5 per distance, and <a href="#block-types">the next section</a> says where they come from, along with the 3 bits at the start that tell the decoder which codes to use. Extra bits go out as they are, uncoded. That makes 103 bits, the number in the first figure.</p></bh-step>
     </bh-stepper>
     <h2 id="block-types">Blocks, and the fixed code</h2>
-    <p>The join took "the fixed tables" for granted, so here is where they come from. A decoder can read the bits only if it knows which codes the encoder used, and there is more than one sensible choice. So DEFLATE splits a stream into blocks, and each block says at its start how it is coded.</p>
+    <p>The join took the fixed codes for granted, so here is where they come from. A decoder can read the bits only if it knows which codes the encoder used, and there is more than one sensible choice. So DEFLATE splits a stream into blocks, and each block says at its start how it is coded.</p>
     <p>A stream is a series of blocks. Each block starts with 3 header bits: a last-block bit, 1 if this is the last block, then 2 bits for the block type, which say where the codes come from. The format calls them <code>BFINAL</code> and <code>BTYPE</code>, and the bit walks use those names. Two bits allow four types, and only three are used:</p>
     <div class="table-wrap" id="btype" data-linkable>
       <table>
-        <caption>The values of <code>BTYPE</code>. Header fields are read lowest bit first, so the bits arrive in the opposite order to how the value is written.</caption>
+        <caption>The values of <code>BTYPE</code>. Header fields are read lowest bit first, so the bits arrive in the opposite order to how the value is written; <a href="#one-block">the bit walk</a> shows why that matters.</caption>
         <thead><tr><th>BTYPE</th><th>Arrives as</th><th>Block</th></tr></thead>
         <tbody>
           <tr><td><code>00</code></td><td><code>0</code>, then <code>0</code></td><td>stored: raw bytes, no compression</td></tr>
@@ -548,7 +555,7 @@
     <p>The rest of this page uses the fixed codes, type 01: a table of codes set once by the RFC, so a block sends no table at all. Every literal from 0 to 143, which covers all of ASCII, gets 8 bits, and 144–255 get 9. End-of-block and the length symbols get 7 or 8, and every distance symbol gets 5. The join figure above used these codes, and the next section reads that block bit by bit. Dynamic codes, which a block fits to its own data, are the subject of <a href="how-deflate-sends-its-code.html">part 2</a>.</p>
     <details class="disclosure" id="fixed-lengths" data-linkable>
       <summary>Go deeper: why are the fixed codes 7–9 bits long?</summary>
-      <p>A prefix code has a budget. A code of <em>L</em> bits uses up 2<sup>−<em>L</em></sup> of all possible bit patterns, since nothing else may start with it, and the shares can't add up to more than 1. The fixed code must cover 288 symbols without knowing which are common, and spread evenly that is about log<sub>2</sub> 288 ≈ 8.2 bits each. The RFC spends the budget exactly:</p>
+      <p>It is the budget from <a href="#joining">the join</a> again: a code of <em>L</em> bits uses up 2<sup>−<em>L</em></sup> of all possible bit patterns, and the shares can't add up to more than 1. The fixed code covers 288 symbols, two more than the 286 of the literal/length alphabet: 286 and 287 are never sent, but they fill out the code. Without knowing which symbols are common, spread evenly that is about log<sub>2</sub> 288 ≈ 8.2 bits each. The RFC spends the budget exactly:</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Symbols</th><th class="num">Count</th><th class="num">Bits</th><th class="num">Share of the budget</th></tr></thead>
@@ -564,8 +571,9 @@
       <p>The 7-bit codes for end-of-block and common lengths are paid for by making the upper half of the byte values, rare in text, cost 9 bits. Only a code fitted to the data can make a common symbol short, by making rare ones longer: that is what a dynamic block's code does.</p>
     </details>
     <h2 id="one-block">One real block, bit by bit</h2>
-    <p>Let's read the stream this page's encoder writes for the opening string, the 13 bytes <code>4b 4c 2a 4a 4c 4e 4c 01 51 0a 38 d8 00</code>, the way a decoder reads them. These are the bits <em>after</em> Huffman coding: each literal, length and distance appears as its code from the fixed tables, not as a raw byte or number. It holds exactly the tokens of the <a href="#window">window figure</a>, so every bit below is one you have already seen produced in <a href="#join">the join</a>.</p>
+    <p>Let's read the stream this page's encoder writes for the opening string, the 13 bytes <code>4b 4c 2a 4a 4c 4e 4c 01 51 0a 38 d8 00</code>, the way a decoder reads them. These are the bits <em>after</em> Huffman coding: each literal, length and distance appears as its code from the fixed code, not as a raw byte or number. It holds exactly the tokens of the <a href="#window">window figure</a>, so every bit below is one you have already seen produced in <a href="#join">the join</a>.</p>
     <p>One convention first, because it trips everyone up. A decoder takes the bits of each byte lowest first. So the block type 01, fixed, arrives as <code>1</code> then <code>0</code>, and a decoder that read those two bits the other way round would see 10 and try to read a dynamic block. Plain numbers, like the block type and the extra bits, come out right read lowest bit first, because that is how they were packed. Huffman codes are the exception: they are packed most significant bit first, because the decoder walks down the code from the root one bit at a time and needs the first step of the path first. The <a href="deflate-format-reference.html#not-symbols">format reference</a> has the whole rule.</p>
+    <p>Here is the first byte, <code>4b</code>, done by hand. In binary it is <code>01001011</code>. Read from its lowest bit, the right-hand end, it gives <code>1 1 0 1 0 0 1 0</code>: <code>BFINAL</code> = 1, then the block type's two bits, <code>1</code> then <code>0</code>, which is 01, then <code>10010</code>, the first five bits of <code>a</code>'s code. The next byte, <code>4c</code>, supplies the last three, <code>001</code>. A code may run across a byte boundary; only the order of the bits matters. The walk below shows every bit already in reading order.</p>
     <bh-codewalk class="wide" id="bit-walk">
 <pre data-title="abracadabra ×3 as this page's encoder writes it: bits as sent → what they decode to"><code>1         BFINAL = 1: last block
 10        BTYPE = 01: fixed codes
@@ -586,10 +594,10 @@
 11        + 2 extra bits = 3: distance 12
 0000000   end of block (symbol 256)</code></pre>
       <bh-cw-step lines="1-2"><p><strong>The block header.</strong> The last-block bit, <code>BFINAL</code>, is 1, so this is the last block. The two block-type bits, <code>BTYPE</code>, arrive as <code>1 0</code>, lowest first, so the type is binary 01: the fixed codes (see <a href="#btype">the block types</a>). For 35 bytes, a code fitted to the text would cost more to describe than it saves.</p></bh-cw-step>
-      <bh-cw-step lines="3-9"><p><strong>Seven literals, 8 bits each.</strong> In the fixed code, bytes 0–143 are <code>00110000</code> plus the byte, so <code>a</code> (97) is <code>10010001</code>. That is no shorter than the raw byte, <code>01100001</code>: the fixed code isn't fitted to this text, so it gives every byte from 0 to 143 the same 8 bits (<a href="#fixed-lengths">why</a>). This block's whole saving comes from LZ77's two copies.</p></bh-cw-step>
-      <bh-cw-step lines="10-12"><p><strong>A back-reference, (4, 7).</strong> Length 4 has a symbol of its own, 7 bits with no extra bits. The distance falls in the range 7–8 back, and its one extra bit, 0, picks 7. 13 bits stand for 4 bytes.</p></bh-cw-step>
+      <bh-cw-step lines="3-9"><p><strong>Seven literals, 8 bits each.</strong> In the fixed code, bytes 0–143 are <code>00110000</code> plus the byte, so <code>a</code> (97) is <code>10010001</code>. (The fixed codes are handed out in order, shortest first. The 24 seven-bit codes take <code>0000000</code> to <code>0010111</code>, so the 8-bit ones start at <code>00110000</code>; <a href="how-deflate-sends-its-code.html#canonical">part 2</a> explains the rule.) That is no shorter than the raw byte, <code>01100001</code>: the fixed code isn't fitted to this text, so it gives every byte from 0 to 143 the same 8 bits (<a href="#fixed-lengths">why</a>). This block's whole saving comes from LZ77's two copies.</p></bh-cw-step>
+      <bh-cw-step lines="10-12"><p><strong>A back-reference, (4, 7).</strong> Length 4 has a symbol of its own, 258, with no extra bits. Symbols 256–279 have the 7-bit codes, so each one's code is simply the symbol minus 256: 258 is <code>0000010</code>. The distance falls in the range 7–8 back, and its one extra bit, 0, picks 7. 13 bits stand for 4 bytes.</p></bh-cw-step>
       <bh-cw-step lines="13"><p><strong>Another literal:</strong> the space (32).</p></bh-cw-step>
-      <bh-cw-step lines="14-17"><p><strong>The long, overlapping copy, (23, 12).</strong> The symbol for lengths 23–26, then 2 extra bits, <code>00</code>, that add 0: length 23. Then 9–12 back, plus <code>11</code>, 3: distance 12. 16 bits stand for 23 bytes.</p><p>Only 12 bytes lie between the source and the destination, but the copy is 23 long. Watch <a href="#bit-output">the output</a>, counting bytes from 0: the decoder copies one byte at a time, so when it reaches byte 24 it reads byte 12, which this same copy wrote 12 steps earlier. Every byte it reads already exists by the time it needs it.</p></bh-cw-step>
+      <bh-cw-step lines="14-17"><p><strong>The long, overlapping copy, (23, 12).</strong> The symbol for lengths 23–26, then 2 extra bits, <code>00</code>, that add 0: length 23. Then 9–12 back, plus <code>11</code>, 3: distance 12. 16 bits stand for 23 bytes.</p><p>Only 12 bytes lie between the source and the destination, but the copy is 23 long. Watch <a href="#bit-output">the output</a>, counting bytes from 0: the decoder copies one byte at a time, so when it reaches byte 24 it reads byte 12, which this same copy wrote 12 steps earlier. Every byte it reads already exists by the time it needs it.</p><p>One thing this block can't show you: its extra bits, <code>0</code>, <code>00</code> and <code>11</code>, read the same either way round, so you can't see that they arrive lowest bit first. <a href="how-deflate-sends-its-code.html#step-runs">Part 2</a> has one that doesn't.</p></bh-cw-step>
       <bh-cw-step lines="18"><p><strong>End of block.</strong> Symbol 256 is seven zeros in the fixed code. That makes 103 bits, the total in the first figure; one more bit of padding fills the 13th byte.</p></bh-cw-step>
     </bh-codewalk>
     <figure class="diagram wide" id="bit-output" data-vr-mask>
@@ -644,7 +652,7 @@
     <details class="disclosure" id="zlib-stream" data-linkable>
       <summary>Why does zlib write 15 bytes for the same string?</summary>
       <p>The reference zlib, version 1.2.12 at level 9, writes the 15 bytes <code>4b 4c 2a 4a 4c 4e 4c 49 04 52 0a 89 d8 d9 00</code>: 119 bits against this encoder's 103. Both decode to the same 35 bytes. DEFLATE fixes how to <em>decode</em>, not how to encode: any token stream that rebuilds the input is valid.</p>
-      <p>zlib's hash chains use position 0 as their "no match" marker, so zlib never copies from the very first byte of a stream. Both copies here start there, so zlib starts each one byte later, after an extra literal <code>a</code>: (3, 7) and (22, 12) instead of (4, 7) and (23, 12), which costs 16 bits. On real files, zlib's smarter match choices win by far more. Other builds choose differently again: Chromium's fork of zlib, in Chrome and in Node's official binaries, writes 17 bytes for this string.</p>
+      <p>zlib finds matches by keeping, for each 3-byte string, a chain of the earlier positions where it occurred, and it uses position 0 as the chain's "no match" marker. So zlib never copies from the very first byte of a stream. Both copies here start there, so zlib starts each one byte later, after an extra literal <code>a</code>: (3, 7) and (22, 12) instead of (4, 7) and (23, 12), which costs 16 bits: two more 8-bit literals. On real files, zlib's smarter match choices win by far more. Other builds choose differently again: Chromium's fork of zlib, in Chrome and in Node's official binaries, writes 17 bytes for this string.</p>
     </details>
     <h2 id="fixed-limits">Where the fixed code falls short</h2>
     <p>The fixed code is fair to every byte, and that is its weakness: it can't know which bytes are common. For the 35-byte opening string that didn't matter, and the fixed block was the right choice. But take a longer text, a 381-byte paragraph of English about DEFLATE (one of the playground's examples, <a href="#try-it">further down</a>). zlib compresses it with codes fitted to its own counts, built with the same algorithm as <a href="#huffman">the abracadabra tree</a>:</p>
@@ -663,8 +671,13 @@
       </table>
     </div>
     <p>The common bytes drop to 3 or 4 bits, and the rare ones lose nothing. Across all 233 literals the fixed code spends 1,864 bits and the fitted code 1,108, about 4.8 bits a literal instead of 8. With the lengths and distances counted too, the data takes 2,375 bits with the fixed code and 1,521 with the fitted one.</p>
-    <p>The fitted code isn't free: the decoder has to be told what it is, and for this block that costs 352 bits. Even so, the block comes to 1,876 bits instead of 2,378, about a fifth smaller. That is the case for dynamic codes, and <a href="how-deflate-sends-its-code.html">part 2</a> is about them: how a block describes its code in a few hundred bits rather than thousands, by sending nothing but code lengths.</p>
+    <p>The fitted code isn't free: the decoder has to be told what it is, and for this block that costs 352 bits. Even so, with the 3 header bits the block comes to 1,876 bits instead of 2,378, about a fifth smaller. That is the case for dynamic codes, and <a href="how-deflate-sends-its-code.html">part 2</a> is about them: how a block describes its code in a few hundred bits rather than thousands, by sending nothing but code lengths.</p>
     <h2 id="answer">Back to the question</h2>
+    <details class="predict">
+      <summary>Before the tally: the block is 177 bits smaller than the 280 plain bits. How many of those 177 come from removing repetition, and how many from removing skew? A rough split is enough.</summary>
+      <p><strong>All of them come from repetition, and a little more.</strong> The two copies replace 216 plain bits with 29, a saving of 187. The literals save nothing: the fixed code gives every ASCII byte 8 bits, exactly what it cost before, so the skew of <code>abracadabra</code> is never used. The header and end-of-block cost 10 bits that plain bytes don't, and 187 − 10 = 177.</p>
+      <p>If you gave skew a fair share, that was the reasonable model: Huffman coding does remove skew, but only with a code fitted to the text, and for 35 bytes describing one costs more than it saves.</p>
+    </details>
     <p>So how do you make <code>abracadabra abracadabra abracadabra</code> smaller without losing a letter? You remove its two kinds of waste, in order, and you can now account for every one of the 103 bits:</p>
     <div class="table-wrap" id="answer-bits" data-linkable>
       <table>
@@ -681,11 +694,11 @@
         </tbody>
       </table>
     </div>
-    <p>Almost all of the saving is repetition: two copies stand for 27 of the 35 bytes, in 29 bits. Skew barely helps a string this short. Codes fitted to it would save 59 bits on the data but cost 159 bits to describe, which is why the block uses the fixed codes. And zlib's 15 bytes are the same story with a slightly worse parse: <a href="#zlib-stream">16 bits worse</a>.</p>
+    <p>All of the saving is repetition: two copies stand for 27 of the 35 bytes, in 29 bits. Skew doesn't help at all here: the fixed code gives every ASCII byte the same 8 bits it had before. Codes fitted to the string would save 59 bits on the data but cost 159 bits to describe (<a href="how-deflate-sends-its-code.html#dynamic-block">part 2</a> writes that block out), which is why the block uses the fixed codes. And zlib's 15 bytes are the same story with a slightly worse parse: <a href="#zlib-stream">16 bits worse</a>.</p>
     <p>The same two questions explain any compression result you meet: <strong>is there repetition, and is there skew?</strong> English text has both, which is why the paragraph compresses well. A JPEG, or anything already compressed or encrypted, has neither left, which is why gzipping it gains nothing. PNG is the clever case: before DEFLATE runs, it filters each row of pixels, usually storing each byte as its difference from a neighbouring pixel. A smooth image then becomes mostly small numbers, and that is skew Huffman coding can use.</p>
     <p>How good is DEFLATE, then? RFC 1951, which defines it, dates from 1996. Newer formats such as Zstandard and Brotli use the same two ideas with longer windows and more sophisticated coding, and usually compress better. DEFLATE stays everywhere because every decoder already reads it.</p>
     <h2 id="try-it">Try it</h2>
-    <p>You have seen both savings on one 35-byte string. Here they are on any text you like. Type anything, or pick an example. The tokens are what LZ77 found; the numbers show each saving on its own and both together. Every count is the size of a real DEFLATE stream that this page's encoder writes, not an estimate.</p>
+    <p>You have seen both savings on one 35-byte string. Here they are on any text you like. Type anything, or pick an example. The tokens are what LZ77 found. The numbers show each saving on its own and both together: a code fitted to the bytes removes only skew, LZ77 with the fixed code removes only repetition, and the last does both. A fitted code's count includes the bits to describe it. Every count is the size of a real DEFLATE stream that this page's encoder writes, not an estimate.</p>
     <bh-playground class="wide" id="deflate-lab">
       <div>
         <label class="control" for="lab-text"><span>Text to compress <output id="lab-size">35 bytes</output></span></label>
@@ -699,9 +712,9 @@
       </div>
       <div class="metrics">
         <div class="metric"><span class="value" id="lab-raw">280</span><span class="label">bits as plain bytes</span></div>
-        <div class="metric"><span class="value" id="lab-huff">223</span><span class="label">bits with Huffman alone</span></div>
-        <div class="metric"><span class="value" id="lab-lz">103</span><span class="label">bits with LZ77 alone (fixed codes)</span></div>
-        <div class="metric"><span class="value" id="lab-both">203</span><span class="label">bits with both, incl. a <span id="lab-header">159</span>-bit table</span></div>
+        <div class="metric"><span class="value" id="lab-huff">223</span><span class="label">bits with a fitted code alone, no LZ77</span></div>
+        <div class="metric"><span class="value" id="lab-lz">103</span><span class="label">bits with LZ77 and the fixed code</span></div>
+        <div class="metric"><span class="value" id="lab-both">203</span><span class="label">bits with LZ77 and a fitted code, <span id="lab-header">159</span> of them to describe it</span></div>
         <div class="metric"><span class="value" id="lab-out">13</span><span class="label">bytes out, as a <span id="lab-type">fixed</span> block</span></div>
       </div>
       <div class="lab-write">
@@ -715,7 +728,7 @@
         <p class="lab-stream"><strong id="lab-stream-size">13 bytes</strong> (<span id="lab-stream-bits">103</span> bits) as a <span id="lab-stream-type">fixed</span> block: <code id="lab-hex">4b 4c 2a 4a 4c 4e 4c 01 51 0a 38 d8 00</code></p>
         <p class="muted" id="lab-check" aria-live="polite" data-vr-mask hidden></p>
       </div>
-      <p class="readout" id="lab-summary">LZ77 replaced 27 of 35 bytes with 2 back-references, leaving 8 literals. Codes built for this text would need a 159-bit table, more than they save, so the fixed codes win.</p>
+      <p class="readout" id="lab-summary">LZ77 replaced 27 of 35 bytes with 2 back-references, leaving 8 literals. Codes built for this text would take 159 bits to describe, more than they save, so the fixed codes win.</p>
       <p class="muted" id="lab-browser-line" data-vr-mask hidden>For comparison, your browser's own DEFLATE (<code>CompressionStream</code>) wrote <output id="lab-browser">…</output> bytes.</p>
       <ul class="legend"><li><span class="swatch c2"></span>literal byte</li><li><span class="swatch c1"></span>back-reference (length, distance)</li></ul>
       <p class="muted" id="lab-pick" aria-live="polite" hidden>Click a back-reference to see the bytes it copies.</p>
@@ -731,7 +744,12 @@
         </div>
       </details>
     </bh-playground>
-    <p>Click any back-reference to see which earlier bytes it copies, and use <strong>Write it as</strong> to see the same tokens as each kind of block: the smallest is what an encoder would send, but every one decodes. The paragraph shows both savings clearly: LZ77 finds the repeated words, and the skew of English letters pays for a dynamic table. One letter ×300 is almost all repetition. "No repeats" has nothing for LZ77 and too little text to pay for a table, so it comes out slightly larger than it went in.</p>
+    <p>Click any back-reference to see which earlier bytes it copies, and use <strong>Write it as</strong> to see the same tokens as each kind of block: the smallest is what an encoder would send, but every one decodes. The paragraph shows both savings clearly: LZ77 finds the repeated words, and the skew of English letters pays for describing a code fitted to it. One letter ×300 is almost all repetition. "No repeats" has nothing for LZ77 and too little text to pay for describing a code, so it comes out slightly larger than it went in.</p>
+    <p>A question to try: pick the paragraph, then delete text from its end. Below what length does the smallest block switch from dynamic to fixed? Guess first.</p>
+    <details class="disclosure" id="switch-point" data-linkable>
+      <summary>Optional: the answer</summary>
+      <p>From 69 bytes on, this page's encoder writes a dynamic block; at 68 and below, a fixed one. Describing a fitted code costs about 230 bits even for a short text, so it pays only once there are enough symbols to save that much. zlib, which chooses its tokens differently, switches at 74 (<a href="how-deflate-sends-its-code.html#choosing">part 2</a>).</p>
+    </details>
     <h2 id="serial">Why decoding is serial</h2>
     <p>Everything so far has been about size. The price of that density is speed. The output has no separators and no index. A code's length is known only once it has been decoded, so the decoder cannot find where symbol <em>n</em> + 1 starts without decoding symbol <em>n</em>. Back-references add a second chain: a copy reads bytes that earlier tokens wrote.</p>
     <p>That is why a gzip file is decompressed by one core, front to back, however many cores the machine has. Getting around it, for example to decode on a GPU, means finding where blocks start without decoding what comes before, and resolving copies whose sources aren't decoded yet. A later series here takes that on; nothing on this page depends on it.</p>
@@ -740,7 +758,7 @@
     <p>These are defined here, for this page. DEFLATE's broader terms are in the <a href="glossary.html">site glossary</a>: <a href="glossary.html#deflate">DEFLATE</a>, <a href="glossary.html#lz77">LZ77</a>, <a href="glossary.html#huffman-code">Huffman code</a>, <a href="glossary.html#canonical-huffman-code">canonical Huffman code</a>, <a href="glossary.html#back-reference">back-reference</a>, <a href="glossary.html#sliding-window">sliding window</a>, <a href="glossary.html#end-of-block">end-of-block</a> and <a href="glossary.html#extra-bits">extra bits</a>.</p>
     <dl class="glossary wide">
       <dt id="alphabet" data-aliases="alphabets">Alphabet</dt>
-      <dd><p>The fixed set of symbols a Huffman code is built over. DEFLATE uses three: literal/length, distance and code-length. <a href="#joining">How the two ideas join</a></p></dd>
+      <dd><p>The fixed set of symbols a Huffman code is built over. DEFLATE uses three: literal/length and distance for the data, and the code-length alphabet, which part 2 uses to send a block's own code. <a href="#joining">How the two ideas join</a></p></dd>
       <dt id="bfinal">BFINAL</dt>
       <dd><p>The first bit of every block: 1 if it is the last block of the stream. <a href="#block-types">Blocks, and the fixed code</a></p></dd>
       <dt id="btype-field">BTYPE</dt>
@@ -750,7 +768,7 @@
       <dt id="dynamic-huffman-code" data-aliases="dynamic Huffman codes, dynamic codes, dynamic block, dynamic blocks, dynamic Huffman block">Dynamic Huffman code</dt>
       <dd><p>Codes built for one block from that block's own symbol counts, and sent as code lengths at its start (<code>BTYPE</code> 10). They don't change while the block is read: <em>dynamic</em> means per block, not adaptive. <a href="how-deflate-sends-its-code.html#dynamic-block">A dynamic block, bit by bit</a></p></dd>
       <dt id="fixed-huffman-code" data-aliases="fixed Huffman codes, fixed codes, fixed code, fixed block, fixed blocks">Fixed Huffman code</dt>
-      <dd><p>Codes set once by the RFC, for any block with <code>BTYPE</code> 01, so no table is sent: 8 or 9 bits per literal, 7 or 8 per length symbol, 5 per distance symbol. <a href="#fixed-lengths">Why 7–9 bits</a></p></dd>
+      <dd><p>Codes set once by the RFC, for any block with <code>BTYPE</code> 01, so the block never has to describe them: 8 or 9 bits per literal, 7 or 8 per length symbol, 5 per distance symbol. <a href="#fixed-lengths">Why 7–9 bits</a></p></dd>
       <dt id="literal" data-aliases="literals">Literal</dt>
       <dd><p>A byte that LZ77 sends as itself, because no match of 3 or more starts there. It becomes the literal/length symbol with the same value, 0–255. <a href="#lz77">LZ77</a></p></dd>
       <dt id="literal-length-alphabet" data-aliases="literal/length, literal/length symbol, literal/length symbols, literal/length code, literal/length codes">Literal/length alphabet</dt>
@@ -762,7 +780,7 @@
       <dt id="stored-block" data-aliases="stored blocks">Stored block</dt>
       <dd><p>A block of up to 65,535 raw bytes (<code>BTYPE</code> 00), after a byte-aligned length and its complement. Encoders use it when compressing would make the data bigger. <a href="how-deflate-sends-its-code.html#choosing">Choosing a block type</a></p></dd>
       <dt id="symbol" data-aliases="symbols">Symbol</dt>
-      <dd><p>One element of an alphabet: what Huffman coding counts and gives a code. DEFLATE maps LZ77's tokens onto symbols, so Huffman coding never sees the raw bytes. <a href="#joining">How the two ideas join</a></p></dd>
+      <dd><p>One element of an alphabet: what Huffman coding counts and gives a code. DEFLATE maps LZ77's tokens onto symbols: a literal is its own symbol, a back-reference becomes two plus extra bits. <a href="#joining">How the two ideas join</a></p></dd>
       <dt id="token" data-aliases="tokens">Token</dt>
       <dd><p>One item of LZ77's output: a literal, or a back-reference (length, distance). Each becomes one or two symbols. <a href="#lz77">LZ77</a></p></dd>
     </dl>
@@ -1025,8 +1043,8 @@ const Deflate = (() => {
     const lz = `LZ77 replaced ${nf(covered)} of ${nf(n)} bytes with ${nf(refs.length)} back-reference${s(refs.length)}, leaving ${nf(lits)} literal${s(lits)}.`;
     const saved = r.bits.fixed - r.bits.dynamic;
     const huff = r.best === "stored" ? "Neither saving pays for itself here, so the bytes are stored as they are."
-      : saved > 0 ? `Codes built for this text save another ${nf(saved)} bits, after paying ${nf(r.headerBits)} bits to send their table.`
-      : `Codes built for this text would need a ${nf(r.headerBits)}-bit table, more than they save, so the fixed codes win.`;
+      : saved > 0 ? `Codes built for this text save another ${nf(saved)} bits, after paying ${nf(r.headerBits)} bits to describe them.`
+      : `Codes built for this text would take ${nf(r.headerBits)} bits to describe, more than they save, so the fixed codes win.`;
     return `${lz} ${huff}`;
   }
 

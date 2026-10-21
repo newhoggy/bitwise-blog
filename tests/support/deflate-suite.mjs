@@ -183,7 +183,9 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(t.blocks.length, 1);
     const { type, hlit, hdist, hclen, headerBits } = t.blocks[0];
     assert.equal(type, "dynamic");
-    assert.ok(PAGE.includes(`(<code>HLIT</code> = ${hlit}, <code>HDIST</code> = ${hdist}, <code>HCLEN</code> = ${hclen}, then the lengths) is ${headerBits} bits, about ${Math.round(headerBits / 8)} bytes.`));
+    assert.ok(PAGE.includes(series
+      ? `(${hlit} literal/length lengths, ${hdist} distance lengths and ${hclen} code-length-code lengths, counted by <code>HLIT</code>, <code>HDIST</code> and <code>HCLEN</code>, then the code-length symbols) is ${headerBits} bits, about ${Math.round(headerBits / 8)} bytes.`
+      : `(<code>HLIT</code> = ${hlit}, <code>HDIST</code> = ${hdist}, <code>HCLEN</code> = ${hclen}, then the lengths) is ${headerBits} bits, about ${Math.round(headerBits / 8)} bytes.`));
   });
 
   test("the playground's no-JavaScript state is the encoder's result for its default text", () => {
@@ -508,12 +510,21 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.deepEqual(rows, [[111, 581], [ex.naive, para.naive], [ex.counts, para.counts], [ex.runs, para.runs], [ex.coded, para.coded]]); // the tree row: see the tree-cost test
     const prose = text(PAGE.match(/<h2 id="dynamic-header">[\s\S]*?<figure class="frame wide" id="header-steps">/)[0]);
     assert.match(prose, /That is 1,264 bits, 158 bytes/);
-    assert.match(prose, /The example's data is only 41 bits, so its code table would cost 30 times as much/);
+    assert.match(prose, series ? /The example's data is only 41 bits, so describing its code would cost 30 times as much/ : /The example's data is only 41 bits, so its code table would cost 30 times as much/);
     assert.equal(Math.floor(ex.naive / ex.data), 30);
     assert.match(prose, /Even the paragraph's data, 1,521 bits/);
     assert.match(prose, /1,122 bits for the example and 1,158 for the paragraph/);
-    assert.match(prose, /The header drops to 146 bits for the example \(step 3 in the figure\) and 443 for the paragraph/);
-    assert.match(prose, /it costs 159 bits for the example \(step 4 in the figure\) and 352 for the paragraph\. For the paragraph, coding the run symbols saved another 91 bits\. For the tiny example it cost 13 more: describing the small code took more than it saved on just 19 run symbols/);
+    assert.match(prose, series ? /The header drops to 146 bits for the example \(step 3 in the figure below\) and 443 for the paragraph/ : /The header drops to 146 bits for the example \(step 3 in the figure\) and 443 for the paragraph/);
+    assert.match(prose, series
+      ? /it costs 159 bits for the example \(step 4 in the figure below\) and 352 for the paragraph\. For the paragraph, coding the code-length symbols saved another 91 bits, 443 down to 352\. For the tiny example it cost 13 more: describing the small code took more than it saved on just 19 symbols/
+      : /it costs 159 bits for the example \(step 4 in the figure\) and 352 for the paragraph\. For the paragraph, coding the run symbols saved another 91 bits\. For the tiny example it cost 13 more: describing the small code took more than it saved on just 19 run symbols/);
+    // The figure's step sums: 278 lengths + 10 bits of counts; 19 symbols at 5 bits + 41 extra bits + the counts.
+    assert.equal((ex.counts - 10) / 4, 278);
+    assert.equal(ex.runSymbols * 5 + 41 + 10, ex.runs);
+    if (series) {
+      assert.match(prose, /278 lengths at 4 bits, plus 10 bits for the two counts, make 1,122 bits/);
+      assert.match(prose, /The 19 symbols take 95 \+ 41 = 136 bits; with the 10 bits of counts, 146/);
+    }
     assert.equal(para.runs - para.coded, 91);
     assert.equal(ex.coded - ex.runs, 13);
     // "the example's 262 unused literal/length symbols take just 7"
@@ -559,7 +570,8 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.match(fig, />111 bits</);
     // The prose.
     const sec = text(PAGE.match(/<h2 id="canonical">[\s\S]*?<h2 id="dynamic-header">/)[0]);
-    assert.match(sec, /For the example that is 9 × \(9 \+ 4\) bits plus the 30 bits of the codes, 147 bits, and d5 and d6 add 2 × \(5 \+ 4 \+ 1\) = 20: 167 bits/);
+    assert.match(sec, series ? /For the example that is 9 × \(9 \+ 4\) bits plus the codes themselves, 30 bits in all, 147 bits, and d5 and d6 add 2 × \(5 \+ 4 \+ 1\) = 20: 167 bits/
+      : /For the example that is 9 × \(9 \+ 4\) bits plus the 30 bits of the codes, 147 bits, and d5 and d6 add 2 × \(5 \+ 4 \+ 1\) = 20: 167 bits/);
     assert.match(sec, /That is 111 bits for the example\. Look at where they go: 20 describe the shape, and 91 name the symbols/);
     assert.match(sec, /the walk starts 0 0 0 1 r: the root, the node of 4 on its left, the node of 2 on that one's left, then the leaf r, followed by its sibling, 1 end/);
     assert.deepEqual(want.slice(0, 6).map((w) => w[0]), [root, "x-n6", "x-n3", "x-r", "x-r", "x-end"]);
@@ -657,7 +669,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
       assert.deepEqual(order, [
         "question", "two-ideas", "lz77", "huffman", "joining", "join-example", "block-types", "one-block", "fixed-limits", // part 1: the fixed code, its bit walk, where it falls short
         "answer", "try-it", "serial", "terms", "further-reading",
-        "recap", "example-code", "canonical", "decoding", "dynamic-header", "dynamic-runs", "dynamic-block", "choosing", // part 2: the build-up to a dynamic block
+        "recap", "example-code", "canonical", "dynamic-header", "dynamic-runs", "dynamic-block", "decoding", "choosing", // part 2: the build-up to a dynamic block, then how a decoder reads it
         "what-it-costs", "terms", "further-reading",
         "two-alphabets", "not-symbols", "edge-cases", "terms", "further-reading"]); // part 3: the reference
       return;
@@ -695,7 +707,8 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.match(prose, /the fixed code spends 1,864 bits and the fitted code 1,108, about 4\.8 bits a literal/);
     assert.equal((litFitted / lits.length).toFixed(1), "4.8");
     assert.match(prose, /the data takes 2,375 bits with the fixed code and 1,521 with the fitted one/);
-    assert.match(prose, /for this block that costs 352 bits\. Even so, the block comes to 1,876 bits instead of 2,378, about a fifth smaller/);
+    assert.match(prose, series ? /for this block that costs 352 bits\. Even so, with the 3 header bits the block comes to 1,876 bits instead of 2,378, about a fifth smaller/
+      : /for this block that costs 352 bits\. Even so, the block comes to 1,876 bits instead of 2,378, about a fifth smaller/);
     assert.equal(Math.round((1 - 1876 / 2378) * 100), 21);
   });
 
@@ -710,7 +723,8 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     const runs = tr.fields.filter((f) => f.kind === "clsym"), n = (sym) => runs.filter((f) => f.symbol === sym).length;
     assert.deepEqual([runs.length, n(8), n(5), n(0), n(2), n(16)], [78, 14, 14, 12, 1, 0]);
     assert.ok(Math.max(...[...Array(19).keys()].map(n)) === 14, "8 and 5 are the most common");
-    assert.match(PAGE, /Of the paragraph's 78, the lengths 8 and 5 appear 14 times each and 0 appears 12 times, while 2 appears once and 16 not at all/);
+    assert.match(PAGE, series ? /The paragraph's lengths take 78 of them: symbols 8 and 5 appear 14 times each and 0 appears 12 times, while 2 appears once and 16 not at all/
+      : /Of the paragraph's 78, the lengths 8 and 5 appear 14 times each and 0 appears 12 times, while 2 appears once and 16 not at all/);
     // Choosing: the example's dynamic block is twice its fixed one; random bytes grow under both codes.
     const ex = Deflate.encode(utf8(EXAMPLE)), rn = Deflate.encode(noise());
     assert.deepEqual([ex.streams.dynamic.length, ex.streams.fixed.length], [26, 13]);
@@ -772,8 +786,8 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(PARTS[3][2][3], "13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50");
     assert.equal(PARTS[2][2][3], "5 × 7 + 2 × 3 = 41");
     assert.match(fig, /Only the 11 marked slots are not zero\. 1,264 bits/);
-    assert.match(fig, /so 38 slots go\. 1,122 bits/);
-    assert.match(fig, /19 symbols come to 146 bits/);
+    assert.match(fig, series ? /so 38 slots go: 278 lengths at 4 bits, plus 10 bits for the two counts, make 1,122 bits/ : /so 38 slots go\. 1,122 bits/);
+    assert.match(fig, series ? /The 19 symbols take 95 \+ 41 = 136 bits; with the 10 bits of counts, 146/ : /19 symbols come to 146 bits/);
     // The extra-bits row: each run's extra bits, as they arrive, and nothing under the other chips.
     runs.forEach((f, k) => {
       const m = fig.match(new RegExp(`data-id="r${k}-extra"[^>]*>([01]+)<`));
@@ -782,7 +796,8 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     const rev = (bits) => parseInt([...bits].reverse().join(""), 2);
     assert.deepEqual([runs[0].symbol, runs[0].extraBits, rev(runs[0].extraBits), runs[0].count], [18, "1010100", 21, 32]);
     for (const f of runs.filter((f) => f.symbol >= 17)) assert.equal((f.symbol === 17 ? 3 : 11) + rev(f.extraBits), f.count);
-    assert.match(text(fig), /Under the first 18, 1010100 read backwards is 0010101, 21, and 18's runs start at 11, so 11 \+ 21 = 32/);
+    if (series) assert.match(text(PAGE.match(/<h3 id="step-runs">[\s\S]*?<h3 id="step-coded">/)[0]), /an 18, then the 7 extra bits 1010100\. Read backwards that is 0010101, 21, and an 18's runs start at 11, so 11 \+ 21 = 32/);
+    else assert.match(text(fig), /Under the first 18, 1010100 read backwards is 0010101, 21, and 18's runs start at 11, so 11 \+ 21 = 32/);
     // Step 3's fans: each joins the stretch of the old list a chip replaced to that chip.
     const SEND = JSON.parse(PAGE.match(/const SEND = (\{.*\});/)[1]);
     for (const id of ["row-sym", "row-sub", "row-code", "row-cost"]) assert.match(fig, new RegExp(`data-id="${id}"`));
@@ -794,7 +809,8 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
       assert.deepEqual([+ghost[1], +ghost[2]], [c.bar.x, Math.max(c.bar.w, SEND.SLOT)], c.id);
       assert.deepEqual([pts[0][0], pts[3][0], pts[2][0]], [c.bar.x, c.row.x, c.row.x + SEND.ROW.w], c.id);
     }
-    assert.match(fig, /With the 54 bits that describe this code, that makes 159 bits: for this short list, 13 more than step 3/);
+    if (series) assert.match(text(fig), /The symbols and their extra bits now take 50 \+ 41 = 91 bits\. With 14 bits of counts and the 54 bits that describe this small code, that makes 159 bits: for this short list, 13 more than step 3/);
+    else assert.match(fig, /With the 54 bits that describe this code, that makes 159 bits: for this short list, 13 more than step 3/);
   });
 
   test("the example's tree is the encoder's Huffman code for its LZ77 symbols", () => {
