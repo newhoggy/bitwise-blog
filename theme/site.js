@@ -105,6 +105,16 @@ window.BH_SITE = {
    "supersededBy": "docs/how-deflate-compresses.html"
   },
   {
+   "href": "docs/pedagogical-writing.html",
+   "title": "Pedagogical writing: so the reader could have invented it",
+   "kind": "explainer",
+   "status": "draft",
+   "date": "2026-10-22",
+   "description": "A clear, correct explanation can teach almost nothing. Pedagogical writing orders an idea so the reader could have invented it: a need, a naive attempt, its crack, then the fix and its name.",
+   "supersedes": "",
+   "supersededBy": ""
+  },
+  {
    "href": "docs/token-bucket-rate-limiting.html",
    "title": "Token bucket rate limiting",
    "kind": "explainer",
@@ -275,6 +285,11 @@ window.BH_SITE = {
     "href": "docs/how-deflate-compresses.html#terms",
     "title": "How DEFLATE compresses",
     "section": "Terms used on this page"
+   },
+   {
+    "href": "docs/pedagogical-writing.html#ladder",
+    "title": "Pedagogical writing: so the reader could have invented it",
+    "section": "But a page holds many ideas: a ladder"
    }
   ],
   "docs/adr-001-rate-limit-in-each-service.html": [
@@ -323,6 +338,11 @@ window.BH_SITE = {
     "href": "docs/how-deflate-sends-its-code.html#what-it-costs",
     "title": "How a DEFLATE block sends its own code",
     "section": "What a block's code costs"
+   },
+   {
+    "href": "docs/pedagogical-writing.html#limits",
+    "title": "Pedagogical writing: so the reader could have invented it",
+    "section": "When the loop is the wrong tool"
    }
   ]
  },
