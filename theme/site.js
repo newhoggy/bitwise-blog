@@ -272,9 +272,24 @@ window.BH_SITE = {
     "section": "Blocks, and the fixed code"
    },
    {
+    "href": "docs/how-deflate-compresses.html#one-block",
+    "title": "How DEFLATE compresses",
+    "section": "One real block, bit by bit"
+   },
+   {
     "href": "docs/how-deflate-compresses.html#fixed-limits",
     "title": "How DEFLATE compresses",
     "section": "Where the fixed code falls short"
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#answer",
+    "title": "How DEFLATE compresses",
+    "section": "Back to the question"
+   },
+   {
+    "href": "docs/how-deflate-compresses.html#try-it",
+    "title": "How DEFLATE compresses",
+    "section": "Try it"
    },
    {
     "href": "docs/how-deflate-compresses.html#serial",

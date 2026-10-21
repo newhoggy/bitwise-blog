@@ -216,14 +216,14 @@
     <header class="bh-hero">
       <p class="eyebrow">Explainer · Compression</p>
       <h1>How a DEFLATE block sends its own code</h1>
-      <p class="lede">A Huffman code fitted to the text saves bits only if the decoder can be told what it is, and telling it costs bits too. This page takes that description from 1,264 bits down to 159, and shows why a block sends nothing but code lengths.</p>
+      <p class="lede">A Huffman code fitted to the text saves bits only if the decoder can be told what it is, and telling it costs bits too. This page tries a table, a tree and a list of code lengths, and shows why DEFLATE sends only the lengths, even though for a tiny block the tree would be cheaper.</p>
       <dl class="bh-meta" data-auto></dl>
     </header>
 
     <div class="tldr">
       <ul>
-        <li><strong>A block that fits its own Huffman code sends only each symbol's code length, in symbol order.</strong> The decoder rebuilds exactly the same codes from the lengths, by a rule both sides know.</li>
-        <li>It matters because the description is pure overhead: for a 381-byte paragraph, the fitted code saves 854 bits on the data and describing it costs 352.</li>
+        <li><strong>To ship a code along with its data, send the least that determines it, in an order the receiver can predict.</strong> A DEFLATE block sends only each symbol's code length, in symbol order, and the decoder rebuilds exactly the same codes by a rule both sides know.</li>
+        <li>It matters because the description is pure overhead: for a 381-byte paragraph, zlib's fitted code saves 854 bits on the data and describing it costs 352.</li>
         <li>The common misconception is that the Huffman tree travels with the data. It doesn't: no tree and no symbol names are sent.</li>
       </ul>
     </div>
@@ -238,10 +238,10 @@
     </aside>
 
     <h2 id="recap">Where part 1 left off</h2>
-    <p><a href="how-deflate-compresses.html">Part 1</a> built DEFLATE's two savings and read a block written with the fixed codes, which the format sets once, so a block never has to describe them. The one idea to bring from it: <strong>a code fitted to a block's own counts saves bits on the data, but the decoder has never seen those counts, so the block has to tell it the code.</strong> For a 381-byte paragraph of English, the fitted code saved 854 bits on the data, and describing it cost 352 of them. Describe it carelessly and the code costs more than it saves.</p>
-    <p>This page is about that description. First we fit a code to part 1's 35-byte example, <code>abracadabra abracadabra abracadabra</code>, so there is something concrete to send. Then we look for the cheapest way to send it: as a table, as a tree, and then the idea that makes DEFLATE's dynamic blocks affordable, sending nothing but code lengths. The rest of the page squeezes that list of lengths from 1,264 bits to 159, and ends by reading a whole dynamic block bit by bit.</p>
+    <p><a href="how-deflate-compresses.html">Part 1</a> built DEFLATE's two savings and read a block written with the fixed codes, which the format sets once, so a block never has to describe them. The one idea to bring from it: <strong>a code fitted to a block's own counts saves bits on the data, but the decoder has never seen those counts, so the block has to tell it the code.</strong> For a 381-byte paragraph of English, zlib's fitted code saved 854 bits on the data, and describing it cost 352 of them. Describe it carelessly and the code costs more than it saves.</p>
+    <p>This page is about that description. First we fit a code to part 1's 35-byte example, <code>abracadabra abracadabra abracadabra</code>, so there is something concrete to send. Then we look for the cheapest way to send it: as a table, as a tree, and then the idea that makes DEFLATE's dynamic blocks affordable, sending nothing but code lengths. The rest of the page squeezes that list until, for the paragraph, it beats the tree, and then reads a whole dynamic block bit by bit.</p>
     <h2 id="example-code">The example's own code</h2>
-    <p>Fitting a code pays for the paragraph. To follow one all the way through, here is the code fitted to the 35-byte example. Huffman coding never sees the raw letters: it counts the symbols that LZ77's output maps to (<a href="how-deflate-compresses.html#joining">the join</a>). After LZ77 the example is 10 tokens plus the end-of-block symbol: 11 symbols, 9 of them different. <code>a</code> appears 3 times, as a literal; every other symbol appears once.</p>
+    <p>Fitting a code pays for the paragraph. To follow one all the way through, here is the code fitted to the 35-byte example. Huffman coding never sees the raw letters: it counts the symbols that LZ77's output maps to (<a href="how-deflate-compresses.html#joining">the join</a>). After LZ77 the example is 10 tokens. Its 8 literals, its two length symbols and the end-of-block symbol make 11 symbols in the literal/length alphabet, 9 of them different: <code>a</code> appears 3 times, as a literal, and every other symbol once. The two distances belong to the distance alphabet, which gets a code of its own below.</p>
     <figure class="diagram wide" id="example-tree">
       <svg viewBox="-16 -26 772 500" role="img" aria-label="Huffman's tree for the example's symbols after LZ77: a, used 3 times, gets a 2-bit code; r, end-of-block, 258 and 270 get 3 bits; space, b, c and d get 4">
         <text class="label strong ex-total" x="740" y="-8" text-anchor="end">34 bits</text>
@@ -326,9 +326,9 @@
       <bh-step><p><strong>Count the bits.</strong> A code's length is the symbol's depth in the tree: <code>a</code> has 2 bits; <code>r</code>, end, 258 and 270 have 3; ␣, <code>b</code>, <code>c</code> and <code>d</code> have 4. The 11 symbols now cost 34 bits instead of 85.</p></bh-step>
       <bh-step><p><strong>As a table.</strong> The tree has done its job. What remains is each symbol with its code and its length, in the order of the tree's leaves. The next section starts from exactly this table.</p></bh-step>
 </bh-stepper>
-    <p>The distance code is simpler: d5 and d6 are used once each, so each gets 1 bit. This code takes the example's symbols from 85 bits to 34. But the decoder has never seen the example's counts, so it can't build the tree itself: the block has to tell it the code, and every bit spent on that comes out of the 51 bits saved.</p>
+    <p>The distance code is simpler: d5 and d6 are used once each, so each gets 1 bit, against 5 in the fixed code. Add the 5 extra bits, which no code touches, and the example's data costs 34 + 2 + 5 = 41 bits, against 85 + 10 + 5 = 100 with the fixed code: 59 bits saved. But the decoder has never seen the example's counts, so it can't build the tree itself: the block has to tell it the code, and every bit spent on that comes out of those 59.</p>
     <h2 id="canonical">Send lengths, not trees</h2>
-    <p>How should a block tell the decoder its code? The most literal way is a table. For each used symbol, write its number in 9 bits, enough for all 286 literal/length symbols, then its code's length in 4 bits so the decoder knows where the code ends, then the code itself. For the example that is 9 × (9 + 4) bits plus the 30 bits of the codes, 147 bits, and d5 and d6 add 2 × (5 + 4 + 1) = 20: 167 bits, plus something to say where the table ends. That is four times the 41 bits of data it describes, and more than three times the 51 bits the code saves.</p>
+    <p>How should a block tell the decoder its code? The most literal way is a table. For each used symbol, write its number in 9 bits, enough for all 286 literal/length symbols, then its code's length in 4 bits so the decoder knows where the code ends, then the code itself. For the example that is 9 × (9 + 4) bits plus the codes themselves, 30 bits in all, 147 bits, and d5 and d6 add 2 × (5 + 4 + 1) = 20: 167 bits, plus something to say where the table ends. That is four times the 41 bits of data it describes, and nearly three times the 59 bits the code saves.</p>
     <p>Sending the tree is cheaper, because the codes are implied by its shape and need not be written out. Walk it from the root, left branch before right. At a branch write 0; at a leaf write 1, then the leaf's symbol number. The decoder rebuilds the same tree from those bits: a 0 means two subtrees follow, a 1 means a symbol follows. Against the <a href="#example-tree">example's tree</a>, the walk starts <code>0 0 0 1</code> <code>r</code>: the root, the node of 4 on its left, the node of 2 on that one's left, then the leaf <code>r</code>, followed by its sibling, <code>1</code> end.</p>
     <figure class="diagram wide" id="tree-cost">
       <svg viewBox="-16 -16 1162 168" role="img" aria-label="The example's code sent as its trees, to scale: 20 bits of shape, one per branch or leaf, and 91 bits of symbol names, 111 bits in all">
@@ -374,7 +374,7 @@
     <p>That is 111 bits for the example. Look at where they go: <span data-ref="tree-cost:tc-key-shape x-n8-flag x-n6-flag x-n3-flag x-r-flag x-end-flag x-n4-flag x-258-flag x-270-flag x-n7-flag x-a-flag x-n5-flag x-n1-flag x-sp-flag x-b-flag x-n2-flag x-c-flag x-d-flag y-root-flag y-d5-flag y-d6-flag">20 describe the shape</span>, and <span data-ref="tree-cost:tc-key-names x-r-name x-end-name x-258-name x-270-name x-a-name x-sp-name x-b-name x-c-name x-d-name y-d5-name y-d6-name">91 name the symbols</span>. Neither is what the decoder actually needs.</p>
     <ul>
       <li><strong>The names.</strong> The tree needs them because its leaves come in tree order, so each leaf must say which symbol it is. A list in <em>symbol</em> order needs none, because the decoder counts as it reads: the first length is symbol 0's, the second symbol 1's, so the 98th is symbol 97's, which is <code>a</code>'s. Nothing in the stream says 97; the position does. <a href="#round-trip">Below</a> is the whole trip, from that slot to the byte <code>a</code>.</li>
-      <li><strong>The shape.</strong> As the <a href="how-deflate-compresses.html#huffman">tie-break question</a> in part 1 showed (when nodes tie, joining a different pair gives a different tree with the same total), many trees are equally good. Swap the two halves under the node of 7: <code>a</code> becomes <code>11</code>, and ␣, <code>b</code>, <code>c</code> and <code>d</code> become <code>1000</code> to <code>1011</code>. Every one of those codes changes, but no length does, so the data still costs 34 bits. The tree spends bits picking one code out of many that are all as good.</li>
+      <li><strong>The shape.</strong> As the <a href="how-deflate-compresses.html#tie-break">tie-break note</a> in part 1 showed (when nodes tie, joining a different pair gives a different tree with the same total), many trees are equally good. Swap the two halves under the node of 7: <code>a</code> becomes <code>11</code>, and ␣, <code>b</code>, <code>c</code> and <code>d</code> become <code>1000</code> to <code>1011</code>. Every one of those codes changes, but no length does, so the data still costs 34 bits. The tree spends bits picking one code out of many that are all as good.</li>
     </ul>
     <p>So DEFLATE drops both, and this is the step the rest of the page builds on. It fixes one rule for turning code <em>lengths</em> into codes, called the <em>canonical Huffman code</em>, so no shape is sent. And it sends the lengths as a list in symbol order, so no symbol is named.</p>
     <figure class="diagram" id="canonical-codes">
@@ -430,15 +430,364 @@
       <bh-step highlight="sym-sp sym-b sym-c sym-d len-sp len-b len-c len-d code-sp code-b code-c code-d why-sp why-b why-c why-d"><p><strong>Again for 4 bits.</strong> <code>101</code> + 1 is <code>110</code>, and one more bit makes ␣ <code>1100</code>; then <code>b</code> <code>1101</code>, <code>c</code> <code>1110</code>, <code>d</code> <code>1111</code>. The decoder runs the same rules on the same lengths, so it gets the same codes without ever seeing a tree.</p></bh-step>
     </bh-stepper>
     <p>These are not the tree's codes: <code>a</code> was <code>10</code> and is now <code>00</code>, and <code>r</code> was <code>000</code> and is now <code>010</code>. But every symbol keeps its length, so the 11 symbols still cost 34 bits. Counting up keeps the code prefix-free: only <code>a</code>'s code starts <code>00</code>, and only the 4-bit codes start <code>11</code>. The distance code works the same way: d5 and d6, 1 bit each, get <code>0</code> and <code>1</code>. These are the codes the example's dynamic block uses, in the <a href="#dynamic-block">bit walk</a> further on.</p>
-    <p>You might object that we have swapped 11 symbol names for something worse: a length for every symbol a block <em>could</em> use, 316 of them, used or not. You would be right, and squeezing that list is <a href="#dynamic-header">the rest of this page</a>. But if you stop here, you already have the core of it: a dynamic block sends code lengths, the decoder rebuilds the codes from them by counting, and no tree and no symbol name is ever sent.</p>
-    <h2 id="decoding">Decoding with only the lengths</h2>
-    <p>Before we measure what the list costs, a short detour: how does a decoder get from a bare list of lengths to the right bytes, without any symbol ever being named? If you are happy to trust that it can, skip ahead to <a href="#dynamic-header">the cost</a>. The one thing to take from this section is that the decoder turns the lengths into a lookup table, then decodes each symbol with a single lookup. For <code>a</code>, the whole trip is three steps:</p>
+    <details class="disclosure" id="try-canonical" data-linkable>
+      <summary><span>Optional: try the rule yourself. A block's lengths are <code>a</code> 1, <code>b</code> 2, <code>c</code> 3 and <code>d</code> 3. What are the codes? And why can no block send <code>a</code> 1, <code>b</code> 1, <code>c</code> 2?</span></summary>
+      <p><code>a</code> is first and shortest, so it gets <code>0</code>. Add one and append a 0 for the extra bit of length: <code>b</code> gets <code>10</code>. Again: <code>c</code> gets <code>110</code>, and counting up within the length, <code>d</code> gets <code>111</code>.</p>
+      <p>For <code>a</code> 1, <code>b</code> 1, <code>c</code> 2, the rule gives <code>a</code> <code>0</code> and <code>b</code> <code>1</code>, and then nothing is left: any code for <code>c</code> would start with one of theirs. In the budget terms of <a href="how-deflate-compresses.html#joining">part 1</a>, ½ + ½ + ¼ is more than 1. A decoder rejects such a list as invalid.</p>
+    </details>
+    <p>How does a decoder get from those lengths back to the right bytes, when no symbol is ever named? For <code>a</code>, the whole trip is three steps:</p>
     <ol id="round-trip" data-linkable>
       <li><strong>Its slot.</strong> The decoder counts the lengths as it reads them. Slot 97, the 98th length, is <code>a</code>'s because <code>a</code> is symbol 97, and it holds 2.</li>
-      <li><strong>Its code.</strong> Once it has every length, the decoder runs the canonical rule above and builds a lookup table from code to symbol. <code>a</code> is the only symbol of length 2, so it gets <code>00</code>, as it did in the encoder.</li>
+      <li><strong>Its code.</strong> Once it has every length, the decoder runs the canonical rule above and builds a lookup table from code to symbol (<a href="#decoding">how, further on</a>). <code>a</code> is the only symbol of length 2, so it gets <code>00</code>, as it did in the encoder.</li>
       <li><strong>Its byte.</strong> In the data, the decoder reads <code>00</code>, looks it up and gets symbol 97. A symbol below 256 is a literal, so it outputs byte 97, <code>01100001</code>: <code>a</code>.</li>
     </ol>
-    <p>Step 2 is where the work is. The codes are 2, 3 and 4 bits long, and nothing in the data marks where one ends, so the decoder can't simply cut the data into codes. It could read one bit at a time and check, after each, whether the bits so far make a code: up to 4 checks per symbol here, and up to 15 in a block with 15-bit codes. Instead it builds a table that answers both questions at once: given the next few bits, which symbol do they start with, and how many bits is its code? Here it is for the example, from start to finish: from the lengths the block sent, to its codes, to its table, and then the table at work on the example's own data.</p>
+    <p>You might object that we have swapped 11 symbol names for something worse: a length for every symbol a block <em>could</em> use, 316 of them, used or not. For this example you would be right, and you will stay right. The tree pays about 11 bits for each symbol a block uses, a 9-bit name plus about 2 bits of shape; the list pays for every symbol it could use. So the list can win only on a block that uses many symbols, and only once its unused slots are made cheap. The 381-byte paragraph is such a block: it uses 57 symbols, and as a tree its code would cost 581 bits, 469 of them names. Squeezing the list until it beats that is <a href="#dynamic-header">the rest of this page</a>. But if you stop here, you already have the core of it: a dynamic block sends code lengths, the decoder rebuilds the codes from them by counting, and no tree and no symbol name is ever sent.</p>
+    <h2 id="dynamic-header">Sending a dynamic code</h2>
+    <p>A dynamic block must tell the decoder its codes before its data. Thanks to <a href="#canonical">canonical codes</a>, it only needs to send each symbol's code length: 286 literal/length symbols and 30 distance symbols, 316 lengths in all, each from 0 to 15. The question is how to send them cheaply, and it matters: every bit spent on the code comes out of the saving. For the paragraph, the fitted code saved 854 bits on the data, and sending it cost 352 of them. Here are four tries, each fixing the biggest waste in the one before, measured on two blocks: the worked example written as a dynamic block (the one <a href="#dynamic-block">walked through below</a>), and zlib's real block for the 381-byte paragraph.</p>
+    <details class="predict">
+      <summary>Before the four tries: the tree costs 111 bits for the example and 581 for the paragraph. Will DEFLATE's final list of lengths beat the tree on the example, on the paragraph, on both or on neither? Pick one.</summary>
+      <p><strong>On the paragraph only.</strong> DEFLATE's list costs 352 bits for the paragraph, against the tree's 581, but 159 for the example, against 111. The tree pays for each symbol a block uses, about 11 bits each; the list pays a little for every symbol it could use. The example uses 11 symbols and the paragraph 57, so only the paragraph has enough names for dropping them to pay.</p>
+      <p>"Both" is the natural guess, since the page has argued for lengths all along, and "neither" is reasonable once you see how many slots the list has. The answer depends on the block. Real blocks, with thousands of symbols, are on the paragraph's side.</p>
+    </details>
+    <h3 id="step-naive">1. Every length, 4 bits each</h3>
+    <p>Write all 316 lengths as plain 4-bit numbers, in symbol order. That is 1,264 bits, 158 bytes, in every dynamic block whatever it holds. The example's data is only 41 bits, so describing its code would cost 30 times as much as the data itself. Even the paragraph's data, 1,521 bits, would nearly double. It is also more than ten times the tree's 111 bits for the example: the tree pays about 11 bits for each symbol a block uses, but the list pays 4 bits for every symbol it could use. Steps 2 to 4 cut what the unused ones cost.</p>
+    <h3 id="step-counts">2. Say how many</h3>
+    <p>Any one block uses few of the symbols. So send two counts first, how many literal/length lengths follow and how many distance lengths (plain 5-bit numbers the format calls <code>HLIT</code> and <code>HDIST</code>, each stored as the count minus a fixed offset), and stop each list after its highest used symbol; the rest count as 0.</p>
+    <details class="predict">
+      <summary>Guess before you read on: the example uses only 11 of its 316 symbols. How much should cutting each list after its last used symbol save?</summary>
+      <p><strong>Hardly anything.</strong> It barely helps: 1,122 bits for the example and 1,158 for the paragraph, against 1,264. Those are the lengths that remain, at 4 bits each, plus 10 bits for the two counts. The unused symbols are mostly in the middle of the alphabet, the byte values a text never contains, not at the end, so there is little tail to cut.</p>
+    </details>
+    <p>The counts stay in the final scheme anyway: with no separators, they are how the decoder knows where each list ends. To shrink the list, step 3 has to deal with the zeros in the middle.</p>
+    <h2 id="dynamic-runs">Runs, and a code for the runs</h2>
+    <h3 id="step-runs">3. Replace runs with one symbol</h3>
+    <p>Write the lengths with a small alphabet of 19 symbols instead: 0–15 for a length, 16 to repeat the previous length, and 17 and 18 for runs of zeros, each followed by plain extra bits that give the count. For now, write each of these symbols as a plain 5-bit number. A whole stretch of unused byte values becomes one symbol: the example's 262 unused literal/length symbols take just 7. The header drops to 146 bits for the example (<a href="#send-steps-step-3">step 3 in the figure below</a>) and 443 for the paragraph. That is the big win, but the paragraph's header is still 443 bits.</p>
+    <div class="table-wrap" id="cl-alphabet" data-linkable>
+      <table>
+        <caption>The code-length alphabet. Fixed by the format: the same in every dynamic block. Each range follows from its extra bits: 2 bits give 4 counts, 3 give 8, 7 give 128.</caption>
+        <thead><tr><th>Symbol</th><th>Means</th><th class="num">Extra bits</th><th>Count</th></tr></thead>
+        <tbody>
+          <tr><td>0–15</td><td>a code length of 0 to 15</td><td class="num">0</td><td></td></tr>
+          <tr><td>16</td><td>repeat the previous length</td><td class="num">2</td><td>3–6 times</td></tr>
+          <tr><td>17</td><td>a run of zeros</td><td class="num">3</td><td>3–10</td></tr>
+          <tr><td>18</td><td>a run of zeros</td><td class="num">7</td><td>11–138</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Runs start at 3 because a run of 1 or 2 is cheaper written out. Zeros get two run symbols, a short one and a long one, because they are by far the most common length.</p>
+    <p>A run's extra bits are a plain number, so they arrive lowest bit first, and they count up from the shortest run the symbol allows. The example's first run is the 32 unused byte values 0–31: an 18, then the 7 extra bits <code>1010100</code>. Read backwards that is <code>0010101</code>, 21, and an 18's runs start at 11, so 11 + 21 = 32.</p>
+    <h3 id="step-coded">4. Huffman-code the code-length symbols</h3>
+    <p>Step 3 still spends 5 bits on every one of these code-length symbols, yet they are far from equally common. The paragraph's lengths take 78 of them: symbols 8 and 5 appear 14 times each and 0 appears 12 times, while 2 appears once and 16 not at all. That is the same skew Huffman coding removes from the data, one level down, so DEFLATE gives these symbols a Huffman code too: the <em>code-length code</em>, a Huffman code whose job is to send the other two codes. Its own 19 lengths go first, as plain 3-bit numbers. A dynamic block is therefore a stack of three layers, each written with the one below it:</p>
+    <div class="table-wrap" id="code-layers" data-linkable>
+      <table>
+        <caption>The three layers of a dynamic block, from the top. A decoder reads them from the bottom up.</caption>
+        <thead><tr><th>Layer</th><th>Written with</th><th>Size</th></tr></thead>
+        <tbody>
+          <tr><td>the data</td><td>the literal/length and distance codes</td><td>the whole block</td></tr>
+          <tr><td>those two codes' lengths</td><td>the code-length code</td><td>up to 316 lengths</td></tr>
+          <tr><td>the code-length code's lengths</td><td>plain 3-bit numbers</td><td>at most 19 × 3 = 57 bits</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>It stops at three layers because the bottom one is so small: 57 bits at most, too little for yet another code to repay its own description. This is DEFLATE's actual scheme, and it costs 159 bits for the example (<a href="#send-steps-step-4">step 4 in the figure below</a>) and 352 for the paragraph. For the paragraph, coding the code-length symbols saved another 91 bits, 443 down to 352. For the tiny example it cost 13 more: describing the small code took more than it saved on just 19 symbols. DEFLATE has no way to stop at step 3, which is one more reason tiny blocks are written with the fixed codes.</p>
+    <p>And against the tree? For the example, the tree still wins, 111 bits to 159: a block with only 11 different symbols has too few names to be worth dropping. For the paragraph, which uses 46 literal/length symbols and 11 distances, the tree would cost 581 bits, 469 of them names, against 352 for the lengths. Real blocks run to thousands of symbols and use far more of the alphabet, so the gap only grows.</p>
+    <p>Here are the four steps side by side, on the example's own list of 316 lengths, each drawn to scale against its 41 bits of data. Step through them and watch where the bits go.</p>
+    <figure class="diagram wide" id="send-steps">
+      <svg viewBox="-16 -16 1184 372" role="img" aria-label="The example's 316 code lengths: 11 used slots in a long bar of zeros, cut after the last used symbol, then collapsed into 19 run symbols, which get codes of their own">
+        <text class="label strong send-total" x="1152" y="18" text-anchor="end">159 bits</text>
+        <text class="label send-bytes" x="1152" y="44" text-anchor="end">≈ 20 bytes</text>
+        <text class="label strong send-delta up" x="1152" y="64" text-anchor="end">+13 bits</text>
+        <text class="label send-note" x="1152" y="84" text-anchor="end">14 + 54 + 91</text>
+        <rect class="send-size" x="0" y="236" width="144.9" height="14" rx="3"/>
+        <path class="send-data-mark" d="M37.4 230 V256"/>
+        <text class="label send-data-label" x="43.4" y="270">the data: 41 bits</text>
+        <text class="label send-title" data-id="t-lit" x="0" y="6" opacity="0">literal/length: 286 slots</text>
+        <text class="label send-title" data-id="t-dist" x="706.4" y="6" opacity="0">distance: 30</text>
+        <text class="label strong send-group" data-id="g-sp" x="78" y="24" text-anchor="middle" opacity="0">␣</text>
+        <text class="label strong send-group" data-id="g-abcd" x="237.6" y="24" text-anchor="middle" opacity="0">a b c d</text>
+        <text class="label strong send-group" data-id="g-r" x="274.8" y="24" text-anchor="middle" opacity="0">r</text>
+        <text class="label strong send-group" data-id="g-end" x="618" y="24" text-anchor="middle" opacity="0">end, 258</text>
+        <text class="label strong send-group" data-id="g-270" x="649.2" y="6" text-anchor="middle" opacity="0">270</text>
+        <text class="label strong send-group" data-id="g-dist" x="720.8" y="24" text-anchor="middle" opacity="0">d5 d6</text>
+        <text class="label send-cut" data-id="cut-lit" x="650.4" y="80" text-anchor="middle" opacity="0">HLIT cut</text>
+        <text class="label send-cut" data-id="cut-dist" x="743.2" y="80" text-anchor="middle" opacity="0">HDIST cut</text>
+        <g class="node send-trim" data-id="trim-lit" opacity="0"><rect x="650.4" y="40" width="36" height="24"/></g>
+        <g class="node send-trim" data-id="trim-dist" opacity="0"><rect x="723.2" y="40" width="55.2" height="24"/></g>
+        <rect class="send-ghost" data-id="r0-ghost" x="0" y="40" width="76.8" height="24"/>
+        <polygon class="send-fan" data-id="r0-fan" points="0,64 76.8,64 144,104 96,104"/>
+        <rect class="send-ghost used" data-id="r1-ghost" x="76.8" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r1-fan" points="76.8,64 79.2,64 200,104 152,104"/>
+        <rect class="send-ghost" data-id="r2-ghost" x="79.2" y="40" width="153.6" height="24"/>
+        <polygon class="send-fan" data-id="r2-fan" points="79.2,64 232.8,64 256,104 208,104"/>
+        <rect class="send-ghost used" data-id="r3-ghost" x="232.8" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r3-fan" points="232.8,64 235.2,64 312,104 264,104"/>
+        <rect class="send-ghost used" data-id="r4-ghost" x="235.2" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r4-fan" points="235.2,64 237.6,64 368,104 320,104"/>
+        <rect class="send-ghost used" data-id="r5-ghost" x="237.6" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r5-fan" points="237.6,64 240,64 424,104 376,104"/>
+        <rect class="send-ghost used" data-id="r6-ghost" x="240" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r6-fan" points="240,64 242.4,64 480,104 432,104"/>
+        <rect class="send-ghost" data-id="r7-ghost" x="242.4" y="40" width="31.2" height="24"/>
+        <polygon class="send-fan" data-id="r7-fan" points="242.4,64 273.6,64 536,104 488,104"/>
+        <rect class="send-ghost used" data-id="r8-ghost" x="273.6" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r8-fan" points="273.6,64 276,64 592,104 544,104"/>
+        <rect class="send-ghost" data-id="r9-ghost" x="276" y="40" width="331.2" height="24"/>
+        <polygon class="send-fan" data-id="r9-fan" points="276,64 607.2,64 648,104 600,104"/>
+        <rect class="send-ghost" data-id="r10-ghost" x="607.2" y="40" width="7.2" height="24"/>
+        <polygon class="send-fan" data-id="r10-fan" points="607.2,64 614.4,64 704,104 656,104"/>
+        <rect class="send-ghost used" data-id="r11-ghost" x="614.4" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r11-fan" points="614.4,64 616.8,64 760,104 712,104"/>
+        <rect class="send-ghost" data-id="r12-ghost" x="616.8" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan" data-id="r12-fan" points="616.8,64 619.2,64 816,104 768,104"/>
+        <rect class="send-ghost used" data-id="r13-ghost" x="619.2" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r13-fan" points="619.2,64 621.6,64 872,104 824,104"/>
+        <rect class="send-ghost" data-id="r14-ghost" x="621.6" y="40" width="26.4" height="24"/>
+        <polygon class="send-fan" data-id="r14-fan" points="621.6,64 648,64 928,104 880,104"/>
+        <rect class="send-ghost used" data-id="r15-ghost" x="648" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r15-fan" points="648,64 650.4,64 984,104 936,104"/>
+        <rect class="send-ghost" data-id="r16-ghost" x="706.4" y="40" width="12" height="24"/>
+        <polygon class="send-fan" data-id="r16-fan" points="706.4,64 718.4,64 1040,104 992,104"/>
+        <rect class="send-ghost used" data-id="r17-ghost" x="718.4" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r17-fan" points="718.4,64 720.8,64 1096,104 1048,104"/>
+        <rect class="send-ghost used" data-id="r18-ghost" x="720.8" y="40" width="2.4" height="24"/>
+        <polygon class="send-fan used" data-id="r18-fan" points="720.8,64 723.2,64 1152,104 1104,104"/>
+        <text class="label send-row-ghost" data-id="row-ghost" data-overlap-ok x="0" y="30">step 2's list: each stretch becomes one symbol</text>
+        <text class="label strong send-row" data-id="row-sym" x="0" y="119">symbol sent</text>
+        <text class="label strong send-row" data-id="row-sub" x="0" y="150">stands for</text>
+        <text class="label strong send-row" data-id="row-code" x="0" y="172">its code</text>
+        <text class="label strong send-row" data-id="row-extra" x="0" y="194">extra bits</text>
+        <text class="label strong send-row" data-id="row-cost" x="0" y="216">bits</text>
+        <g class="node send-chip send-run" data-id="r0"><rect x="96" y="104" width="48" height="30" rx="5"/><text x="120" y="119">18</text></g>
+        <text class="label send-sub" data-id="r0-sub" x="120" y="150" text-anchor="middle">×32</text>
+        <text class="mono send-code" data-id="r0-code" x="120" y="172" text-anchor="middle">10</text>
+        <text class="mono send-extra" data-id="r0-extra" x="120" y="194" text-anchor="middle">1010100</text>
+        <text class="label send-cost" data-id="r0-cost" x="120" y="216" text-anchor="middle">2+7</text>
+        <g class="node c6 send-chip send-len" data-id="r1"><rect x="152" y="104" width="48" height="30" rx="5"/><text x="176" y="119">4</text></g>
+        <text class="label send-sub" data-id="r1-sub" x="176" y="150" text-anchor="middle">␣</text>
+        <text class="mono send-code" data-id="r1-code" x="176" y="172" text-anchor="middle">01</text>
+        <text class="label send-cost" data-id="r1-cost" x="176" y="216" text-anchor="middle">2</text>
+        <g class="node send-chip send-run" data-id="r2"><rect x="208" y="104" width="48" height="30" rx="5"/><text x="232" y="119">18</text></g>
+        <text class="label send-sub" data-id="r2-sub" x="232" y="150" text-anchor="middle">×64</text>
+        <text class="mono send-code" data-id="r2-code" x="232" y="172" text-anchor="middle">10</text>
+        <text class="mono send-extra" data-id="r2-extra" x="232" y="194" text-anchor="middle">1010110</text>
+        <text class="label send-cost" data-id="r2-cost" x="232" y="216" text-anchor="middle">2+7</text>
+        <g class="node c6 send-chip send-len" data-id="r3"><rect x="264" y="104" width="48" height="30" rx="5"/><text x="288" y="119">2</text></g>
+        <text class="label send-sub" data-id="r3-sub" x="288" y="150" text-anchor="middle">a</text>
+        <text class="mono send-code" data-id="r3-code" x="288" y="172" text-anchor="middle">11111</text>
+        <text class="label send-cost" data-id="r3-cost" x="288" y="216" text-anchor="middle">5</text>
+        <g class="node c6 send-chip send-len" data-id="r4"><rect x="320" y="104" width="48" height="30" rx="5"/><text x="344" y="119">4</text></g>
+        <text class="label send-sub" data-id="r4-sub" x="344" y="150" text-anchor="middle">b</text>
+        <text class="mono send-code" data-id="r4-code" x="344" y="172" text-anchor="middle">01</text>
+        <text class="label send-cost" data-id="r4-cost" x="344" y="216" text-anchor="middle">2</text>
+        <g class="node c6 send-chip send-len" data-id="r5"><rect x="376" y="104" width="48" height="30" rx="5"/><text x="400" y="119">4</text></g>
+        <text class="label send-sub" data-id="r5-sub" x="400" y="150" text-anchor="middle">c</text>
+        <text class="mono send-code" data-id="r5-code" x="400" y="172" text-anchor="middle">01</text>
+        <text class="label send-cost" data-id="r5-cost" x="400" y="216" text-anchor="middle">2</text>
+        <g class="node c6 send-chip send-len" data-id="r6"><rect x="432" y="104" width="48" height="30" rx="5"/><text x="456" y="119">4</text></g>
+        <text class="label send-sub" data-id="r6-sub" x="456" y="150" text-anchor="middle">d</text>
+        <text class="mono send-code" data-id="r6-code" x="456" y="172" text-anchor="middle">01</text>
+        <text class="label send-cost" data-id="r6-cost" x="456" y="216" text-anchor="middle">2</text>
+        <g class="node send-chip send-run" data-id="r7"><rect x="488" y="104" width="48" height="30" rx="5"/><text x="512" y="119">18</text></g>
+        <text class="label send-sub" data-id="r7-sub" x="512" y="150" text-anchor="middle">×13</text>
+        <text class="mono send-code" data-id="r7-code" x="512" y="172" text-anchor="middle">10</text>
+        <text class="mono send-extra" data-id="r7-extra" x="512" y="194" text-anchor="middle">0100000</text>
+        <text class="label send-cost" data-id="r7-cost" x="512" y="216" text-anchor="middle">2+7</text>
+        <g class="node c6 send-chip send-len" data-id="r8"><rect x="544" y="104" width="48" height="30" rx="5"/><text x="568" y="119">3</text></g>
+        <text class="label send-sub" data-id="r8-sub" x="568" y="150" text-anchor="middle">r</text>
+        <text class="mono send-code" data-id="r8-code" x="568" y="172" text-anchor="middle">00</text>
+        <text class="label send-cost" data-id="r8-cost" x="568" y="216" text-anchor="middle">2</text>
+        <g class="node send-chip send-run" data-id="r9"><rect x="600" y="104" width="48" height="30" rx="5"/><text x="624" y="119">18</text></g>
+        <text class="label send-sub" data-id="r9-sub" x="624" y="150" text-anchor="middle">×138</text>
+        <text class="mono send-code" data-id="r9-code" x="624" y="172" text-anchor="middle">10</text>
+        <text class="mono send-extra" data-id="r9-extra" x="624" y="194" text-anchor="middle">1111111</text>
+        <text class="label send-cost" data-id="r9-cost" x="624" y="216" text-anchor="middle">2+7</text>
+        <g class="node send-chip send-run" data-id="r10"><rect x="656" y="104" width="48" height="30" rx="5"/><text x="680" y="119">17</text></g>
+        <text class="label send-sub" data-id="r10-sub" x="680" y="150" text-anchor="middle">×3</text>
+        <text class="mono send-code" data-id="r10-code" x="680" y="172" text-anchor="middle">110</text>
+        <text class="mono send-extra" data-id="r10-extra" x="680" y="194" text-anchor="middle">000</text>
+        <text class="label send-cost" data-id="r10-cost" x="680" y="216" text-anchor="middle">3+3</text>
+        <g class="node c6 send-chip send-len" data-id="r11"><rect x="712" y="104" width="48" height="30" rx="5"/><text x="736" y="119">3</text></g>
+        <text class="label send-sub" data-id="r11-sub" x="736" y="150" text-anchor="middle">end</text>
+        <text class="mono send-code" data-id="r11-code" x="736" y="172" text-anchor="middle">00</text>
+        <text class="label send-cost" data-id="r11-cost" x="736" y="216" text-anchor="middle">2</text>
+        <g class="node send-chip send-zero" data-id="r12"><rect x="768" y="104" width="48" height="30" rx="5"/><text x="792" y="119">0</text></g>
+        <text class="label send-sub" data-id="r12-sub" x="792" y="150" text-anchor="middle">257</text>
+        <text class="mono send-code" data-id="r12-code" x="792" y="172" text-anchor="middle">11110</text>
+        <text class="label send-cost" data-id="r12-cost" x="792" y="216" text-anchor="middle">5</text>
+        <g class="node c6 send-chip send-len" data-id="r13"><rect x="824" y="104" width="48" height="30" rx="5"/><text x="848" y="119">3</text></g>
+        <text class="label send-sub" data-id="r13-sub" x="848" y="150" text-anchor="middle">258</text>
+        <text class="mono send-code" data-id="r13-code" x="848" y="172" text-anchor="middle">00</text>
+        <text class="label send-cost" data-id="r13-cost" x="848" y="216" text-anchor="middle">2</text>
+        <g class="node send-chip send-run" data-id="r14"><rect x="880" y="104" width="48" height="30" rx="5"/><text x="904" y="119">18</text></g>
+        <text class="label send-sub" data-id="r14-sub" x="904" y="150" text-anchor="middle">×11</text>
+        <text class="mono send-code" data-id="r14-code" x="904" y="172" text-anchor="middle">10</text>
+        <text class="mono send-extra" data-id="r14-extra" x="904" y="194" text-anchor="middle">0000000</text>
+        <text class="label send-cost" data-id="r14-cost" x="904" y="216" text-anchor="middle">2+7</text>
+        <g class="node c6 send-chip send-len" data-id="r15"><rect x="936" y="104" width="48" height="30" rx="5"/><text x="960" y="119">3</text></g>
+        <text class="label send-sub" data-id="r15-sub" x="960" y="150" text-anchor="middle">270</text>
+        <text class="mono send-code" data-id="r15-code" x="960" y="172" text-anchor="middle">00</text>
+        <text class="label send-cost" data-id="r15-cost" x="960" y="216" text-anchor="middle">2</text>
+        <g class="node send-chip send-run" data-id="r16"><rect x="992" y="104" width="48" height="30" rx="5"/><text x="1016" y="119">17</text></g>
+        <text class="label send-sub" data-id="r16-sub" x="1016" y="150" text-anchor="middle">×5</text>
+        <text class="mono send-code" data-id="r16-code" x="1016" y="172" text-anchor="middle">110</text>
+        <text class="mono send-extra" data-id="r16-extra" x="1016" y="194" text-anchor="middle">010</text>
+        <text class="label send-cost" data-id="r16-cost" x="1016" y="216" text-anchor="middle">3+3</text>
+        <g class="node c6 send-chip send-len" data-id="r17"><rect x="1048" y="104" width="48" height="30" rx="5"/><text x="1072" y="119">1</text></g>
+        <text class="label send-sub" data-id="r17-sub" x="1072" y="150" text-anchor="middle">d5</text>
+        <text class="mono send-code" data-id="r17-code" x="1072" y="172" text-anchor="middle">1110</text>
+        <text class="label send-cost" data-id="r17-cost" x="1072" y="216" text-anchor="middle">4</text>
+        <g class="node c6 send-chip send-len" data-id="r18"><rect x="1104" y="104" width="48" height="30" rx="5"/><text x="1128" y="119">1</text></g>
+        <text class="label send-sub" data-id="r18-sub" x="1128" y="150" text-anchor="middle">d6</text>
+        <text class="mono send-code" data-id="r18-code" x="1128" y="172" text-anchor="middle">1110</text>
+        <text class="label send-cost" data-id="r18-cost" x="1128" y="216" text-anchor="middle">4</text>
+        <text class="label strong send-parts-label" x="1152" y="278" text-anchor="end">what the cost is made of</text>
+        <g class="node send-part" data-id="part-counts"><rect x="0" y="290" width="98.4" height="28" rx="4"/><text x="50.7" y="304">counts</text></g>
+        <text class="label send-formula" data-id="part-counts-f" x="50.7" y="334" text-anchor="middle">5 + 5 + 4 = 14</text>
+        <g class="node send-part" data-id="part-cl"><rect x="101.4" y="290" width="388.2" height="28" rx="4"/><text x="297.1" y="304">code-length code</text></g>
+        <text class="label send-formula" data-id="part-cl-f" x="297.1" y="334" text-anchor="middle">18 × 3 bits = 54</text>
+        <g class="node c6 send-part" data-id="part-body"><rect x="492.7" y="290" width="359.3" height="28" rx="4"/><text x="673.8" y="304">symbol codes</text></g>
+        <text class="label send-formula" data-id="part-body-f" x="673.8" y="334" text-anchor="middle">13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50</text>
+        <g class="node send-part" data-id="part-extras"><rect x="854.9" y="290" width="294.1" height="28" rx="4"/><text x="1003.5" y="304">extra bits</text></g>
+        <text class="label send-formula" data-id="part-extras-f" x="1003.5" y="334" text-anchor="middle">5 × 7 + 2 × 3 = 41</text>
+      </svg>
+      <figcaption>Notice what the four steps do to the same list: the long bar is almost all zeros, cutting its end barely shortens it, and only collapsing the zeros into run symbols shrinks it. The bar is the cost to scale, against a mark at the example's 41 bits of data: even at its best, the code costs more than the data it describes. The strip at the bottom shows what each step's cost is made of, as shares of that step, with the arithmetic under each part. Each box in the middle row is one code-length symbol; under it is what it stands for (×32 means a run of 32 zeros), its code once it has one, a run's extra bits as they arrive, and its cost in bits.</figcaption>
+    </figure>
+    <bh-stepper for="send-steps">
+      <bh-step><p><strong>Step 1: every slot, 4 bits.</strong> All 316 of the example's code lengths, in symbol order. Only the 11 marked slots are not zero. 1,264 bits.</p></bh-step>
+      <bh-step><p><strong>Step 2: say how many.</strong> <code>HLIT</code> and <code>HDIST</code> cut each list after its last used symbol, 270 and d6, so 38 slots go: 278 lengths at 4 bits, plus 10 bits for the two counts, make 1,122 bits. The zeros in the middle are still there.</p></bh-step>
+      <bh-step id="send-steps-step-3"><p><strong>Step 3: runs.</strong> Each stretch of zeros collapses into one run symbol: 18 for 11–138 zeros, 17 for 3–10. Each used length becomes one symbol too. The grey wedges show which stretch of the old list each symbol replaced.</p><p>Read each column down. <em>Symbol sent</em> is what goes in the stream; <em>stands for</em> is what it means (×32 is a run of 32 zeros, <code>a</code> is <code>a</code>'s length); <em>extra bits</em> give a run's count, <a href="#step-runs">read backwards</a>; <em>bits</em> is what it costs: 5 for the symbol, plus its extra bits. The 19 symbols take 95 + 41 = 136 bits; with the 10 bits of counts, 146.</p></bh-step>
+      <bh-step id="send-steps-step-4"><p><strong>Step 4: code the code-length symbols.</strong> 18, 3 and 4 get 2-bit codes, 17 gets 3 bits, 1 gets 4, and 0 and 2 get 5. The symbols and their extra bits now take 50 + 41 = 91 bits. With 14 bits of counts and the 54 bits that describe this small code, that makes 159 bits: for this short list, 13 more than step 3.</p></bh-step>
+    </bh-stepper>
+    <figure class="frame wide" id="header-steps">
+      <bh-chart type="bar" unit="bits" y-label="Bits to send the codes">
+        <table>
+          <thead><tr><th>Step</th><th>The example</th><th>The paragraph</th></tr></thead>
+          <tbody>
+            <tr><td>The tree, to beat</td><td>111</td><td>581</td></tr>
+            <tr><td>1. 4 bits each</td><td>1264</td><td>1264</td></tr>
+            <tr><td>2. Say how many</td><td>1122</td><td>1158</td></tr>
+            <tr><td>3. Runs</td><td>146</td><td>443</td></tr>
+            <tr><td>4. Code the symbols</td><td>159</td><td>352</td></tr>
+          </tbody>
+        </table>
+      </bh-chart>
+      <figcaption>Runs make the big difference. Only after them does the list beat the tree, and only for the paragraph: the 35-byte example uses too few symbols, and its header ends up bigger than its data either way.</figcaption>
+    </figure>
+    <p>The code-length code's 19 lengths are sent in a fixed order, 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15, and <code>HCLEN</code> (4 bits) says how many are sent; any not sent count as 0.</p>
+    <details class="disclosure" id="cl-order" data-linkable>
+      <summary>Go deeper: why that order?</summary>
+      <p>The order is a bet on which code lengths a block will use, most likely first, so that <code>HCLEN</code> can cut off the unlikely ones. The RFC lists it without a reason, but it reads in four parts:</p>
+      <ul>
+        <li><strong>16, 17, 18</strong>: the repeat and zero-run symbols, which nearly every dynamic block uses to skip the byte values it never sees.</li>
+        <li><strong>0</strong>: every block has unused symbols.</li>
+        <li><strong>8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1</strong>: outward from 8, because with 286 symbols most codes come out around 7–9 bits, and very short or very long codes are rare.</li>
+        <li><strong>15</strong> last, the rarest of all.</li>
+      </ul>
+      <p>For the paragraph, zlib's codes use lengths 2 to 8, so <code>HCLEN</code> is 16 and the last three, 14, 1 and 15, are never sent.</p>
+    </details>
+    <p>What changes from block to block is only <em>which</em> of the 19 symbols a block uses, and the code each one gets: in the worked example below, symbol 18 is <code>10</code> and 16 isn't used at all, but 18 still means 11–138 zeros with 7 extra bits. For the 381-byte paragraph, zlib's whole header (270 literal/length lengths, 17 distance lengths and 16 code-length-code lengths, counted by <code>HLIT</code>, <code>HDIST</code> and <code>HCLEN</code>, then the code-length symbols) is 352 bits, about 44 bytes. That is the price of describing the code, and the paragraph is long enough to repay it.</p>
+    <h2 id="dynamic-block">The same tokens as a dynamic block</h2>
+    <p>Part 1 read the example as a fixed block, 103 bits. To see every part of a <em>dynamic</em> Huffman block, here are the same tokens written as one by the same encoder: it is the "dynamic" choice under <a href="how-deflate-compresses.html#try-it">Write it as</a>. <em>Dynamic</em> means the codes are built for this one block, from its own counts, and sent at its start. They don't change while the block is read.</p>
+    <p>The result first, so you can skip the walk: the dynamic block is 203 bits, against the fixed block's 103. Describing the codes takes 159 bits, and the codes save only 59 on the data (<a href="#dynamic-bits">the table at the end</a> has every part). The walk below reads all 26 bytes, <code>75 c6 31 15 00 00 08 42 c1 2a 56 fb 6a 02 fa 0f 3c 02 30 dd b1 e2 f8 30 e5 06</code>, bit by bit. It is there for when you want to read or write a dynamic block yourself; nothing later on this page depends on it.</p>
+    <p>This is <a href="#step-coded">step 4</a> in full. It has the codes for the data, and the code-length code that sends their lengths. Keep the levels apart, because the walk below sends them bottom-up, the code-length code first:</p>
+    <div class="table-wrap wide" id="dynamic-levels" data-linkable>
+      <table>
+        <caption>The three alphabets, and where the walk below defines and uses each one's code. The alphabets are the same in every dynamic block; the symbols used and their codes are this block's.</caption>
+        <thead><tr><th>Level</th><th>Alphabet</th><th>Symbols used in this block</th><th>Their codes in this block</th><th>Code defined in lines</th><th>Code used in lines</th></tr></thead>
+        <tbody>
+          <tr><td>the data</td><td>literal/length</td><td>9: <code>a</code>, <code>b</code>, <code>r</code>, <code>c</code>, <code>d</code>, ␣, 256, 258, 270</td><td>2, 3 or 4 bits</td><td class="num">24–39</td><td class="num">43–55</td></tr>
+          <tr><td>the data</td><td>distance</td><td>2: d5, d6</td><td>1 bit each</td><td class="num">40–42</td><td class="num">51, 54</td></tr>
+          <tr><td>the lengths</td><td>code-length (CL)</td><td>7: 1, 2, 3, 4 (the lengths above), 0, 17, 18 (for zeros)</td><td>2 to 5 bits</td><td class="num">6–23</td><td class="num">24–42</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <bh-codewalk class="wide" id="dyn-walk">
+<pre data-title="the same tokens as a dynamic block: bits as sent → what they decode to"><code>1            BFINAL = 1: last block
+01           BTYPE: 10 = 2, dynamic
+01110        HLIT: 01110 = 14, + 257 = 271
+01100        HDIST: 00110 = 6, + 1 = 7
+0111         HCLEN: 1110 = 14, + 4 = 18
+000          CL symbol 16: 000 = 0, unused
+110          CL symbol 17: 011 = 3 bits
+010          CL symbol 18: 010 = 2 bits
+101          CL symbol 0: 101 = 5 bits
+000          CL symbol 8: 000 = 0, unused
+000          CL symbol 7: 000 = 0, unused
+000          CL symbol 9: 000 = 0, unused
+000          CL symbol 6: 000 = 0, unused
+000          CL symbol 10: 000 = 0, unused
+000          CL symbol 5: 000 = 0, unused
+000          CL symbol 11: 000 = 0, unused
+010          CL symbol 4: 010 = 2 bits
+000          CL symbol 12: 000 = 0, unused
+010          CL symbol 3: 010 = 2 bits
+000          CL symbol 13: 000 = 0, unused
+101          CL symbol 2: 101 = 5 bits
+000          CL symbol 14: 000 = 0, unused
+001          CL symbol 1: 100 = 4 bits
+10 +1010100  18: 32 zeros, 0–31
+01           4: ␣ (32) gets 4 bits
+10 +1010110  18: 64 zeros, 33–96
+11111        2: a (97) gets 2 bits
+01           4: b (98) gets 4 bits
+01           4: c (99) gets 4 bits
+01           4: d (100) gets 4 bits
+10 +0100000  18: 13 zeros, 101–113
+00           3: r (114) gets 3 bits
+10 +1111111  18: 138 zeros, 115–252
+110 +000     17: 3 zeros, 253–255
+00           3: 256 (end) gets 3 bits
+11110        0: 257 unused
+00           3: 258 gets 3 bits
+10 +0000000  18: 11 zeros, 259–269
+00           3: 270 gets 3 bits
+110 +010     17: 5 zeros, d0–d4
+1110         1: d5 gets 1 bit
+1110         1: d6 gets 1 bit
+00           literal a (97)
+1101         literal b (98)
+010          literal r (114)
+00           literal a (97)
+1110         literal c (99)
+00           literal a (97)
+1111         literal d (100)
+100          length symbol 258 → 4
+0 +0         distance d5 → 7
+1100         literal ␣ (32)
+101 +00      length symbol 270 → 23
+1 +11        distance d6 → 12
+011          end of block (256)
+00000        padding (not read)</code></pre>
+      <bh-cw-step lines="1-2"><p><strong>The block header.</strong> <code>BFINAL</code> is 1. <code>BTYPE</code> arrives as <code>0</code>, then <code>1</code>: binary 10, a dynamic block. Every code from here on is defined by the block itself.</p></bh-cw-step>
+      <bh-cw-step lines="3-5" id="dyn-walk-step-2"><p><strong>How many lengths follow.</strong> The code lengths come next as a bare list in symbol order: the first is symbol 0's, the second symbol 1's, with no symbol numbers and nothing to mark where the list ends and the data begins. So the block says first how long each list is. <code>HLIT</code>: 271 literal/length lengths, for symbols 0–270. 270 is the highest symbol this block uses, so the encoder stops there and leaves out 271–285. <code>HDIST</code>: 7 distance lengths, d0–d6. <code>HCLEN</code>: 18 of the 19 code-length-code lengths. The names are the RFC's: they count the <strong>lit</strong>eral/length, <strong>dist</strong>ance and <strong>c</strong>ode-<strong>len</strong>gth codes. The RFC never says what the H stands for, though it is usually read as Huffman.</p><p>All three are plain numbers, which arrive lowest bit first, so each line shows the bits the usual way round as well: <code>0111</code> arrives, read backwards that is <code>1110</code> = 14, and <code>HCLEN</code> stores the count minus 4.</p></bh-cw-step>
+      <bh-cw-step lines="6-23"><p><strong>The code-length code.</strong> CL is short for <em>code length</em>: the code-length alphabet has 19 symbols, 0–18, used to write out the code lengths that follow, and each of these lines gives the length of one of their codes. There are 18 plain 3-bit lengths, in the fixed order 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1. In this block, they define a small Huffman code over the code-length symbols: 3, 4 and 18 get <code>00</code>, <code>01</code> and <code>10</code>; 17 gets <code>110</code>; 1 gets <code>1110</code>; 0 and 2 get <code>11110</code> and <code>11111</code>. Symbol 15 is unused and would come last, so <code>HCLEN</code> leaves it off.</p><p>In this block, 11 of these 18 lengths are 0, and each costs the full 3 bits: 33 bits that only say "unused". This list is the bottom of the stack, with no code of its own, so unlike the lists that follow, its zeros can't be run-length coded. All the format can do is put the usually-unused symbols last, so that <code>HCLEN</code> cuts off the zeros at the end. Here most of the unused symbols come before 4, 3, 2 and 1, which are used: the <a href="#cl-order">order</a> bets on lengths near 8, as in a typical block, but this block's codes are only 1 to 4 bits long, so the bet loses.</p></bh-cw-step>
+      <bh-cw-step lines="24-39"><p><strong>271 literal/length code lengths, in 16 code-length symbols.</strong> Runs of zeros cover the byte values this text never uses: one 18 and its 7 extra bits cover 138 of them, the most any one run can. In this block only 9 symbols get a length: <code>a</code> gets 2 bits; <code>r</code>, end-of-block, 258 and 270 get 3; ␣, <code>b</code>, <code>c</code> and <code>d</code> get 4. Symbol 257 sits between used symbols, so its zero is written on its own, for 5 bits.</p><p>A length of 0 means the symbol gets no code. It costs nothing in the data, and the decoder skips it when it builds the codes, which is what lets the 9 used symbols share all of the code space. But the list still needs a 0 in its place, because position is the symbol number.</p></bh-cw-step>
+      <bh-cw-step lines="40-42"><p><strong>7 distance code lengths.</strong> Five zeros for d0–d4 (symbol 17 and 3 extra bits), then d5 and d6 get 1 bit each. That ends the header: 159 bits after <code>BTYPE</code> to describe both codes.</p></bh-cw-step>
+      <bh-cw-step lines="43-49"><p><strong>The data, in this block's own codes.</strong> From the lengths alone the decoder builds this block's canonical codes: <code>a</code> = <code>00</code>; <code>r</code> = <code>010</code>, end = <code>011</code>, 258 = <code>100</code>, 270 = <code>101</code>; ␣ = <code>1100</code>, <code>b</code> = <code>1101</code>, <code>c</code> = <code>1110</code>, <code>d</code> = <code>1111</code>. So <code>a</code> costs 2 bits here, against 8 with the fixed code.</p></bh-cw-step>
+      <bh-cw-step lines="50-54"><p><strong>The copies.</strong> Length symbol 258 is <code>100</code>, with no extra bits. Only two distance symbols are used, so d5 is just <code>0</code>, then its 1 extra bit picks 7. (23, 12) is 270 (<code>101</code>) and 2 extra bits, then d6 (<code>1</code>) and 2 extra bits. The extra bits are exactly what a fixed block would carry: they are never Huffman-coded.</p></bh-cw-step>
+      <bh-cw-step lines="55-56"><p><strong>End of block</strong> is <code>011</code>, and 5 bits of padding fill the 26th byte. The data took 41 bits, against 100 in the fixed block, but describing the codes took 159. So for this string the fixed block wins, as zlib decided; on longer text the table costs about the same while the savings keep growing.</p></bh-cw-step>
+    </bh-codewalk>
+    <div class="table-wrap" id="dynamic-bits" data-linkable>
+      <table>
+        <caption>Where this example's dynamic block spends its 203 bits, against the fixed block's 103.</caption>
+        <thead><tr><th>Part</th><th class="num">Dynamic</th><th class="num">Fixed</th></tr></thead>
+        <tbody>
+          <tr><td><code>BFINAL</code> and <code>BTYPE</code></td><td class="num">3</td><td class="num">3</td></tr>
+          <tr><td><code>HLIT</code>, <code>HDIST</code> and <code>HCLEN</code></td><td class="num">14</td><td class="num">0</td></tr>
+          <tr><td>code-length-code lengths</td><td class="num">54</td><td class="num">0</td></tr>
+          <tr><td>the code lengths themselves</td><td class="num">91</td><td class="num">0</td></tr>
+          <tr><td>the data: codes and extra bits, to end of block</td><td class="num">41</td><td class="num">100</td></tr>
+          <tr><td><strong>total</strong></td><td class="num"><strong>203</strong></td><td class="num"><strong>103</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <details class="disclosure" id="zero-lengths" data-linkable>
+      <summary>Go deeper: isn't sending all those zeros wasteful?</summary>
+      <p>Per symbol, less than it looks. In this block, the literal/length list describes 271 symbols in 77 bits: its 262 zeros take 56 bits, as 6 runs and one lone zero, and the 9 used lengths take 21. Listing only the used symbols instead would need a 9-bit symbol number and a 4-bit length for each, 117 bits before even saying how many there are. A run of zeros is really a way of saying "skip ahead", and because those runs are Huffman-coded too, the common skips are the cheap ones. The more symbols a block uses, as ordinary text does, the further ahead the positional list gets.</p>
+      <p>In a block this small, though, saying "unused" is most of the header: 95 of its 159 bits. Besides those 56, 6 bits mark d0–d4 as unused, and 33 go on the code-length code's own list, where 11 of the 18 lengths are 0 at 3 bits each, because that list has no code to compress it. These costs barely grow with the block, which is why tiny blocks stay fixed: for 16 KB of English text the whole description is about 1.3% of the block. DEFLATE's real inefficiency is that every dynamic block sends a complete new code, even when the last block's would do; later formats can reuse it, as Zstandard does with its "treeless" literals blocks (<a href="https://www.rfc-editor.org/rfc/rfc8878#section-3.1.1.3.1.1">RFC 8878 §3.1.1.3.1.1</a>).</p>
+    </details>
+    <h2 id="decoding">Decoding with only the lengths</h2>
+    <p>The <a href="#round-trip">round trip</a> said what happens to one symbol: its slot, its code, its byte. This section is how a decoder does the middle step quickly, and nothing after it depends on it; if you are happy to trust that it can, skip to <a href="#choosing">choosing a block type</a>. The one thing to take from it: the decoder turns the lengths into a lookup table, then decodes each symbol with a single lookup.</p>
+    <p>The middle step, from bits to a code, is where the work is. The codes are 2, 3 and 4 bits long, and nothing in the data marks where one ends, so the decoder can't simply cut the data into codes. It could read one bit at a time and check, after each, whether the bits so far make a code: up to 4 checks per symbol here, and up to 15 in a block with 15-bit codes. Instead it builds a table that answers both questions at once: given the next few bits, which symbol do they start with, and how many bits is its code? Here it is for the example, from start to finish: from the lengths the block sent, to its codes, to its table, and then the table at work on the example's own data.</p>
     <figure class="diagram wide" id="decode-table">
       <svg viewBox="-16 -16 1142 488" role="img" aria-label="From the example's code lengths, as sent in symbol order, to its canonical codes, to a 16-entry lookup table: a's 2-bit code fills 4 entries, each 3-bit code 2, each 4-bit code 1; then a 4-bit window slides along the data, and each lookup gives a symbol and how many bits to consume">
         <text class="label strong" x="0" y="0">the lengths, as sent</text>
@@ -605,7 +954,7 @@
         <text class="mono" data-id="di-1" x="610" y="302">1</text>
         <g class="node c2" data-id="de-1"><rect x="634" y="291" width="132" height="22" rx="4"/><text x="700" y="302">d6 · 1 bit</text></g>
       </svg>
-      <figcaption>Notice that only the lengths on the left come from the block; the decoder makes everything else from them. A short code fills several table entries and a long one fills one, and that the window always peeks at 4 bits but moves only as far as the entry says. The data bits are the example block's real ones, as the decoder reads them.</figcaption>
+      <figcaption>Notice that only the lengths on the left come from the block; the decoder makes everything else from them. A short code fills several table entries and a long one fills one, and the window always peeks at 4 bits but moves only as far as the entry says. The data bits are the example block's real ones, as the decoder reads them.</figcaption>
     </figure>
     <bh-stepper for="decode-table">
       <bh-step highlight="ln-sp ln-a ln-b ln-c ln-d ln-r ln-end ln-l258 ln-l270 len-sp len-a len-b len-c len-d len-r len-end len-l258 len-l270 lv-sp lv-a lv-b lv-c lv-d lv-r lv-end lv-l258 lv-l270"><p><strong>Start from what the block sent:</strong> one length per symbol, in symbol order, 271 of them. The decoder knows each one's symbol by counting: the 98th is symbol 97, <code>a</code>, and it is 2. 262 of the 271 are 0, unused; they are folded into ranges here. Only 9 symbols have a code.</p></bh-step>
@@ -618,347 +967,10 @@
       <bh-step highlight="dt-window bit-17 bit-18 bit-19 bit-20 bit-21 bit-22 bit-23 bit-24 e-1111 i-1111 k-d ob-6 o-6 dt-r1 dt-r2 dt-r3 dt-out dt-outlabel o-3 o-4 o-5 ob-3 ob-4 ob-5"><p><strong>Four more lookups:</strong> <code>0011</code> <code>a</code>, <code>1110</code> <code>c</code>, <code>0011</code> <code>a</code>, <code>1111</code> <code>d</code>. Output so far: <code>abracad</code>.</p></bh-step>
       <bh-step highlight="dt-window bit-21 bit-22 bit-23 bit-24 e-1000 i-1000 k-l258 ob-7 o-7 dt-r1 dt-r2 dt-r3 dt-out dt-outlabel ob-8 o-8 bit-24 dt-dlabel di-0 de-0"><p><strong><code>1000</code>: 258, 3 bits.</strong> The last of those 4 bits isn't 258's: it was peeked at, not consumed. 258 is not a byte but a copy length, 4, so a distance comes next, looked up in the <em>distance</em> table, built the same way from the block's two distance lengths: <code>0</code> is d5, and its extra bit, <code>0</code>, makes the distance 7. The decoder copies <code>abra</code> from 7 bytes back: <code>abracadabra</code>.</p></bh-step>
     </bh-stepper>
-    <p>So a decoder builds its lookup tables itself, at the start of every dynamic block, from the lengths the block sends. It builds one for literals and lengths and one for distances, and (as the sections below show) one more before those, to read the lengths themselves. Only then can it read the data. A new dynamic block brings new lengths, so the tables are built again. A fixed block's lengths never change, so its tables are built once and reused.</p>
+    <p>So a decoder builds its lookup tables itself, at the start of every dynamic block, from the lengths the block sends. It builds one for literals and lengths and one for distances, and, as the bit walk showed, one more before those, to read the lengths themselves. Only then can it read the data. A new dynamic block brings new lengths, so the tables are built again. A fixed block's lengths never change, so its tables are built once and reused.</p>
     <details class="disclosure" id="lookup-tables" data-linkable>
       <summary>Go deeper: what zlib's tables look like</summary>
       <p>A decoder could follow the code one bit at a time, but zlib looks up several bits at once. Its literal/length table is indexed by the next 9 bits of input, 2<sup>9</sup> = 512 entries, or fewer bits when no code is that long. Each entry holds the symbol and how many of those bits its code really used; the decoder consumes only that many. A short code fills several entries: in a 9-bit table a 2-bit code fills every entry that starts with its two bits, 128 of them. A code longer than 9 bits points to a second, smaller table for its remaining bits. The distance table works the same way with 6 bits, and the code-length table with 7, enough for its longest code. zlib also stores each code reversed, to match the order bits arrive in.</p>
-    </details>
-    <p>That is the end of the detour. Back to the objection from the end of <a href="#canonical">the last section</a>: dropping the names has a price. A list in symbol order has a slot for every symbol a block <em>could</em> use, not just the ones it does, so it starts out far longer than the tree. The next section measures how much longer, and shrinks it.</p>
-    <h2 id="dynamic-header">Sending a dynamic code</h2>
-    <p>A dynamic block must tell the decoder its codes before its data. Thanks to <a href="#canonical">canonical codes</a>, it only needs to send each symbol's code length: 286 literal/length symbols and 30 distance symbols, 316 lengths in all, each from 0 to 15. The question is how to send them cheaply, and it matters: every bit spent on the code comes out of the saving. For the paragraph, the fitted code saved 854 bits on the data, and sending it cost 352 of them. Here are four tries, each fixing the biggest waste in the one before, measured on two blocks: the worked example written as a dynamic block (the one <a href="#dynamic-block">walked through below</a>), and zlib's real block for the 381-byte paragraph.</p>
-    <figure class="diagram wide" id="send-steps">
-      <svg viewBox="-16 -16 1184 372" role="img" aria-label="The example's 316 code lengths: 11 used slots in a long bar of zeros, cut after the last used symbol, then collapsed into 19 run symbols, which get codes of their own">
-        <text class="label strong send-total" x="1152" y="18" text-anchor="end">159 bits</text>
-        <text class="label send-bytes" x="1152" y="44" text-anchor="end">≈ 20 bytes</text>
-        <text class="label strong send-delta up" x="1152" y="64" text-anchor="end">+13 bits</text>
-        <text class="label send-note" x="1152" y="84" text-anchor="end">14 + 54 + 91</text>
-        <rect class="send-size" x="0" y="236" width="144.9" height="14" rx="3"/>
-        <path class="send-data-mark" d="M37.4 230 V256"/>
-        <text class="label send-data-label" x="43.4" y="270">the data: 41 bits</text>
-        <text class="label send-title" data-id="t-lit" x="0" y="6" opacity="0">literal/length: 286 slots</text>
-        <text class="label send-title" data-id="t-dist" x="706.4" y="6" opacity="0">distance: 30</text>
-        <text class="label strong send-group" data-id="g-sp" x="78" y="24" text-anchor="middle" opacity="0">␣</text>
-        <text class="label strong send-group" data-id="g-abcd" x="237.6" y="24" text-anchor="middle" opacity="0">a b c d</text>
-        <text class="label strong send-group" data-id="g-r" x="274.8" y="24" text-anchor="middle" opacity="0">r</text>
-        <text class="label strong send-group" data-id="g-end" x="618" y="24" text-anchor="middle" opacity="0">end, 258</text>
-        <text class="label strong send-group" data-id="g-270" x="649.2" y="6" text-anchor="middle" opacity="0">270</text>
-        <text class="label strong send-group" data-id="g-dist" x="720.8" y="24" text-anchor="middle" opacity="0">d5 d6</text>
-        <text class="label send-cut" data-id="cut-lit" x="650.4" y="80" text-anchor="middle" opacity="0">HLIT cut</text>
-        <text class="label send-cut" data-id="cut-dist" x="743.2" y="80" text-anchor="middle" opacity="0">HDIST cut</text>
-        <g class="node send-trim" data-id="trim-lit" opacity="0"><rect x="650.4" y="40" width="36" height="24"/></g>
-        <g class="node send-trim" data-id="trim-dist" opacity="0"><rect x="723.2" y="40" width="55.2" height="24"/></g>
-        <rect class="send-ghost" data-id="r0-ghost" x="0" y="40" width="76.8" height="24"/>
-        <polygon class="send-fan" data-id="r0-fan" points="0,64 76.8,64 144,104 96,104"/>
-        <rect class="send-ghost used" data-id="r1-ghost" x="76.8" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r1-fan" points="76.8,64 79.2,64 200,104 152,104"/>
-        <rect class="send-ghost" data-id="r2-ghost" x="79.2" y="40" width="153.6" height="24"/>
-        <polygon class="send-fan" data-id="r2-fan" points="79.2,64 232.8,64 256,104 208,104"/>
-        <rect class="send-ghost used" data-id="r3-ghost" x="232.8" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r3-fan" points="232.8,64 235.2,64 312,104 264,104"/>
-        <rect class="send-ghost used" data-id="r4-ghost" x="235.2" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r4-fan" points="235.2,64 237.6,64 368,104 320,104"/>
-        <rect class="send-ghost used" data-id="r5-ghost" x="237.6" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r5-fan" points="237.6,64 240,64 424,104 376,104"/>
-        <rect class="send-ghost used" data-id="r6-ghost" x="240" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r6-fan" points="240,64 242.4,64 480,104 432,104"/>
-        <rect class="send-ghost" data-id="r7-ghost" x="242.4" y="40" width="31.2" height="24"/>
-        <polygon class="send-fan" data-id="r7-fan" points="242.4,64 273.6,64 536,104 488,104"/>
-        <rect class="send-ghost used" data-id="r8-ghost" x="273.6" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r8-fan" points="273.6,64 276,64 592,104 544,104"/>
-        <rect class="send-ghost" data-id="r9-ghost" x="276" y="40" width="331.2" height="24"/>
-        <polygon class="send-fan" data-id="r9-fan" points="276,64 607.2,64 648,104 600,104"/>
-        <rect class="send-ghost" data-id="r10-ghost" x="607.2" y="40" width="7.2" height="24"/>
-        <polygon class="send-fan" data-id="r10-fan" points="607.2,64 614.4,64 704,104 656,104"/>
-        <rect class="send-ghost used" data-id="r11-ghost" x="614.4" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r11-fan" points="614.4,64 616.8,64 760,104 712,104"/>
-        <rect class="send-ghost" data-id="r12-ghost" x="616.8" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan" data-id="r12-fan" points="616.8,64 619.2,64 816,104 768,104"/>
-        <rect class="send-ghost used" data-id="r13-ghost" x="619.2" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r13-fan" points="619.2,64 621.6,64 872,104 824,104"/>
-        <rect class="send-ghost" data-id="r14-ghost" x="621.6" y="40" width="26.4" height="24"/>
-        <polygon class="send-fan" data-id="r14-fan" points="621.6,64 648,64 928,104 880,104"/>
-        <rect class="send-ghost used" data-id="r15-ghost" x="648" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r15-fan" points="648,64 650.4,64 984,104 936,104"/>
-        <rect class="send-ghost" data-id="r16-ghost" x="706.4" y="40" width="12" height="24"/>
-        <polygon class="send-fan" data-id="r16-fan" points="706.4,64 718.4,64 1040,104 992,104"/>
-        <rect class="send-ghost used" data-id="r17-ghost" x="718.4" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r17-fan" points="718.4,64 720.8,64 1096,104 1048,104"/>
-        <rect class="send-ghost used" data-id="r18-ghost" x="720.8" y="40" width="2.4" height="24"/>
-        <polygon class="send-fan used" data-id="r18-fan" points="720.8,64 723.2,64 1152,104 1104,104"/>
-        <text class="label send-row-ghost" data-id="row-ghost" data-overlap-ok x="0" y="30">step 2's list: each stretch becomes one symbol</text>
-        <text class="label strong send-row" data-id="row-sym" x="0" y="119">symbol sent</text>
-        <text class="label strong send-row" data-id="row-sub" x="0" y="150">stands for</text>
-        <text class="label strong send-row" data-id="row-code" x="0" y="172">its code</text>
-        <text class="label strong send-row" data-id="row-extra" x="0" y="194">extra bits</text>
-        <text class="label strong send-row" data-id="row-cost" x="0" y="216">bits</text>
-        <g class="node send-chip send-run" data-id="r0"><rect x="96" y="104" width="48" height="30" rx="5"/><text x="120" y="119">18</text></g>
-        <text class="label send-sub" data-id="r0-sub" x="120" y="150" text-anchor="middle">×32</text>
-        <text class="mono send-code" data-id="r0-code" x="120" y="172" text-anchor="middle">10</text>
-        <text class="mono send-extra" data-id="r0-extra" x="120" y="194" text-anchor="middle">1010100</text>
-        <text class="label send-cost" data-id="r0-cost" x="120" y="216" text-anchor="middle">2+7</text>
-        <g class="node c6 send-chip send-len" data-id="r1"><rect x="152" y="104" width="48" height="30" rx="5"/><text x="176" y="119">4</text></g>
-        <text class="label send-sub" data-id="r1-sub" x="176" y="150" text-anchor="middle">␣</text>
-        <text class="mono send-code" data-id="r1-code" x="176" y="172" text-anchor="middle">01</text>
-        <text class="label send-cost" data-id="r1-cost" x="176" y="216" text-anchor="middle">2</text>
-        <g class="node send-chip send-run" data-id="r2"><rect x="208" y="104" width="48" height="30" rx="5"/><text x="232" y="119">18</text></g>
-        <text class="label send-sub" data-id="r2-sub" x="232" y="150" text-anchor="middle">×64</text>
-        <text class="mono send-code" data-id="r2-code" x="232" y="172" text-anchor="middle">10</text>
-        <text class="mono send-extra" data-id="r2-extra" x="232" y="194" text-anchor="middle">1010110</text>
-        <text class="label send-cost" data-id="r2-cost" x="232" y="216" text-anchor="middle">2+7</text>
-        <g class="node c6 send-chip send-len" data-id="r3"><rect x="264" y="104" width="48" height="30" rx="5"/><text x="288" y="119">2</text></g>
-        <text class="label send-sub" data-id="r3-sub" x="288" y="150" text-anchor="middle">a</text>
-        <text class="mono send-code" data-id="r3-code" x="288" y="172" text-anchor="middle">11111</text>
-        <text class="label send-cost" data-id="r3-cost" x="288" y="216" text-anchor="middle">5</text>
-        <g class="node c6 send-chip send-len" data-id="r4"><rect x="320" y="104" width="48" height="30" rx="5"/><text x="344" y="119">4</text></g>
-        <text class="label send-sub" data-id="r4-sub" x="344" y="150" text-anchor="middle">b</text>
-        <text class="mono send-code" data-id="r4-code" x="344" y="172" text-anchor="middle">01</text>
-        <text class="label send-cost" data-id="r4-cost" x="344" y="216" text-anchor="middle">2</text>
-        <g class="node c6 send-chip send-len" data-id="r5"><rect x="376" y="104" width="48" height="30" rx="5"/><text x="400" y="119">4</text></g>
-        <text class="label send-sub" data-id="r5-sub" x="400" y="150" text-anchor="middle">c</text>
-        <text class="mono send-code" data-id="r5-code" x="400" y="172" text-anchor="middle">01</text>
-        <text class="label send-cost" data-id="r5-cost" x="400" y="216" text-anchor="middle">2</text>
-        <g class="node c6 send-chip send-len" data-id="r6"><rect x="432" y="104" width="48" height="30" rx="5"/><text x="456" y="119">4</text></g>
-        <text class="label send-sub" data-id="r6-sub" x="456" y="150" text-anchor="middle">d</text>
-        <text class="mono send-code" data-id="r6-code" x="456" y="172" text-anchor="middle">01</text>
-        <text class="label send-cost" data-id="r6-cost" x="456" y="216" text-anchor="middle">2</text>
-        <g class="node send-chip send-run" data-id="r7"><rect x="488" y="104" width="48" height="30" rx="5"/><text x="512" y="119">18</text></g>
-        <text class="label send-sub" data-id="r7-sub" x="512" y="150" text-anchor="middle">×13</text>
-        <text class="mono send-code" data-id="r7-code" x="512" y="172" text-anchor="middle">10</text>
-        <text class="mono send-extra" data-id="r7-extra" x="512" y="194" text-anchor="middle">0100000</text>
-        <text class="label send-cost" data-id="r7-cost" x="512" y="216" text-anchor="middle">2+7</text>
-        <g class="node c6 send-chip send-len" data-id="r8"><rect x="544" y="104" width="48" height="30" rx="5"/><text x="568" y="119">3</text></g>
-        <text class="label send-sub" data-id="r8-sub" x="568" y="150" text-anchor="middle">r</text>
-        <text class="mono send-code" data-id="r8-code" x="568" y="172" text-anchor="middle">00</text>
-        <text class="label send-cost" data-id="r8-cost" x="568" y="216" text-anchor="middle">2</text>
-        <g class="node send-chip send-run" data-id="r9"><rect x="600" y="104" width="48" height="30" rx="5"/><text x="624" y="119">18</text></g>
-        <text class="label send-sub" data-id="r9-sub" x="624" y="150" text-anchor="middle">×138</text>
-        <text class="mono send-code" data-id="r9-code" x="624" y="172" text-anchor="middle">10</text>
-        <text class="mono send-extra" data-id="r9-extra" x="624" y="194" text-anchor="middle">1111111</text>
-        <text class="label send-cost" data-id="r9-cost" x="624" y="216" text-anchor="middle">2+7</text>
-        <g class="node send-chip send-run" data-id="r10"><rect x="656" y="104" width="48" height="30" rx="5"/><text x="680" y="119">17</text></g>
-        <text class="label send-sub" data-id="r10-sub" x="680" y="150" text-anchor="middle">×3</text>
-        <text class="mono send-code" data-id="r10-code" x="680" y="172" text-anchor="middle">110</text>
-        <text class="mono send-extra" data-id="r10-extra" x="680" y="194" text-anchor="middle">000</text>
-        <text class="label send-cost" data-id="r10-cost" x="680" y="216" text-anchor="middle">3+3</text>
-        <g class="node c6 send-chip send-len" data-id="r11"><rect x="712" y="104" width="48" height="30" rx="5"/><text x="736" y="119">3</text></g>
-        <text class="label send-sub" data-id="r11-sub" x="736" y="150" text-anchor="middle">end</text>
-        <text class="mono send-code" data-id="r11-code" x="736" y="172" text-anchor="middle">00</text>
-        <text class="label send-cost" data-id="r11-cost" x="736" y="216" text-anchor="middle">2</text>
-        <g class="node send-chip send-zero" data-id="r12"><rect x="768" y="104" width="48" height="30" rx="5"/><text x="792" y="119">0</text></g>
-        <text class="label send-sub" data-id="r12-sub" x="792" y="150" text-anchor="middle">257</text>
-        <text class="mono send-code" data-id="r12-code" x="792" y="172" text-anchor="middle">11110</text>
-        <text class="label send-cost" data-id="r12-cost" x="792" y="216" text-anchor="middle">5</text>
-        <g class="node c6 send-chip send-len" data-id="r13"><rect x="824" y="104" width="48" height="30" rx="5"/><text x="848" y="119">3</text></g>
-        <text class="label send-sub" data-id="r13-sub" x="848" y="150" text-anchor="middle">258</text>
-        <text class="mono send-code" data-id="r13-code" x="848" y="172" text-anchor="middle">00</text>
-        <text class="label send-cost" data-id="r13-cost" x="848" y="216" text-anchor="middle">2</text>
-        <g class="node send-chip send-run" data-id="r14"><rect x="880" y="104" width="48" height="30" rx="5"/><text x="904" y="119">18</text></g>
-        <text class="label send-sub" data-id="r14-sub" x="904" y="150" text-anchor="middle">×11</text>
-        <text class="mono send-code" data-id="r14-code" x="904" y="172" text-anchor="middle">10</text>
-        <text class="mono send-extra" data-id="r14-extra" x="904" y="194" text-anchor="middle">0000000</text>
-        <text class="label send-cost" data-id="r14-cost" x="904" y="216" text-anchor="middle">2+7</text>
-        <g class="node c6 send-chip send-len" data-id="r15"><rect x="936" y="104" width="48" height="30" rx="5"/><text x="960" y="119">3</text></g>
-        <text class="label send-sub" data-id="r15-sub" x="960" y="150" text-anchor="middle">270</text>
-        <text class="mono send-code" data-id="r15-code" x="960" y="172" text-anchor="middle">00</text>
-        <text class="label send-cost" data-id="r15-cost" x="960" y="216" text-anchor="middle">2</text>
-        <g class="node send-chip send-run" data-id="r16"><rect x="992" y="104" width="48" height="30" rx="5"/><text x="1016" y="119">17</text></g>
-        <text class="label send-sub" data-id="r16-sub" x="1016" y="150" text-anchor="middle">×5</text>
-        <text class="mono send-code" data-id="r16-code" x="1016" y="172" text-anchor="middle">110</text>
-        <text class="mono send-extra" data-id="r16-extra" x="1016" y="194" text-anchor="middle">010</text>
-        <text class="label send-cost" data-id="r16-cost" x="1016" y="216" text-anchor="middle">3+3</text>
-        <g class="node c6 send-chip send-len" data-id="r17"><rect x="1048" y="104" width="48" height="30" rx="5"/><text x="1072" y="119">1</text></g>
-        <text class="label send-sub" data-id="r17-sub" x="1072" y="150" text-anchor="middle">d5</text>
-        <text class="mono send-code" data-id="r17-code" x="1072" y="172" text-anchor="middle">1110</text>
-        <text class="label send-cost" data-id="r17-cost" x="1072" y="216" text-anchor="middle">4</text>
-        <g class="node c6 send-chip send-len" data-id="r18"><rect x="1104" y="104" width="48" height="30" rx="5"/><text x="1128" y="119">1</text></g>
-        <text class="label send-sub" data-id="r18-sub" x="1128" y="150" text-anchor="middle">d6</text>
-        <text class="mono send-code" data-id="r18-code" x="1128" y="172" text-anchor="middle">1110</text>
-        <text class="label send-cost" data-id="r18-cost" x="1128" y="216" text-anchor="middle">4</text>
-        <text class="label strong send-parts-label" x="1152" y="278" text-anchor="end">what the cost is made of</text>
-        <g class="node send-part" data-id="part-counts"><rect x="0" y="290" width="98.4" height="28" rx="4"/><text x="50.7" y="304">counts</text></g>
-        <text class="label send-formula" data-id="part-counts-f" x="50.7" y="334" text-anchor="middle">5 + 5 + 4 = 14</text>
-        <g class="node send-part" data-id="part-cl"><rect x="101.4" y="290" width="388.2" height="28" rx="4"/><text x="297.1" y="304">code-length code</text></g>
-        <text class="label send-formula" data-id="part-cl-f" x="297.1" y="334" text-anchor="middle">18 × 3 bits = 54</text>
-        <g class="node c6 send-part" data-id="part-body"><rect x="492.7" y="290" width="359.3" height="28" rx="4"/><text x="673.8" y="304">run-symbol codes</text></g>
-        <text class="label send-formula" data-id="part-body-f" x="673.8" y="334" text-anchor="middle">13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50</text>
-        <g class="node send-part" data-id="part-extras"><rect x="854.9" y="290" width="294.1" height="28" rx="4"/><text x="1003.5" y="304">extra bits</text></g>
-        <text class="label send-formula" data-id="part-extras-f" x="1003.5" y="334" text-anchor="middle">5 × 7 + 2 × 3 = 41</text>
-      </svg>
-      <figcaption>Notice what the four steps do to the same list: the long bar is almost all zeros, cutting its end barely shortens it, and only collapsing the zeros into run symbols shrinks it. The bar is the cost to scale, against a mark at the example's 41 bits of data: even at its best, the code costs more than the data it describes. The strip under it shows what each step's cost is made of, as shares of that step, with the arithmetic under each part. Each chip is one code-length symbol; under it is what it stands for (×32 means a run of 32 zeros), its code once it has one, a run's extra bits as they arrive, and its cost in bits.</figcaption>
-    </figure>
-    <bh-stepper for="send-steps">
-      <bh-step><p><strong>Step 1: every slot, 4 bits.</strong> All 316 of the example's code lengths, in symbol order. Only the 11 marked slots are not zero. 1,264 bits.</p></bh-step>
-      <bh-step><p><strong>Step 2: say how many.</strong> <code>HLIT</code> and <code>HDIST</code> cut each list after its last used symbol, 270 and d6, so 38 slots go. 1,122 bits: the zeros in the middle are still there.</p></bh-step>
-      <bh-step id="send-steps-step-3"><p><strong>Step 3: runs.</strong> Each stretch of zeros collapses into one run symbol: 18 for 11–138 zeros, 17 for 3–10. Each used length becomes one symbol too. The fans show which stretch of the old list each chip replaced.</p><p>Read each column down. <em>Symbol sent</em> is what goes in the stream; <em>stands for</em> is what it means (×32 is a run of 32 zeros, <code>a</code> is <code>a</code>'s length); <em>extra bits</em> follow a run symbol and give its count as a plain number, least significant bit first, counted from the shortest run the symbol allows. Under the first 18, <code>1010100</code> read backwards is <code>0010101</code>, 21, and 18's runs start at 11, so 11 + 21 = 32. <em>bits</em> is what it costs: 5 for the symbol, plus its extra bits, so an 18 costs 5 + 7. 19 symbols come to 146 bits.</p></bh-step>
-      <bh-step id="send-steps-step-4"><p><strong>Step 4: code the run symbols.</strong> 18, 3 and 4 get 2-bit codes, 17 gets 3 bits, 1 gets 4, and 0 and 2 get 5. With the 54 bits that describe this code, that makes 159 bits: for this short list, 13 more than step 3.</p></bh-step>
-    </bh-stepper>
-    <h3 id="step-naive">1. Every length, 4 bits each</h3>
-    <p>Write all 316 lengths as plain 4-bit numbers, in symbol order. That is 1,264 bits, 158 bytes, in every dynamic block whatever it holds. The example's data is only 41 bits, so its code table would cost 30 times as much as the data it describes. Even the paragraph's data, 1,521 bits, would nearly double. It is also more than ten times the tree's 111 bits for the example: the tree pays about 11 bits for each symbol a block uses, but the list pays 4 bits for every symbol it could use. Steps 2 to 4 cut what the unused ones cost.</p>
-    <h3 id="step-counts">2. Say how many</h3>
-    <p>Any one block uses few of the symbols. So send two counts first, how many literal/length lengths follow and how many distance lengths (plain 5-bit numbers the format calls <code>HLIT</code> and <code>HDIST</code>), and stop each list after its highest used symbol; the rest count as 0.</p>
-    <details class="predict">
-      <summary>Guess before you read on: the example uses only 11 of its 316 symbols. How much should cutting each list after its last used symbol save?</summary>
-      <p><strong>Hardly anything.</strong> It barely helps: 1,122 bits for the example and 1,158 for the paragraph, against 1,264. The unused symbols are mostly in the middle of the alphabet, the byte values a text never contains, not at the end, so there is little tail to cut.</p>
-    </details>
-    <p>The counts stay in the final scheme anyway: with no separators, they are how the decoder knows where each list ends. To shrink the list, step 3 has to deal with the zeros in the middle.</p>
-    <h2 id="dynamic-runs">Runs, and a code for the runs</h2>
-    <h3 id="step-runs">3. Replace runs with one symbol</h3>
-    <p>Write the lengths with a small alphabet of 19 symbols instead: 0–15 for a length, 16 to repeat the previous length, and 17 and 18 for runs of zeros, each followed by plain extra bits that give the count. For now, write each of these symbols as a plain 5-bit number. A whole stretch of unused byte values becomes one symbol: the example's 262 unused literal/length symbols take just 7. The header drops to 146 bits for the example (<a href="#send-steps-step-3">step 3 in the figure</a>) and 443 for the paragraph. That is the big win, but the paragraph's header is still 443 bits.</p>
-    <div class="table-wrap" id="cl-alphabet" data-linkable>
-      <table>
-        <caption>The code-length alphabet. Fixed by the format: the same in every dynamic block. Each range follows from its extra bits: 2 bits give 4 counts, 3 give 8, 7 give 128.</caption>
-        <thead><tr><th>Symbol</th><th>Means</th><th class="num">Extra bits</th><th>Count</th></tr></thead>
-        <tbody>
-          <tr><td>0–15</td><td>a code length of 0 to 15</td><td class="num">0</td><td></td></tr>
-          <tr><td>16</td><td>repeat the previous length</td><td class="num">2</td><td>3–6 times</td></tr>
-          <tr><td>17</td><td>a run of zeros</td><td class="num">3</td><td>3–10</td></tr>
-          <tr><td>18</td><td>a run of zeros</td><td class="num">7</td><td>11–138</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p>Runs start at 3 because a run of 1 or 2 is cheaper written out. Zeros get two run symbols, a short one and a long one, because they are by far the most common length.</p>
-    <h3 id="step-coded">4. Huffman-code the run symbols</h3>
-    <p>Step 3 still spends 5 bits on every run symbol, yet they are far from equally common. Of the paragraph's 78, the lengths 8 and 5 appear 14 times each and 0 appears 12 times, while 2 appears once and 16 not at all. That is the same skew Huffman coding removes from the data, one level down, so DEFLATE gives these symbols a Huffman code too: the <em>code-length code</em>, a Huffman code whose job is to send the other two codes. Its own 19 lengths go first, as plain 3-bit numbers. A dynamic block is therefore a stack of three layers, each written with the one below it:</p>
-    <div class="table-wrap" id="code-layers" data-linkable>
-      <table>
-        <caption>The three layers of a dynamic block, from the top. A decoder reads them from the bottom up.</caption>
-        <thead><tr><th>Layer</th><th>Written with</th><th>Size</th></tr></thead>
-        <tbody>
-          <tr><td>the data</td><td>the literal/length and distance codes</td><td>the whole block</td></tr>
-          <tr><td>those two codes' lengths</td><td>the code-length code</td><td>up to 316 lengths</td></tr>
-          <tr><td>the code-length code's lengths</td><td>plain 3-bit numbers</td><td>at most 19 × 3 = 57 bits</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p>It stops at three layers because the bottom one is so small: 57 bits at most, too little for yet another code to repay its own description. This is DEFLATE's actual scheme, and it costs 159 bits for the example (<a href="#send-steps-step-4">step 4 in the figure</a>) and 352 for the paragraph. For the paragraph, coding the run symbols saved another 91 bits. For the tiny example it cost 13 more: describing the small code took more than it saved on just 19 run symbols. DEFLATE has no way to stop at step 3, which is one more reason tiny blocks are written with the fixed codes.</p>
-    <p>And against the tree? For the example, the tree still wins, 111 bits to 159: a block with only 11 different symbols has too few names to be worth dropping. For the paragraph, which uses 46 literal/length symbols and 11 distances, the tree would cost 581 bits, 469 of them names, against 352 for the lengths. Real blocks run to thousands of symbols and use far more of the alphabet, so the gap only grows.</p>
-    <figure class="frame wide" id="header-steps">
-      <bh-chart type="bar" unit="bits" y-label="Bits to send the codes">
-        <table>
-          <thead><tr><th>Step</th><th>The example</th><th>The paragraph</th></tr></thead>
-          <tbody>
-            <tr><td>The tree, to beat</td><td>111</td><td>581</td></tr>
-            <tr><td>1. 4 bits each</td><td>1264</td><td>1264</td></tr>
-            <tr><td>2. Say how many</td><td>1122</td><td>1158</td></tr>
-            <tr><td>3. Runs</td><td>146</td><td>443</td></tr>
-            <tr><td>4. Code the runs</td><td>159</td><td>352</td></tr>
-          </tbody>
-        </table>
-      </bh-chart>
-      <figcaption>Runs make the big difference. Only after them does the list beat the tree, and only for the paragraph: the 35-byte example uses too few symbols, and its header ends up bigger than its data either way.</figcaption>
-    </figure>
-    <p>What changes from block to block is only <em>which</em> of the 19 symbols a block uses, and the code each one gets: in the worked example below, symbol 18 is <code>10</code> and 16 isn't used at all, but 18 still means 11–138 zeros with 7 extra bits. For the 381-byte paragraph, zlib's whole header (<code>HLIT</code> = 270, <code>HDIST</code> = 17, <code>HCLEN</code> = 16, then the lengths) is 352 bits, about 44 bytes. That is the price of the table, and the paragraph is long enough to repay it.</p>
-    <p>The code-length code's 19 lengths are sent in a fixed order, 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15, and <code>HCLEN</code> (4 bits) says how many are sent; any not sent count as 0.</p>
-    <details class="disclosure" id="cl-order" data-linkable>
-      <summary>Go deeper: why that order?</summary>
-      <p>The order is a bet on which code lengths a block will use, most likely first, so that <code>HCLEN</code> can cut off the unlikely ones. The RFC lists it without a reason, but it reads in four parts:</p>
-      <ul>
-        <li><strong>16, 17, 18</strong>: the repeat and zero-run symbols, which nearly every dynamic block uses to skip the byte values it never sees.</li>
-        <li><strong>0</strong>: every block has unused symbols.</li>
-        <li><strong>8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1</strong>: outward from 8, because with 286 symbols most codes come out around 7–9 bits, and very short or very long codes are rare.</li>
-        <li><strong>15</strong> last, the rarest of all.</li>
-      </ul>
-      <p>For the paragraph, zlib's codes use lengths 2 to 8, so <code>HCLEN</code> is 16 and the last three, 14, 1 and 15, are never sent.</p>
-    </details>
-    <h2 id="dynamic-block">The same tokens as a dynamic block</h2>
-    <p>Part 1 read the example as a fixed block, 103 bits. To see every part of a <em>dynamic</em> Huffman block, here are the same tokens written as one by the same encoder: it is the "dynamic" choice under <a href="how-deflate-compresses.html#try-it">Write it as</a>. <em>Dynamic</em> means the codes are built for this one block, from its own counts, and sent at its start. They don't change while the block is read.</p>
-    <p>The result first, so you can skip the walk: the dynamic block is 203 bits, against the fixed block's 103. Describing the codes takes 159 bits, and the codes save only 59 on the data (<a href="#dynamic-bits">the table at the end</a> has every part). The walk below reads all 26 bytes, <code>75 c6 31 15 00 00 08 42 c1 2a 56 fb 6a 02 fa 0f 3c 02 30 dd b1 e2 f8 30 e5 06</code>, bit by bit. It is there for when you want to read or write a dynamic block yourself; nothing later on this page depends on it.</p>
-    <p>This is <a href="#step-coded">step 4</a> in full. It has the codes for the data, and the code-length code that sends their lengths. Keep the levels apart, because the walk below sends them bottom-up, the code-length code first:</p>
-    <div class="table-wrap wide" id="dynamic-levels" data-linkable>
-      <table>
-        <caption>The three alphabets, and where the walk below defines and uses each one's code. The alphabets are the same in every dynamic block; the symbols used and their codes are this block's.</caption>
-        <thead><tr><th>Level</th><th>Alphabet</th><th>Symbols used in this block</th><th>Their codes in this block</th><th>Code defined in lines</th><th>Code used in lines</th></tr></thead>
-        <tbody>
-          <tr><td>the data</td><td>literal/length</td><td>9: <code>a</code>, <code>b</code>, <code>r</code>, <code>c</code>, <code>d</code>, ␣, 256, 258, 270</td><td>2, 3 or 4 bits</td><td class="num">24–39</td><td class="num">43–55</td></tr>
-          <tr><td>the data</td><td>distance</td><td>2: d5, d6</td><td>1 bit each</td><td class="num">40–42</td><td class="num">51, 54</td></tr>
-          <tr><td>the lengths</td><td>code-length (CL)</td><td>7: 1, 2, 3, 4 (the lengths above), 0, 17, 18 (for zeros)</td><td>2 to 5 bits</td><td class="num">6–23</td><td class="num">24–42</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <bh-codewalk class="wide" id="dyn-walk">
-<pre data-title="the same tokens as a dynamic block: bits as sent → what they decode to"><code>1            BFINAL = 1: last block
-01           BTYPE: 10 = 2, dynamic
-01110        HLIT: 01110 = 14, + 257 = 271
-01100        HDIST: 00110 = 6, + 1 = 7
-0111         HCLEN: 1110 = 14, + 4 = 18
-000          CL symbol 16: 000 = 0, unused
-110          CL symbol 17: 011 = 3 bits
-010          CL symbol 18: 010 = 2 bits
-101          CL symbol 0: 101 = 5 bits
-000          CL symbol 8: 000 = 0, unused
-000          CL symbol 7: 000 = 0, unused
-000          CL symbol 9: 000 = 0, unused
-000          CL symbol 6: 000 = 0, unused
-000          CL symbol 10: 000 = 0, unused
-000          CL symbol 5: 000 = 0, unused
-000          CL symbol 11: 000 = 0, unused
-010          CL symbol 4: 010 = 2 bits
-000          CL symbol 12: 000 = 0, unused
-010          CL symbol 3: 010 = 2 bits
-000          CL symbol 13: 000 = 0, unused
-101          CL symbol 2: 101 = 5 bits
-000          CL symbol 14: 000 = 0, unused
-001          CL symbol 1: 100 = 4 bits
-10 +1010100  18: 32 zeros, 0–31
-01           4: ␣ (32) gets 4 bits
-10 +1010110  18: 64 zeros, 33–96
-11111        2: a (97) gets 2 bits
-01           4: b (98) gets 4 bits
-01           4: c (99) gets 4 bits
-01           4: d (100) gets 4 bits
-10 +0100000  18: 13 zeros, 101–113
-00           3: r (114) gets 3 bits
-10 +1111111  18: 138 zeros, 115–252
-110 +000     17: 3 zeros, 253–255
-00           3: 256 (end) gets 3 bits
-11110        0: 257 unused
-00           3: 258 gets 3 bits
-10 +0000000  18: 11 zeros, 259–269
-00           3: 270 gets 3 bits
-110 +010     17: 5 zeros, d0–d4
-1110         1: d5 gets 1 bit
-1110         1: d6 gets 1 bit
-00           literal a (97)
-1101         literal b (98)
-010          literal r (114)
-00           literal a (97)
-1110         literal c (99)
-00           literal a (97)
-1111         literal d (100)
-100          length symbol 258 → 4
-0 +0         distance d5 → 7
-1100         literal ␣ (32)
-101 +00      length symbol 270 → 23
-1 +11        distance d6 → 12
-011          end of block (256)
-00000        padding (not read)</code></pre>
-      <bh-cw-step lines="1-2"><p><strong>The block header.</strong> <code>BFINAL</code> is 1. <code>BTYPE</code> arrives as <code>0</code>, then <code>1</code>: binary 10, a dynamic block. Every code from here on is defined by the block itself.</p></bh-cw-step>
-      <bh-cw-step lines="3-5" id="dyn-walk-step-2"><p><strong>How many lengths follow.</strong> The code lengths come next as a bare list in symbol order: the first is symbol 0's, the second symbol 1's, with no symbol numbers and nothing to mark where the list ends and the data begins. So the block says first how long each list is. <code>HLIT</code>: 271 literal/length lengths, for symbols 0–270. 270 is the highest symbol this block uses, so the encoder stops there and leaves out 271–285. <code>HDIST</code>: 7 distance lengths, d0–d6. <code>HCLEN</code>: 18 of the 19 code-length-code lengths. The names are the RFC's: they count the <strong>lit</strong>eral/length, <strong>dist</strong>ance and <strong>c</strong>ode-<strong>len</strong>gth codes. The RFC never says what the H stands for, though it is usually read as Huffman.</p><p>All three are plain numbers, which arrive lowest bit first, so each line shows the bits the usual way round as well: <code>0111</code> arrives, read backwards that is <code>1110</code> = 14, and <code>HCLEN</code> stores the count minus 4.</p></bh-cw-step>
-      <bh-cw-step lines="6-23"><p><strong>The code-length code.</strong> CL is short for <em>code length</em>: the code-length alphabet has 19 symbols, 0–18, used to write out the code lengths that follow, and each of these lines gives the length of one of their codes. There are 18 plain 3-bit lengths, in the fixed order 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1. In this block, they define a small Huffman code over the code-length symbols: 3, 4 and 18 get <code>00</code>, <code>01</code> and <code>10</code>; 17 gets <code>110</code>; 1 gets <code>1110</code>; 0 and 2 get <code>11110</code> and <code>11111</code>. Symbol 15 is unused and would come last, so <code>HCLEN</code> leaves it off.</p><p>In this block, 11 of these 18 lengths are 0, and each costs the full 3 bits: 33 bits that only say "unused". This list is the bottom of the stack, with no code of its own, so unlike the lists that follow, its zeros can't be run-length coded. All the format can do is put the usually-unused symbols last, so that <code>HCLEN</code> cuts off the zeros at the end. Here most of the unused symbols come before 4, 3, 2 and 1, which are used: the <a href="#cl-order">order</a> bets on lengths near 8, as in a typical block, but this block's codes are only 1 to 4 bits long, so the bet loses.</p></bh-cw-step>
-      <bh-cw-step lines="24-39"><p><strong>271 literal/length code lengths, in 16 code-length symbols.</strong> Runs of zeros cover the byte values this text never uses: one 18 and its 7 extra bits cover 138 of them, the most any one run can. In this block only 9 symbols get a length: <code>a</code> gets 2 bits; <code>r</code>, end-of-block, 258 and 270 get 3; ␣, <code>b</code>, <code>c</code> and <code>d</code> get 4. Symbol 257 sits between used symbols, so its zero is written on its own, for 5 bits.</p><p>A length of 0 means the symbol gets no code. It costs nothing in the data, and the decoder skips it when it builds the codes, which is what lets the 9 used symbols share all of the code space. But the list still needs a 0 in its place, because position is the symbol number.</p></bh-cw-step>
-      <bh-cw-step lines="40-42"><p><strong>7 distance code lengths.</strong> Five zeros for d0–d4 (symbol 17 and 3 extra bits), then d5 and d6 get 1 bit each. That ends the header: 159 bits after <code>BTYPE</code> to describe both codes.</p></bh-cw-step>
-      <bh-cw-step lines="43-49"><p><strong>The data, in this block's own codes.</strong> From the lengths alone the decoder builds this block's canonical codes: <code>a</code> = <code>00</code>; <code>r</code> = <code>010</code>, end = <code>011</code>, 258 = <code>100</code>, 270 = <code>101</code>; ␣ = <code>1100</code>, <code>b</code> = <code>1101</code>, <code>c</code> = <code>1110</code>, <code>d</code> = <code>1111</code>. So <code>a</code> costs 2 bits here, against 8 with the fixed code.</p></bh-cw-step>
-      <bh-cw-step lines="50-54"><p><strong>The copies.</strong> Length symbol 258 is <code>100</code>, with no extra bits. Only two distance symbols are used, so d5 is just <code>0</code>, then its 1 extra bit picks 7. (23, 12) is 270 (<code>101</code>) and 2 extra bits, then d6 (<code>1</code>) and 2 extra bits. The extra bits are exactly what a fixed block would carry: they are never Huffman-coded.</p></bh-cw-step>
-      <bh-cw-step lines="55-56"><p><strong>End of block</strong> is <code>011</code>, and 5 bits of padding fill the 26th byte. The data took 41 bits, against 100 in the fixed block, but describing the codes took 159. So for this string the fixed block wins, as zlib decided; on longer text the table costs about the same while the savings keep growing.</p></bh-cw-step>
-    </bh-codewalk>
-    <div class="table-wrap" id="dynamic-bits" data-linkable>
-      <table>
-        <caption>Where this example's dynamic block spends its 203 bits, against the fixed block's 103.</caption>
-        <thead><tr><th>Part</th><th class="num">Dynamic</th><th class="num">Fixed</th></tr></thead>
-        <tbody>
-          <tr><td><code>BFINAL</code> and <code>BTYPE</code></td><td class="num">3</td><td class="num">3</td></tr>
-          <tr><td><code>HLIT</code>, <code>HDIST</code> and <code>HCLEN</code></td><td class="num">14</td><td class="num">0</td></tr>
-          <tr><td>code-length-code lengths</td><td class="num">54</td><td class="num">0</td></tr>
-          <tr><td>the code lengths themselves</td><td class="num">91</td><td class="num">0</td></tr>
-          <tr><td>the data: codes and extra bits, to end of block</td><td class="num">41</td><td class="num">100</td></tr>
-          <tr><td><strong>total</strong></td><td class="num"><strong>203</strong></td><td class="num"><strong>103</strong></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <details class="disclosure" id="zero-lengths" data-linkable>
-      <summary>Go deeper: isn't sending all those zeros wasteful?</summary>
-      <p>Per symbol, less than it looks. In this block, the literal/length list describes 271 symbols in 77 bits: its 262 zeros take 56 bits, as 6 runs and one lone zero, and the 9 used lengths take 21. Listing only the used symbols instead would need a 9-bit symbol number and a 4-bit length for each, 117 bits before even saying how many there are. A run of zeros is really a way of saying "skip ahead", and because those runs are Huffman-coded too, the common skips are the cheap ones. The more symbols a block uses, as ordinary text does, the further ahead the positional list gets.</p>
-      <p>In a block this small, though, saying "unused" is most of the header: 95 of its 159 bits. Besides those 56, 6 bits mark d0–d4 as unused, and 33 go on the code-length code's own list, where 11 of the 18 lengths are 0 at 3 bits each, because that list has no code to compress it. These costs barely grow with the block, which is why tiny blocks stay fixed: in a full-size block of text the whole table is typically under 1% of the output. DEFLATE's real inefficiency is that every dynamic block sends a complete new table, even when the last block's code would do; later formats can reuse it, as Zstandard does with its "treeless" literals blocks (<a href="https://www.rfc-editor.org/rfc/rfc8878#section-3.1.1.3.1.1">RFC 8878 §3.1.1.3.1.1</a>).</p>
     </details>
     <h2 id="choosing">Choosing a block type</h2>
     <p>An encoder now has a choice for every block, and it matters. The example's dynamic block is twice the size of its fixed one, while the paragraph's dynamic block is a fifth smaller than its fixed one. And for data with no repetition or skew, such as random bytes, both codes make things worse: the fixed code spends 8 or 9 bits on every byte. That is what the third type, the stored block, is for: it copies the bytes as they are. Here are the three side by side.</p>
@@ -966,7 +978,7 @@
       <div class="option">
         <h3>Stored (00)</h3>
         <p>No compression: up to 65,535 raw bytes after a 4-byte length and its complement.</p>
-        <ul class="pros"><li>Caps the cost of incompressible data at 5 bytes per 64 KiB</li></ul>
+        <ul class="pros"><li>Caps the cost of incompressible data at about 5 bytes per 64 KiB: the 3 header bits, padded to a byte, then the 4-byte length</li></ul>
         <ul class="cons"><li>No saving at all</li></ul>
       </div>
       <div class="option">
@@ -979,10 +991,10 @@
         <h3>Dynamic Huffman (10)</h3>
         <p>Codes built for this block's own counts, sent as code lengths at the start of the block.</p>
         <ul class="pros"><li>Removes the skew too</li><li>Usually wins once a block holds more than a few dozen bytes of text</li></ul>
-        <ul class="cons"><li>The table costs tens of bytes</li></ul>
+        <ul class="cons"><li>Describing the code costs tens of bytes</li></ul>
       </div>
     </div>
-    <p>Any input can be written as any of the three, and every one is valid: a decoder accepts whichever it gets. Which one wins is a sum, not a rule. The encoder works out the exact size of each kind for every block (zlib ends a block after about 16,000 symbols) and writes the smallest. Tiny blocks come out fixed because a code table costs more than it saves: for the paragraph in the chart, zlib 1.2.12 switches from fixed to dynamic once the text is 74 bytes long.</p>
+    <p>Any input can be written as any of the three, and every one is valid: a decoder accepts whichever it gets. Which one wins is a sum, not a rule. The encoder works out the exact size of each kind for every block (zlib ends a block after about 16,000 symbols) and writes the smallest. Tiny blocks come out fixed because describing a code costs more than it saves: cut the paragraph in the chart down to its first few dozen bytes, and zlib 1.2.12 switches from fixed to dynamic once the text is 74 bytes long.</p>
     <figure class="frame wide" id="block-sizes">
       <bh-chart type="bar" unit="%" y-label="Size as % of the input">
         <table>
@@ -997,23 +1009,23 @@
       <figcaption>Each input has a different winner. The short string can't pay for a table; the paragraph can; random bytes can't be compressed at all, so storing them is cheapest. The first three columns are the same tokens written as each block type; zlib picks per block.</figcaption>
     </figure>
     <h2 id="what-it-costs">What a block's code costs</h2>
-    <p>Back to the paragraph from <a href="#recap">the start</a>. Its fitted code saves 854 bits on the data, and the description that makes that possible costs 352: three counts and the code-length code's own lengths, then the 78 run symbols that spell out the code lengths. Sent as a tree, the same code would cost 581 bits; as a plain list of 316 lengths, 1,264, more than the whole saving. Each step on this page is what turned a code that doesn't pay into one that does.</p>
+    <p>Back to the paragraph from <a href="#recap">the start</a>. Its fitted code saves 854 bits on the data, and the description that makes that possible costs 352: three counts and the code-length code's own lengths, then the 78 code-length symbols that spell out the lengths. Sent as a tree, the same code would cost 581 bits; as a plain list of 316 lengths, 1,264, more than the whole saving. Each step on this page is what turned a code that doesn't pay into one that does.</p>
     <p>The pattern is worth keeping, because it turns up wherever a format has to ship a model along with its data: <strong>send the least that determines the model</strong> (lengths, not codes), <strong>in an order the receiver can predict</strong> (position, not names), and <strong>compress the description with the same tool, one level down</strong>, until it is too small to repay another level.</p>
-    <p>DEFLATE's own limit is per block. Every dynamic block sends a complete new table, even when the previous block's would do. In a full-size block of text the table is typically under 1% of the output, so this matters little; for small blocks it is most of the block, which is why they stay fixed. Later formats can reuse a table across blocks, as <a href="#zero-lengths">Zstandard does</a>.</p>
+    <p>DEFLATE's own limit is per block. Every dynamic block sends a complete new code, even when the previous block's would do. For 16 KB of English text, describing the code takes 718 bits, about 1.3% of the block, so this matters little; for small blocks it is most of the block, which is why they stay fixed. Later formats can reuse a table across blocks, as <a href="#zero-lengths">Zstandard does</a>.</p>
     <p>Next in the series: the <a href="deflate-format-reference.html">DEFLATE format reference</a>, with every range, field and bit-order rule in one place.</p>
     <h2 id="terms">Terms used on this page</h2>
     <p>These are defined here, for this page. DEFLATE's broader terms are in the <a href="glossary.html">site glossary</a>: <a href="glossary.html#deflate">DEFLATE</a>, <a href="glossary.html#lz77">LZ77</a>, <a href="glossary.html#huffman-code">Huffman code</a>, <a href="glossary.html#canonical-huffman-code">canonical Huffman code</a>, <a href="glossary.html#back-reference">back-reference</a>, <a href="glossary.html#sliding-window">sliding window</a>, <a href="glossary.html#end-of-block">end-of-block</a> and <a href="glossary.html#extra-bits">extra bits</a>.</p>
     <dl class="glossary wide">
       <dt id="alphabet" data-aliases="alphabets">Alphabet</dt>
-      <dd><p>The fixed set of symbols a Huffman code is built over. DEFLATE uses three: literal/length, distance and code-length. <a href="how-deflate-compresses.html#joining">How the two ideas join</a></p></dd>
+      <dd><p>The fixed set of symbols a Huffman code is built over. DEFLATE uses three: literal/length and distance for the data, and the code-length alphabet, which part 2 uses to send a block's own code. <a href="how-deflate-compresses.html#joining">How the two ideas join</a></p></dd>
       <dt id="code-length" data-aliases="code lengths">Code length</dt>
       <dd><p>The number of bits in a symbol's Huffman code. 0 means the symbol has no code. A dynamic block sends only the lengths; the codes follow from them by the canonical rule. <a href="#canonical">Send lengths, not trees</a></p></dd>
       <dt id="code-length-code" data-aliases="code-length codes, code-length alphabet, code-length symbol, code-length symbols, CL symbol, CL symbols">Code-length code</dt>
-      <dd><p>The small Huffman code a dynamic block uses to write down its code lengths. Its alphabet has 19 symbols: 0–15 are lengths, 16 repeats the previous length, and 17 and 18 are runs of zeros. CL is short for code length. <a href="#step-coded">Huffman-code the run symbols</a></p></dd>
+      <dd><p>The small Huffman code a dynamic block uses to write down its code lengths. Its alphabet has 19 symbols: 0–15 are lengths, 16 repeats the previous length, and 17 and 18 are runs of zeros. CL is short for code length. <a href="#step-coded">Huffman-code the code-length symbols</a></p></dd>
       <dt id="dynamic-huffman-code" data-aliases="dynamic Huffman codes, dynamic codes, dynamic block, dynamic blocks, dynamic Huffman block">Dynamic Huffman code</dt>
       <dd><p>Codes built for one block from that block's own symbol counts, and sent as code lengths at its start (<code>BTYPE</code> 10). They don't change while the block is read: <em>dynamic</em> means per block, not adaptive. <a href="#dynamic-block">A dynamic block, bit by bit</a></p></dd>
       <dt id="fixed-huffman-code" data-aliases="fixed Huffman codes, fixed codes, fixed code, fixed block, fixed blocks">Fixed Huffman code</dt>
-      <dd><p>Codes set once by the RFC, for any block with <code>BTYPE</code> 01, so no table is sent: 8 or 9 bits per literal, 7 or 8 per length symbol, 5 per distance symbol. <a href="how-deflate-compresses.html#fixed-lengths">Why 7–9 bits</a></p></dd>
+      <dd><p>Codes set once by the RFC, for any block with <code>BTYPE</code> 01, so the block never has to describe them: 8 or 9 bits per literal, 7 or 8 per length symbol, 5 per distance symbol. <a href="how-deflate-compresses.html#fixed-lengths">Why 7–9 bits</a></p></dd>
       <dt id="hclen">HCLEN</dt>
       <dd><p>4 bits in a dynamic block's header: how many code-length-code lengths follow, minus 4. Those lengths come in a fixed order, so the count can cut off the usually-unused ones at the end. <a href="#cl-order">Why that order</a></p></dd>
       <dt id="hdist">HDIST</dt>
@@ -1027,7 +1039,7 @@
       <dt id="stored-block" data-aliases="stored blocks">Stored block</dt>
       <dd><p>A block of up to 65,535 raw bytes (<code>BTYPE</code> 00), after a byte-aligned length and its complement. Encoders use it when compressing would make the data bigger. <a href="#choosing">Choosing a block type</a></p></dd>
       <dt id="symbol" data-aliases="symbols">Symbol</dt>
-      <dd><p>One element of an alphabet: what Huffman coding counts and gives a code. DEFLATE maps LZ77's tokens onto symbols, so Huffman coding never sees the raw bytes. <a href="how-deflate-compresses.html#joining">How the two ideas join</a></p></dd>
+      <dd><p>One element of an alphabet: what Huffman coding counts and gives a code. DEFLATE maps LZ77's tokens onto symbols: a literal is its own symbol, a back-reference becomes two plus extra bits. <a href="how-deflate-compresses.html#joining">How the two ideas join</a></p></dd>
     </dl>
     <h2 id="further-reading">Further reading</h2>
     <ul>
@@ -1260,7 +1272,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const DELTA = ["no tricks yet", "−142 bits", "−976 bits", "+13 bits"];
     // What each step's total is made of: [part, name, bits, the arithmetic]. Parts keep their identity
     // from step to step, so a part that changes (the lengths becoming run symbols) resizes in place.
-    const PARTS = [[["body", "316 lengths", 1264, "316 × 4 bits = 1,264"]], [["counts", "counts", 10, "5 + 5 = 10"], ["body", "278 lengths", 1112, "(271 + 7) × 4 bits = 1,112"]], [["counts", "counts", 10, "5 + 5 = 10"], ["body", "19 run symbols", 95, "19 × 5 bits = 95"], ["extras", "extra bits", 41, "5 × 7 + 2 × 3 = 41"]], [["counts", "counts", 14, "5 + 5 + 4 = 14"], ["cl", "code-length code", 54, "18 × 3 bits = 54"], ["body", "run-symbol codes", 50, "13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50"], ["extras", "extra bits", 41, "5 × 7 + 2 × 3 = 41"]]];
+    const PARTS = [[["body", "316 lengths", 1264, "316 × 4 bits = 1,264"]], [["counts", "counts", 10, "5 + 5 = 10"], ["body", "278 lengths", 1112, "(271 + 7) × 4 bits = 1,112"]], [["counts", "counts", 10, "5 + 5 = 10"], ["body", "19 symbols", 95, "19 × 5 bits = 95"], ["extras", "extra bits", 41, "5 × 7 + 2 × 3 = 41"]], [["counts", "counts", 14, "5 + 5 + 4 = 14"], ["cl", "code-length code", 54, "18 × 3 bits = 54"], ["body", "symbol codes", 50, "13 × 2 + 2 × 3 + 2 × 4 + 2 × 5 = 50"], ["extras", "extra bits", 41, "5 × 7 + 2 × 3 = 41"]]];
     const PART_ORDER = ["counts", "cl", "body", "extras"], PART_W = SEND.W, PART_GAP = 3;
     const sendState = (k) => {
       const s = {};
