@@ -1,8 +1,12 @@
 # Teaching moves, with examples
 
 Each move has the rule, how it looks on a page of this blog, and a verbatim line
-from a 3Blue1Brown video (by YouTube id) showing it done. Headings match
-SKILL.md. Search with `grep -n "^### " references/moves.md`.
+showing it done: from a 3Blue1Brown video (by YouTube id), or from another source,
+named (details and links in [sources.md](sources.md)). Headings match SKILL.md.
+Search with `grep -n "^### " references/moves.md`.
+
+Sentence-level moves are in [sentences.md](sentences.md); figure and interactive design
+is in [figures-and-interactives.md](figures-and-interactives.md).
 
 ## Contents
 
@@ -49,6 +53,44 @@ Show (or sketch) the computation a clever trick avoids, or the trick is under-ap
 - "it's easy to underappreciate her result unless we dig into the details of what it is that she manages to avoid" (ltLUadnCyi0)
 - Page: the O(n) rank scan before the rank directory; brute-force numbers in a `.metrics` tile.
 
+### Label the naive attempt where it appears
+A reader who skims sees the naive version and may never reach the crack. Mark it as
+provisional in its heading, caption and version label, not only in the paragraph that breaks it.
+- An unrefuted wrong model feels just as well understood: viewers of a video presenting
+  misconceptions as correct "developed an equal belief of understanding, but more
+  misconceptions and fewer scientifically correct conceptions" (Kulgemeyer & Wittwer, 2022).
+- Julia Evans lists "explaining the 'wrong' way without saying it's wrong" among her patterns
+  of confusing explanations (paraphrased).
+- Page: `h2` "A first try: scan and count"; caption "naive version: this breaks at 2^20 bits".
+
+### Abstraction from aligned instances
+Set two or three near-identical instances side by side, mark what varies, turn each varying
+slot into a parameter, then rebuild every original from the abstraction.
+- HtDP 15.1: "We start from two concrete definitions; we compare them; we mark the
+  differences; and then we abstract."
+- *Haskell Programming from First Principles*: from `(1 + 2) * 3`, `(4 + 5) * 3` and
+  `(10 + 5) * 3`, "The common pattern is the * 3 bit. The part that varies is the addition
+  expression before it, so we will make that a variable."
+- SICP 1.3.1 writes the template between the instances and the abstraction:
+  `sum-integers`, `sum-cubes` and `pi-sum`, then a pattern with `<term>` and `<next>` slots.
+- Page: `rank` over three block sizes in a `<bh-codewalk>` with the varying constant marked;
+  a fold from `sum`, `product` and `length`.
+
+### Back down the ladder
+After an abstract claim, come back down to a concrete instance: "in our example, …". Every
+point on an abstract chart should open the instance behind it.
+- Victor: "In real life, you would never use a ladder that only let you go up. Likewise, when
+  creating abstractions, stepping down is as important as stepping up."
+- Olah, *Understanding LSTM Networks*, after each gate: "In the example of our language model,
+  we'd want to add the gender of the new subject to the cell state".
+
+### Discovery fiction for a type
+A type signature can be built like a design: start from the type that captures the idea,
+and give each added component one concrete need. Generalise last.
+- Hutton, *Functional Parsing*: `String -> Tree` is "not sufficient to program with";
+  chaining needs the rest of the input (`String -> (Tree, String)`); failure needs a list
+  (`String -> [(Tree, String)]`); then `Tree` becomes `a`.
+
 ## Promises
 
 ### Flag a simplification, bound it, return to it
@@ -76,6 +118,32 @@ Show (or sketch) the computation a clever trick avoids, or the trick is under-ap
 - "I won't go into the details of how exactly both these functions work, but the idea is that it should be completely infeasible to find a valid signature if you don't know the secret key." (bBC-nXj3Ng4)
 - "I don't think it would add much clarity, in the same way that knowing the logic gates that implement addition don't really teach you much about how to add two numbers." (Dlsa9EBKDGI)
 - Page: on a DEFLATE-format page, black-box match finding: "the encoder found length 7 at distance 12".
+
+### A model is a rung, retired by running it
+Say what the current model is for (thinking, not implementation), that more models will
+follow, and which feature will break it. When it breaks, run it on the case and show the
+wrong answer, then quote the old rule before replacing it.
+- SICP 1.1.5: "The purpose of the substitution is to help us think about procedure
+  application, not to provide a description of how the interpreter really works … we will
+  present a sequence of increasingly elaborate models".
+- SICP 3.1.3 runs the substitution model on `make-simplified-withdraw`: "This gets the wrong
+  answer." 3.2 opens by quoting the 1.1.5 rule verbatim before replacing it.
+- Page: "for now, think of rank as a scan; this model breaks when we ask for it a million times".
+
+### Where each claim stands
+Tell the reader the status of every non-obvious statement: shown here, shown later (a
+promise), referenced, asserted without support, or unknown.
+- Halmos: "Whenever you tell him something, tell him where it stands: this has been proved,
+  that hasn't, this will be proved, that won't." "Complete honesty makes for greatest clarity."
+- Page: "We won't prove the o(n) bound; [the paper](…) does. The constant we measure below."
+
+### Use it before you build it
+Write with the operations you wish you had, so the reader sees why the interface is shaped as
+it is, then implement them.
+- SICP 2.1.1: "Let us begin by assuming that we already have a way of constructing a rational
+  number … We are using here a powerful strategy of synthesis: wishful thinking."
+- Page: "Assume `rank1(i)` exists. Here is `select` built from it. Now: how do we make
+  `rank1` O(1)?"
 
 ## Opening
 
@@ -127,6 +195,27 @@ Show (or sketch) the computation a clever trick avoids, or the trick is under-ap
 ### Dead ends in one sentence
 - "If I was going to give you an honest portrayal of the problem solving journey, that would have me showing you all of those dead ends. It would also make this something like a 9-hour video." (Nbwv5wHQoj0)
 
+### Declare the boundary between idea and engineering
+Tell the reader which part is the idea and which is only there for speed.
+- Karpathy, on micrograd: "these 100 lines of Python, are everything you need to understand
+  how neural networks train. Everything else is just efficiency."
+- Page: "Everything after this section changes how fast rank runs, not what it returns."
+
+### Re-view earlier sections from the new concept
+When a new concept arrives, re-run the earlier sections' examples through it and recompute
+their numbers. That is stronger than a recap, which only restates.
+- Halmos: "review Section 1, as nearly completely as possible, from the point of view of
+  Section 2 … It works, it works like a charm."
+- Page: when `select` arrives, run the bit vector from the `rank` section through it.
+
+### Keep interesting extras out of the mechanism
+Anecdotes, history as colour and fun facts cost the most for beginners. Move them to a
+`.sidenote` or after the payoff. History that explains why a design looks the way it does is
+part of the mechanism; history as colour is not.
+- Seductive details: g = −0.33 over 68 effects, worse for learners with no prior knowledge
+  (Sundararajan & Adesope, 2020, via a summary).
+- Muller's study added "interesting information" to an exposition; it did not help.
+
 ## Examples and numbers
 
 ### Concrete values, finite first
@@ -172,6 +261,50 @@ The Grover postmortem: viewers concluded the oracle already knew the answer, bec
 - "To be clear, I'm making up this example of adjectives updating nouns just to illustrate the type of behavior that you could imagine an attention head doing." (eMlx5fFNoYc)
 - Page: caption a toy schedule "illustrative" so it is not read as a measurement.
 
+### What else the example costs
+Count what else the example makes the reader learn: a domain, a puzzle, some maths. Reject
+it if that competes with the concept, or if the reader already solves it better another way.
+- HtDP's authors on SICP: students "must spend a considerable effort on the domain knowledge
+  and often end up confusing domain knowledge and program design knowledge."
+- Krishnamurthi on Towers of Hanoi: "if you don't tell students the (recursive) solution …
+  you haven't given them a programming problem: you've given them a puzzle." On factorial,
+  students who already wrote loops ask "Why should I do this again?"
+- A toy that shows only the *shape* of a process is fine if labelled as one. SICP 1.2: "Their
+  role is like that played by test patterns in photography". It must not serve as the need.
+
+### Name the simplification you decline
+List the simplifications you make, and the tempting one you refuse because it would remove
+the essential difficulty.
+- Hutton, *The Countdown Problem*: "we do not abstract from the non-zero naturals to a richer
+  numeric domain such as the integers or the rationals, as this would fundamentally change the
+  computational complexity of the problem."
+
+### Real data before cooked data
+Prefer a real sentence, a real file's bytes, a real codebase's case to an invented sample. It
+carries quirks a cooked toy hides.
+- Knuth: "it is better to use 'real' data than 'sample data' that have in fact been cooked up
+  solely to use as an example."
+- Julia Evans found her sorting example by searching her own code for `sort.+key`: most sorts
+  were by time (paraphrased from "Write good examples by starting with real code").
+
+### Varied cases once the model holds
+One running example builds the model. Once it holds, two or three deliberately different
+worked cases help it transfer. Varying earlier adds load (the variability effect, Sweller).
+- Page: after the running bit vector, a sparse one and a dense one, each a short worked case.
+
+### Specialised types first
+For FP pages, type generality is one more abstraction to delay: `length :: [a] -> Int` before
+`Foldable t => t a -> Int`, and `map` defined by hand before the library's.
+- Hutton, *Programming in Haskell* preface: "in the beginning most of the functions that are
+  used are specialised to simple types, and later on we see how many functions can be
+  generalised to larger classes of types".
+
+### "You've already been using it"
+Show that something the reader knows is an instance of the new concept. It produces
+recognition, and lowers the threat of an abstract name.
+- Milewski, *Functors*: "We've seen examples of such mappings, maybe without realizing that
+  they were just that."
+
 ## Formulas, notation and names
 
 ### Notation as shorthand, with commentary
@@ -197,6 +330,27 @@ The Grover postmortem: viewers concluded the oracle already knew the answer, bec
 ### When the formula is the mystery
 - "don't worry, in a moment we're gonna unpack and visualize what each one is really saying" (851U557j6HE)
 
+### Name late, except a handle
+Hold the idea's name until the reader has the idea. Name early only what the prose will use
+often: a part the mechanism keeps referring to. Introduce that handle with its plain meaning,
+ideally on a labelled figure. A part that is itself the fix is not a handle: on a rank page
+the superblock answers the crack, so it waits.
+- Mayer's pre-training principle (median d = 0.75) concerns exactly such parts: learners do
+  better on a complex mechanism "when they know the names and characteristics of the main
+  concepts".
+- A famous name can also give away a prediction. Case renamed Tit For Tat to Copycat because
+  "a lot of the public have already heard about Tit For Tat, so if I used that name, players
+  might just place their bets on this character".
+- Page: "word", "popcount" and "block" early, on the layout figure; "superblock" and "rank
+  directory" only after one level of counts has cracked.
+
+### Several notations, one reading
+When the reader knows the idea in other notations, bridge to all of them at once, flag the
+one that runs in a different direction, and give a phrase for reading it aloud.
+- Milewski shows composition as Unix pipes, F# `>>`, `g∘f` ("read g∘f as 'g after f'") and
+  Haskell `g . f`: "Notice the right to left order of composition. For some people this is
+  confusing."
+
 ## Misconceptions and surprise
 
 ### Diagnose the misconception
@@ -218,6 +372,46 @@ The Grover postmortem: viewers concluded the oracle already knew the answer, bec
 
 ### A wrong argument beside its valid twin
 - "This time the result is valid, but why is it not okay to do what we did with the spheres, but somehow it is okay to do this with the pizza slices?" (VYQVlVoWoPY)
+
+### State the wrong model in full, then break it
+Where readers arrive with a folk theory, refuting it is the lesson. State the wrong model as
+a fluent mechanism, not a one-line "some people think", then show the case where it fails.
+- Muller: after a "clear, concise" exposition, scores moved from 6.0 to 6.3 out of 26 and
+  confidence rose. A version that voiced the misconception and then refuted it "nearly
+  doubled" scores, though viewers called it "confusing".
+- In print, a refutation paragraph is enough: refutation text and dialogue both beat
+  exposition (d ≈ 0.8; Muller et al. 2008, effect sizes from search snippets).
+- Only for misconceptions the target reader actually holds. A myth they don't hold is a
+  distraction: Ciechanowski's *Airfoil* builds the right model and leaves the popular lift
+  explanations to Further Reading.
+
+### Demote the wrong primary cause
+When the folk explanation names the wrong main cause, say so, build on the right one, then
+bring the demoted factor back in its true role.
+- Mould: "First, forget about atmospheric pressure entirely. We'll bring it back later, but
+  it's not foundational to how siphons work … siphons are driven by gravity."
+
+### Rescue the true kernel
+A viral wrong explanation usually wraps something real. Say what is wrong, then recover the
+genuine structure behind it.
+- Mathologer on −1/12: "state clearly what's wrong with it, how to fix it, and how to reconnect
+  it to the genuine maths".
+
+### A non-example that passes the surface check
+Show something that satisfies the obvious rule but breaks the real one, and ask why.
+- Yorgey's Typeclassopedia: an "Evil Functor instance" that "typechecks, but it violates the
+  functor laws. Do you see why?"
+- Page: a rank directory that type-checks and double-counts the block boundary.
+
+### Your aha is not their explanation
+The analogy that finally clicked for the author is the residue of the author's struggle with
+details. Handing over the analogy with the details stripped makes learning harder. Ship the
+examples that produced the intuition; give the analogy at the end as a summary.
+- Yorgey's monad tutorial fallacy: "failing to recognize the critical role that struggling
+  through fundamental details plays in the building of intuition." A symptom: "look, it's
+  really quite simple".
+- Offer several intuitions, say where each fails, and keep returning the reader to the
+  definition. Typeclassopedia: "a `Functor` is simply what it is defined to be".
 
 ## Visuals
 
@@ -274,6 +468,89 @@ The Grover postmortem: viewers concluded the oracle already knew the answer, bec
 ### Hunch, then numbers
 - "whenever you have a vague idea that feels productive, you should of course find a way to be more exact about what you're saying, but preferably put numbers to it, and then see if you can ask questions about those numbers" (M64HUIJFTZM)
 
+### Commit to an answer
+A prediction teaches when the reader commits to a concrete answer: an option, a number, a
+shape. Word the `summary` so it asks for one and says a guess is enough. Aim it at the key
+step, because the benefit stays with the content asked about.
+- A preregistered meta-analysis of prequestions: guessing gave g = 0.65, only reading the
+  question g = 0.22; the effect on the asked-about content was g = 0.54, on everything else
+  g = 0.04 (St. Hilaire, Chan & Ahn, 2024).
+- Yorgey: "Just go with your gut. After you have committed to a choice (say, by writing it
+  down), then go get a calculator."
+- Case on *You Draw It*: "By forcing you to put down your expectations, the real answer comes
+  as a bigger shock."
+- Page: `<summary>Seconds, minutes or hours: how long does the scan take on 2^32 bits? Decide
+  before you open this.</summary>`
+
+### Questions that tell models apart
+A worked example or prediction teaches a rule only if the nearest plausible wrong model gives a
+different answer on it. Build each wrong option from one named misconception, and say in the
+reveal which misconception each option reflects.
+- Wrenn & Krishnamurthi found a student test suite that accepted the correct median
+  implementations, yet "its assertions are also valid for a different summary statistic:
+  mean!"
+- Prasad et al.: "We want a small number of mutants that each correspond to common problem
+  misconceptions".
+- Page: for bit order, a code whose MSB-first and LSB-first readings differ; never a
+  palindrome.
+
+### A near-twin after a miss
+After the reveal, ask a second question that is the same underneath with surface changes
+(names, constants). It checks that the correction transferred, not that the answer was
+memorised.
+- Lu & Krishnamurthi's SMoL Tutor asks a question "semantically the same as the first, but
+  with superficial changes (e.g., variable names, constants, and operators are changed)".
+
+### Answer each plausible guess
+In the reveal, say why each likely guess was reasonable before correcting it.
+- Case, *The Evolution of Trust*: "Makes sense, Copycat won the tournament last time, why not
+  again?…"
+
+### Say the insight, not only the answer
+After a check, state the insight it was meant to reveal and give the reasoning, so a reader
+who got the number right for the wrong reason finds out.
+- Matuschak: "Will readers notice if they solved a problem but missed the insights it was
+  supposed to reveal?"
+- Pólya: "Let them learn proving", alongside "Let them learn guessing".
+
+### Fade the worked examples
+For a mechanism shown more than once: the first instance fully worked, the second with its
+last step left as a prediction, the third done by the reader.
+- Muller: "here's a problem and here's how you solve it. Here's a problem partially done and
+  here's one for you to do from start to finish."
+- Sweller et al. (2019) on guidance fading: "Past a certain point, studying worked examples
+  may be counterproductive."
+
+### Ask why after a worked step
+After a step the reader watched, ask why that step was taken, then show the author's answer.
+- Self-explanation prompts: g = 0.55 over 69 effects (Bisra et al., 2018, via the abstract).
+- Page: after the stepper's match step, "Why does the decoder emit a literal here rather than
+  a match?" in a fold.
+
+### Graduated hints
+For a harder exercise, nest the help: a general question, then a specific pointer, then the
+answer. Each hint names a step the reader could have thought of.
+- Pólya: the teacher should help "not too much and not too little", ideally with "a question
+  or indicate a step that could have occurred to the student himself".
+
+### Produce the next piece
+Besides predicting an outcome, ask the reader to write the next artefact: the base case, the
+next clause, the input that makes it fail.
+- HtDP's "Stop!" prompts, about one per 2,000 words: "Stop! Make a general example for which
+  the answer must be #false."
+
+### Place recall checks by idea density
+Put a check where the new ideas would overflow working memory: about ten new items without a
+check is too many.
+- Matuschak: watch for "a single review area has 10+ questions in it … since 10+ new ideas is
+  likely to overload the reader's working memory."
+
+### Classify near-misses
+A transfer check can ask the reader to sort everyday candidates, including near-misses,
+against the definition.
+- Milewski: "Is the world-wide web a category in any sense? Are links morphisms? Is Facebook
+  a category, with people as objects and friendships as morphisms?"
+
 ## Endings
 
 ### Generalise through the arbitrary choice
@@ -304,3 +581,18 @@ The Grover postmortem: viewers concluded the oracle already knew the answer, bec
 ### Discovered, not handed down
 - "If you have a sufficiently high standard for explanations, you want both of these facts to feel discovered, rather than feeling like they were handed down." (KTzGBJPuJwM)
 - "the goal here is not to get to the answer as quickly as we can, but hopefully for you to feel like you found the answer yourself" (ltLUadnCyi0)
+- That feeling is guided, not unassisted: in a meta-analysis, unassisted discovery lost to
+  explicit instruction (d = −0.38), while discovery with feedback, worked examples and
+  scaffolding won (d = +0.30) (Alfieri et al., 2011).
+
+### Small definition, large consequences
+Never call a hard idea easy. Call it a small definition with large consequences, and keep
+returning the reader to the definition.
+- Yorgey: they have "very large implications relative to the size of their definition". "if
+  someone is really convinced that monads are easy, they are going to be in for a demoralizing
+  shock".
+
+### Hedges with content
+Keep a qualification that states a scope or a magnitude ("about 90% right", "for blocks up to
+2^16 bits"). Cut reflexive softeners. More in [sentences.md](sentences.md).
+- Pinker: good writers hedge, but "their hedging is a choice, not a tic".

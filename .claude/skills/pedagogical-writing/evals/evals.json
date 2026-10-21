@@ -59,6 +59,35 @@
         "A single measure (space overhead in bits, or query time) is carried across all three pages",
         "Optional or formal material is identified as skippable, with what a skipper still keeps"
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "Design the centrepiece interactive for a new explainer on rank over bit vectors: what the reader controls, what they see first, and how the page walks them through it.",
+      "expected_output": "A guided interactive whose default state already makes the point, with controls introduced one at a time, the reader doing the mechanism by hand before the page automates it, and any open playground placed last.",
+      "files": [],
+      "expectations": [
+        "It names the failure of a plain-text explanation that the interactive fixes",
+        "The default state, with no interaction, already shows something that makes the page's point",
+        "Each control is introduced with its meaning (and unit, where it has one) before the reader is asked to use it, and the design starts with one control unlocked, or a few at known-good values",
+        "The reader performs some step by hand (choosing a block size, counting, or filling a directory entry) before the page shows the automated version",
+        "The sentence or caption before the interactive says what to do and what to look for",
+        "Any open-ended playground with every control comes at the end and has a stated question or goal",
+        "It works on the reader's own input or a concrete bit vector, not abstract parameters only"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Revise this paragraph from a succinct data structures page so it reads more easily, without changing what it says:\n\nThe directory, which for a bit vector of n bits with superblocks of 2^16 bits and blocks of 512 bits stores one 64-bit absolute count per superblock and one 16-bit relative count per block, enables rank queries in constant time. A query performs a lookup of the superblock count, then the computation of the block count is done, and a popcount over the remaining word chunk finishes it. Obviously the space overhead is small.",
+      "expected_output": "A revision that gets to the verb quickly, puts known information first and the new point last, keeps one name per concept, turns empty verbs back into verbs, and replaces the unsupported 'obviously' with the actual overhead.",
+      "files": [],
+      "expectations": [
+        "The long material between 'The directory' and its verb is moved out, so the main clause reaches its verb within about seven words",
+        "The empty-verb phrases ('performs a lookup', 'the computation of the block count is done') become verbs ('looks up', 'computes' or equivalent)",
+        "The sentences keep a consistent subject or topic (the query, or the directory) rather than switching every sentence",
+        "No new name is introduced for an existing concept, and 'word chunk' is replaced by the page's existing term or a plain description",
+        "'Obviously' is removed or replaced with the actual overhead (64/65536 + 16/512 of n bits, about 3.2%) or a statement of where it is shown",
+        "The revision keeps every fact of the original: both counts, their widths, both sizes, and constant time"
+      ]
     }
   ]
 }

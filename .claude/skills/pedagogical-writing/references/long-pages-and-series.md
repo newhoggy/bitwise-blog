@@ -75,6 +75,16 @@ skip. The minimum sentence goes in the main text before the fold, never inside i
 - "That's all you really need to know. But if you're curious, the way it works is" (wjZofJX0v4M)
 - "Arguably, it falls outside the essence of linear algebra. The important part here is to know what that cross product vector geometrically represents. So, if you want to skip that next video, feel free." (eu6i7WJeinw)
 
+### Give experts a fast path
+Guidance that helps a novice slows an expert down, measurably (the expertise reversal
+effect: Kalyuga, Ayres, Chandler & Sweller, 2003). So the skip labels above are not only
+courtesy. Spend the scaffolding where the reader must hold several interacting parts at
+once, and give the reader who already has them a visible way past it.
+- On a page: one line after the TL;DR ("If you know rank and select, skip to
+  [the directory](#directory)"); a "skip the build-up" link at the start of a long
+  derivation; the compressed version (below) linked from the TL;DR, so an expert finds it
+  first.
+
 ### Mark the essence checkpoint
 Say where a reader could stop and still have the core idea; label what follows
 as detail. On a page, this sits at the boundary between the template's

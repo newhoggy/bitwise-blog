@@ -8,6 +8,9 @@
   {"query": "rewrite this intro so it hooks the reader instead of dumping definitions: 'An Elias-Fano encoding represents a monotone sequence of n integers in [0, u) using 2n + n log(u/n) bits.'", "should_trigger": true},
   {"query": "I want this page to feel like a 3blue1brown video, where you could have invented the idea yourself. what would need to change?", "should_trigger": true},
   {"query": "is this ADR's context section clear enough for someone joining the team next month, or does it assume too much?", "should_trigger": true},
+  {"query": "design the playground for my bloom filter page so readers actually learn something from it instead of just poking at sliders", "should_trigger": true},
+  {"query": "the paragraphs in the select section are hard to read even though each sentence is short. can you fix the flow?", "should_trigger": true},
+  {"query": "write a predict-before-reveal question for the huffman page that would catch people who think codes are read MSB-first", "should_trigger": true},
   {"query": "explain what this regex does: ^(?:[a-z0-9-]+\\.)*example\\.com$", "should_trigger": false},
   {"query": "why is npm run check failing with 'label touches edge' on the deflate diagram?", "should_trigger": false},
   {"query": "can you explain how the bh-stepper component decides which step is active? I'm reading theme/bh.js and lost the thread", "should_trigger": false},
@@ -16,5 +19,6 @@
   {"query": "add a glossary entry for 'prefix code' with aliases", "should_trigger": false},
   {"query": "write the PR description for the atom feed change", "should_trigger": false},
   {"query": "make the dark-mode contrast on the tldr box easier to read", "should_trigger": false},
-  {"query": "summarise the gpu-deflate optimization study in three bullets for a slack message", "should_trigger": false}
+  {"query": "summarise the gpu-deflate optimization study in three bullets for a slack message", "should_trigger": false},
+  {"query": "the bh-playground slider on the token bucket page does not update the readout; find the bug", "should_trigger": false}
 ]
