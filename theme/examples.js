@@ -2,8 +2,9 @@
    Example pages — where they are shown.
 
    Pages marked <meta name="bh:example" content="true"> exist to demonstrate the theme and the
-   templates. They are shown on a local host (a laptop or desktop) and hidden on a proper domain.
-   This is the one place that decides, and the one list of local hosts.
+   templates. They are hidden by default, locally and on a proper domain alike, so an author sees
+   what readers see; a reader or author who wants them opts in with ?examples. This is the one
+   place that decides, and the one list of local hosts.
 
    Load it synchronously in <head>, right after the theme script, so the decision is made before
    first paint and examples never flash on the published site. It sets
@@ -12,9 +13,9 @@
    and exposes window.bhExamples for bh.js and the search module.
 
    Overrides, remembered for the tab session so they survive following links:
-     ?examples  or  ?examples=on    show them (on a domain)
-     ?examples=off                  hide them (locally: preview the published site)
-     ?examples=auto                 forget the override
+     ?examples  or  ?examples=on    show them
+     ?examples=off                  hide them
+     ?examples=auto                 forget the override (back to the default: hidden)
    A bundled single file (<html data-bundled>) always shows its own content.
    ========================================================================== */
 (function (g) {
@@ -56,7 +57,7 @@
       var kept = store(function () { return storage.getItem(STORE_KEY); });
       if (kept === "on" || kept === "off") return { visible: kept === "on", local: local, source: "session" };
     }
-    return { visible: local, local: local, source: "host" };
+    return { visible: false, local: local, source: "host" };
   }
 
   var api = { isLocalHost: isLocalHost, parseOverride: parseOverride, resolve: resolve, visible: true, local: true, source: "host", page: false };

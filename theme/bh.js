@@ -1431,6 +1431,8 @@
         el("h1", { text: "This is an example page" }),
         el("p", { class: "lede", text: "It demonstrates the theme and the document templates, so it isn't one of the posts." }),
         el("p", {}, [el("a", { href: home, text: "See the posts →" })]),
+        // Examples are hidden by default, even where you work: a local reader can opt in.
+        ...(EXAMPLES.local ? [el("p", {}, [el("a", { href: "?examples", text: "Show example pages (local only)" })])] : []),
       ]),
     ]));
   }

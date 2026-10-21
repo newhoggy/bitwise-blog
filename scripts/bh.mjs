@@ -101,8 +101,8 @@ function readDoc(file) {
     status: getMeta(html, "bh:status"),
     date: getMeta(html, "bh:date"),
     tags: getMeta(html, "bh:tags"),
-    // Pages that only demonstrate the theme and templates: shown on a local host, hidden on the
-    // published domain (theme/examples.js decides in the browser).
+    // Pages that only demonstrate the theme and templates: hidden by default, shown with ?examples
+    // (theme/examples.js decides in the browser).
     example: getMeta(html, "bh:example") === "true",
     // Published but not surfaced: off the home page, search and backlinks, and links to it are inert,
     // unless the reader opened a page with #unlisted=true (theme/unlisted.js decides in the browser).
@@ -415,7 +415,7 @@ function cmdNew(argv) {
   console.log(c.green(`Created ${path.relative(ROOT, out)}`));
   if (isPrivate) console.log(c.dim("Private page: it is git-ignored. Run `npm run seal` to publish an encrypted copy."));
   else {
-    if (isExample) console.log(c.dim("Example page: shown on a local host, hidden on the published site."));
+    if (isExample) console.log(c.dim("Example page: hidden by default, here and on the published site; open any page with ?examples to see it."));
     if (isUnlisted) console.log(c.dim("Unlisted page: published, but off the home page, search and links unless a page is opened with #unlisted=true. Not private: anyone with the link can read it."));
     console.log(c.dim("When the page is written, run `npm run cards` to render its social card."));
   }
@@ -2160,6 +2160,7 @@ function cmdServe([port = "8000"]) {
   }).listen(+port, () => {
     console.log(`Serving ${ROOT} at ${c.green(`http://localhost:${port}/`)}`);
     console.log(c.dim(`Unlisted pages stay hidden here, as for readers: open any page with #unlisted=true to see them (http://localhost:${port}/#unlisted=true).`));
+    console.log(c.dim(`Example pages are hidden too: open any page with ?examples to see them (http://localhost:${port}/?examples).`));
   });
 }
 
