@@ -20,6 +20,7 @@
    Ready signal:  <html data-bh-ready> once glossary, modules, Prism, Mermaid and fonts settle.
    Glossary:      auto-marks glossary terms in prose; hover/focus/tap shows a
                   stationary popup the pointer can move into (select, copy, links).
+                  Sidenote refs open the same popup.
 
    Everything degrades to readable static HTML when JavaScript is off.
    ========================================================================== */
@@ -442,6 +443,8 @@
   }
 
   // ---- Sidenotes ----------------------------------------------------------------------
+  //  Each note stays in the DOM (hidden) and its numbered ref opens it in the shared popup
+  //  (setupPopup), with the same hover, pin and Esc behaviour as a glossary term.
 
   function buildSidenotes() {
     doc.querySelectorAll(".sidenote").forEach((note, i) => {
@@ -449,12 +452,7 @@
       note.id = note.id || `sn-${n}`;
       note.dataset.n = n;
       note.setAttribute("role", "note");
-      const ref = el("button", { class: "sidenote-ref", type: "button", "aria-controls": note.id, "aria-expanded": "false", "aria-label": `Sidenote ${n}` });
-      ref.addEventListener("click", () => {
-        const open = note.classList.toggle("is-open");
-        ref.setAttribute("aria-expanded", String(open));
-      });
-      note.before(ref);
+      note.before(el("button", { class: "sidenote-ref", type: "button", "data-note": note.id, "aria-controls": "bh-gloss-pop", "aria-expanded": "false", "aria-label": `Note ${n}` }));
     });
   }
 
@@ -942,7 +940,8 @@
   //  page | section | every | off); inside a glossary list, first per definition. Force with data-term="id"; opt out with .no-glossary.
   //  Popup: placed once on open, anchored to the term (never follows the pointer); an
   //  invisible bridge spans the gap so the pointer can move into it; pressing inside it,
-  //  clicking the term, or Enter/Space pins it until Esc or a click elsewhere.
+  //  clicking the term, or Enter/Space pins it until Esc or a click elsewhere. Sidenote
+  //  refs (.sidenote-ref) open the same popup with the note's content.
   // =====================================================================================
 
   const GLOSSARY_SKIP = [
@@ -950,6 +949,7 @@
     "input", "select", "textarea", "label", "summary", "script", "style", "[data-term]",
     ".term", ".no-glossary", ".bh-hero", ".bh-footer", ".bh-toc", ".bh-tablist",
     ".code-block", ".mermaid", ".badge", ".eyebrow", "dl.glossary > dt", "[data-ref]",
+    ".sidenote",
   ].join(",");
 
   const splitList = (s) => (s || "").split(",").map((x) => x.trim()).filter(Boolean);
@@ -1051,8 +1051,12 @@
     });
   }
 
-  function setupGlossaryPopup(byId) {
-    if (!doc.querySelector(".term[data-term]")) return;
+  // Glossary entries by id, filled in by buildGlossary once the data has loaded.
+  let glossaryById = new Map();
+
+  /** The popup shared by glossary terms and sidenote refs. */
+  function setupPopup() {
+    if (!doc.querySelector(".sidenote-ref, .term[data-term]")) return;
     const pop = el("div", { class: "bh-gloss-pop", id: "bh-gloss-pop", role: "dialog", "aria-modal": "false", tabindex: "-1", hidden: true });
     doc.body.append(pop);
 
@@ -1061,7 +1065,7 @@
     let restoringFocus = false; // returning focus to a term after Esc must not reopen it
     let lastWidth = innerWidth;
 
-    const termOf = (n) => (n && n.closest ? n.closest(".term[data-term]") : null);
+    const termOf = (n) => (n && n.closest ? n.closest(".term[data-term], .sidenote-ref") : null);
     const inPop = (n) => !!n && pop.contains(n);
 
     function absolutise(container) {
@@ -1074,7 +1078,21 @@
       });
     }
 
-    function render(entry) {
+    function renderNote(ref) {
+      const note = doc.getElementById(ref.dataset.note);
+      if (!note) return false;
+      const label = `Note ${note.dataset.n}`;
+      pop.setAttribute("aria-label", label);
+      const body = el("div", { class: "bh-gloss-body" });
+      body.append(...[...note.childNodes].map((n) => n.cloneNode(true)));
+      pop.replaceChildren(el("div", { class: "bh-gloss-head" }, [el("span", { class: "bh-gloss-kicker", text: label })]), body);
+      return true;
+    }
+
+    function render(trigger) {
+      if (trigger.matches(".sidenote-ref")) return renderNote(trigger);
+      const entry = glossaryById.get(trigger.dataset.term);
+      if (!entry) return false;
       pop.setAttribute("aria-label", `Glossary: ${entry.term}`);
       const body = el("div", { class: "bh-gloss-body", html: entry.html });
       if (!entry.local) absolutise(body);
@@ -1085,6 +1103,7 @@
       pop.replaceChildren(
         el("div", { class: "bh-gloss-head" }, [el("span", { class: "bh-gloss-term", text: entry.term }), el("span", { class: "bh-gloss-kicker", text: "Glossary" })]),
         body, more);
+      return true;
     }
 
     // Placed once per open, in document coordinates: it scrolls with its term and never
@@ -1112,11 +1131,9 @@
     function open(term, pin) {
       clearTimeout(openTimer);
       clearTimeout(hideTimer);
-      const entry = byId.get(term.dataset.term);
-      if (!entry) return;
       if (current !== term || pop.hidden) {
+        if (!render(term)) return;
         if (current) current.setAttribute("aria-expanded", "false");
-        render(entry);
         if (!place(term)) { pop.hidden = true; return; }
         pop.classList.remove("is-in");
         void pop.offsetWidth; // restart the entry animation
@@ -1177,6 +1194,8 @@
       const t = termOf(e.target);
       if (t && !inPop(t)) {
         e.preventDefault();
+        // A sidenote ref is a <button>, so Enter/Space also click it: keydown has already pinned it.
+        if (e.detail === 0 && current === t && pinned) return;
         if (current === t && pinned) close();
         else { lastPoint = { x: e.clientX, y: e.clientY }; open(t, true); }
         return;
@@ -1230,7 +1249,8 @@
       });
       buildGlossaryIndex();
       markTerms(byId);
-      setupGlossaryPopup(byId);
+      glossaryById = byId;
+      setupPopup();
     });
   }
 

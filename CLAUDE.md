@@ -491,7 +491,8 @@ dependencies, nothing written to disk).
 - Order the content: **orientation → mental model → mechanism → hands-on → details → edge cases → further reading.**
 - Open with a `.tldr` of no more than 3 bullets: the answer, why it matters, and the common mistake.
 - Explain *why* at every step, not only *what*. Use real numbers, units and names.
-- Put asides in `.sidenote`, not in parentheses. Put depth for the curious in `details.disclosure`.
+- Put asides in `.sidenote`, not in parentheses. A sidenote opens in the glossary popup from its
+  number, so keep it to a sentence or two. Put depth for the curious in `details.disclosure`.
 - Use `details.predict` once or twice per page. Asking the reader to predict before
   revealing the answer is the cheapest form of active learning.
 
