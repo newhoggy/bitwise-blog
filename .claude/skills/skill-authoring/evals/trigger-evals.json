@@ -1,0 +1,120 @@
+[
+ {
+  "query": "I want to write a new skill for this repo that drafts the PR description from the branch diff. Where do I start?",
+  "should_trigger": true
+ },
+ {
+  "query": "my pedagogical-writing skill never seems to load when I ask for a page review. how do I find out why?",
+  "should_trigger": true
+ },
+ {
+  "query": "add evals to the dataviz skill so I can tell if a change to it made things worse",
+  "should_trigger": true
+ },
+ {
+  "query": "my skill is getting long, about 700 lines in SKILL.md. do I split it into reference files or is that fine as long as the description is good?",
+  "should_trigger": true
+ },
+ {
+  "query": "the description on my skill is 1,300 characters and pi refuses to load it. how short does it need to be?",
+  "should_trigger": true
+ },
+ {
+  "query": "how do I make a skill that only runs when I type /release and never on its own?",
+  "should_trigger": true
+ },
+ {
+  "query": "review the SKILL.md I just wrote and tell me what's wrong with its structure and frontmatter",
+  "should_trigger": true
+ },
+ {
+  "query": "is it worth putting this in a forked subagent with context: fork or should it stay inline?",
+  "should_trigger": true
+ },
+ {
+  "query": "why does my skill keep loading when I'm just asking about git? it's triggering on stuff it shouldn't",
+  "should_trigger": true
+ },
+ {
+  "query": "how do I run claude plugin eval on the skills in .claude/skills and read the delta",
+  "should_trigger": true
+ },
+ {
+  "query": "we have three skills with overlapping descriptions, help me work out which to merge or retire and how to check the cost in context",
+  "should_trigger": true
+ },
+ {
+  "query": "Can you make a lint script that checks all our SKILL.md files have valid frontmatter?",
+  "should_trigger": true
+ },
+ {
+  "query": "write an explainer page for the blog on how wavelet trees work",
+  "should_trigger": false
+ },
+ {
+  "query": "review docs/how-deflate-works.html for clarity, where will readers get lost",
+  "should_trigger": false
+ },
+ {
+  "query": "add a rule to CLAUDE.md that all figure ids must be kebab-case",
+  "should_trigger": false
+ },
+ {
+  "query": "allow npm run check without a permission prompt in my settings.json",
+  "should_trigger": false
+ },
+ {
+  "query": "build me a chatbot with the Anthropic SDK that uses tool calling and prompt caching",
+  "should_trigger": false
+ },
+ {
+  "query": "make a bar chart of the benchmark results for the DEFLATE decoder",
+  "should_trigger": false
+ },
+ {
+  "query": "what does the 'allowed-tools' field mean in my settings file? I want Claude to stop asking about git status",
+  "should_trigger": false
+ },
+ {
+  "query": "write a git hook that runs npm run check before every commit",
+  "should_trigger": false
+ },
+ {
+  "query": "explain what this error from the test runner means",
+  "should_trigger": false
+ },
+ {
+  "query": "turn this conversation into a commit message and open a PR for the branch",
+  "should_trigger": false
+ },
+ {
+  "query": "what frontmatter fields does a SKILL.md allow, and which ones break when the skill is loaded in pi?",
+  "should_trigger": true,
+  "heldout": true
+ },
+ {
+  "query": "I wrote evals for my skill but I don't know whether the score means the skill is actually helping. how do I tell?",
+  "should_trigger": true,
+  "heldout": true
+ },
+ {
+  "query": "can a skill take arguments, like /new-page explainer foo, and how do I declare them?",
+  "should_trigger": true,
+  "heldout": true
+ },
+ {
+  "query": "write a hook in settings.json that blocks rm -rf",
+  "should_trigger": false,
+  "heldout": true
+ },
+ {
+  "query": "summarise this eval results table into a slack message for the team",
+  "should_trigger": false,
+  "heldout": true
+ },
+ {
+  "query": "the caption under my figure just restates the picture. how should it read to teach better?",
+  "should_trigger": false,
+  "heldout": true
+ }
+]

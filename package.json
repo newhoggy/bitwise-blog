@@ -20,6 +20,8 @@
     "unseal": "node scripts/bh.mjs unseal",
     "serve": "node scripts/bh.mjs serve",
     "visual": "node scripts/visual.mjs",
-    "stats": "node scripts/stats.mjs"
+    "stats": "node scripts/stats.mjs",
+    "lint-skills": "node .claude/skills/skill-authoring/scripts/lint-skill.mjs --all",
+    "trigger-evals": "node .claude/skills/skill-authoring/scripts/run-trigger-evals.mjs"
   }
 }
