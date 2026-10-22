@@ -22,7 +22,7 @@ jobs:
       - name: Syntax-check scripts
         run: |
           node --check theme/bh.js
-          for f in theme/examples.js theme/unlisted.js theme/modules/*.js scripts/*.mjs; do node --check "$f"; done
+          for f in theme/examples.js theme/unlisted.js theme/modules/*.js scripts/*.mjs .claude/skills/*/scripts/*.mjs; do node --check "$f"; done
 
       # Links, ids, arrows, labels, contrast, glossary, decision links, and that the
       # generated files (index, glossary, site data, search index) are up to date.
@@ -31,6 +31,11 @@ jobs:
 
       - name: npm run check
         run: npm run check
+
+      # Frontmatter, limits, links and layout of the skills in .claude/skills. Warnings
+      # (portability, missing evals) do not fail the job; errors do.
+      - name: Lint skills
+        run: npm run lint-skills
 
       - name: Prepare the published variant
         run: |

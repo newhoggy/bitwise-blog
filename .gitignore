@@ -6,3 +6,6 @@ node_modules/
 # Private pages: plaintext never leaves this machine; keys live in 1Password (see CLAUDE.md).
 docs/*.private.html
 _site/
+
+# Skill eval results (claude plugin eval): regenerated on every run
+.claude/skills/*/evals/results/
