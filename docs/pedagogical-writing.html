@@ -47,6 +47,8 @@
     /* Beats the original paragraph has no counterpart for are drawn dashed, so the difference is a shape, not only a colour. */
     #two-orders .new-beat rect { stroke-dasharray: 6 4; }
 
+    #ramp-study .value-label { fill: var(--text); font-weight: 600; }
+
     #ladder-bits .crack-label { fill: var(--c4); font-style: italic; }
     #ladder-bits .value-label { fill: var(--text); font-weight: 600; }
 
@@ -104,10 +106,62 @@
     <h2 id="clear-is-not-enough">Clear, correct, and nothing learned</h2>
     <p class="lead">A first-year student answers a physics question, watches a seven-minute video that explains the answer, and answers it wrong again, more confident than before.</p>
     <p>The question is about a book sliding down a rough ramp at constant speed: is the force pulling it down the ramp greater than the friction holding it back, less, or equal? She picks "greater", reasoning that something has to win for the book to keep moving. The right answer is "equal": at constant speed the forces balance. Then she watches a video that explains Newton's first and second laws with animations and live demonstrations, including a book pushed across a table at constant speed. Asked again, she answers "greater" again, and raises her confidence from 5 to 6 out of 7 "because she believes she better understands the concepts after watching the video".</p>
+    <figure class="diagram wide" id="ramp-forces">
+      <svg viewBox="-16 -16 822 268" role="img" aria-label="Two drawings of a book sliding down a ramp. In her picture the arrow for the pull down the ramp is longer than the arrow for friction up the ramp, so the book would speed up. At constant speed the two arrows are the same length: the forces balance and nothing is left over.">
+        <text class="label strong" x="0" y="0">Her picture: the pull has to win</text>
+        <g class="node" data-id="ramp-a"><polygon points="20,60 20,190 350,190"/></g>
+        <g class="node c4" data-id="book-a"><polygon points="217.5,109.8 207.9,134 148.4,110.6 157.9,86.4"/></g>
+        <path class="edge c4" data-id="pull-a" d="M212.7 121.9 L305.7 158.6"/>
+        <path class="edge c4" data-id="friction-a" d="M153.2 98.5 L106.6 80.2"/>
+        <text class="label" x="240" y="112">pull down the ramp</text>
+        <text class="label" x="44" y="48">friction up the ramp</text>
+        <text class="label" x="20" y="214">Pull longer than friction: a net force down the ramp,</text>
+        <text class="label" x="20" y="232">so the book would speed up.</text>
+        <text class="label strong" x="410" y="0">At constant speed: they balance</text>
+        <g class="node" data-id="ramp-b"><polygon points="430,60 430,190 760,190"/></g>
+        <g class="node c1" data-id="book-b"><polygon points="627.5,109.8 617.9,134 558.4,110.6 567.9,86.4"/></g>
+        <path class="edge c1" data-id="pull-b" d="M622.7 121.9 L687.8 147.6"/>
+        <path class="edge c1" data-id="friction-b" d="M563.2 98.5 L498 72.8"/>
+        <text class="label" x="650" y="112">pull down the ramp</text>
+        <text class="label" x="454" y="48">friction up the ramp</text>
+        <text class="label" x="430" y="214">Pull equal to friction: no net force,</text>
+        <text class="label" x="430" y="232">so the book keeps its speed. This is the answer.</text>
+      </svg>
+      <figcaption>Notice that <span data-ref="ramp-forces:book-a pull-a friction-a">her picture</span> has a winner, and a winner is what makes a book speed up. <span data-ref="ramp-forces:book-b pull-b friction-b">Sliding at constant speed</span> needs no winner: the two arrows are the same length. Her model, that something has to win for the book to keep moving, is exactly what the video never touches.</figcaption>
+    </figure>
     <p>She is the opening example of a paper by Derek Muller and Manjula Sharma at the University of Sydney, drawn from their studies of more than a thousand physics students over three years.<span class="sidenote">They introduce her as "Imagine a first year student", so she is a typical case from their data, not one named person. Muller later started the Veritasium channel.</span> Nothing was wrong with the video. In their words, "the sentences used to describe the phenomena are not long or convoluted, nor does the presenter seem to struggle with making the concepts plain." They compared that clear lecture with other versions of the same lesson. One, the Dialogue, was a scripted conversation in which a student says the common wrong ideas out loud and a tutor takes them apart. Another, the Refutation, had a single narrator voice and correct the same wrong ideas.</p>
     <details class="predict">
       <summary>Guess before you open this: which raised the students' confidence more, the clear lecture or the Dialogue that voiced their wrong ideas? The lecture, the Dialogue, or about the same?</summary>
       <p><strong>About the same.</strong> In the 2006 study every version raised students' confidence by 0.6 to 0.7 points on average, on the seven-point scale, with no significant difference between them. Learning was another matter: students who watched the Dialogue or the Refutation gained on average twice as much as those who watched the clear lecture.</p>
+      <figure class="diagram" id="ramp-study">
+        <svg viewBox="-16 -16 532 328" role="img" aria-label="Four versions of one physics lesson: a clear lecture, an extended lecture with interesting extras, a refutation and a dialogue. Every version raised confidence by the same 0.6 to 0.7 points on a seven-point scale. Learning gain was the same for the lecture and the extended lecture, and about twice as large for the refutation and the dialogue.">
+          <text class="label strong" x="196" y="0">Confidence</text>
+          <text class="label" x="196" y="16">gain, out of 7</text>
+          <text class="label strong" x="316" y="0">Learning</text>
+          <text class="label" x="316" y="16">gain, lecture = 1×</text>
+          <g class="node c3" data-id="v-lecture"><rect x="0" y="36" width="180" height="56" rx="10"/><text x="90" y="52">Clear lecture</text><text class="sub" x="90" y="69">explains the laws,</text><text class="sub" x="90" y="83">with live demos</text></g>
+          <g class="node c2" data-id="conf-lecture"><rect x="196" y="52" width="40" height="24" rx="4"/></g>
+          <text class="label value-label" x="244" y="64">+0.6–0.7</text>
+          <g class="node c2" data-id="learn-lecture"><rect x="316" y="52" width="60" height="24" rx="4"/></g>
+          <text class="label value-label" x="384" y="64">baseline</text>
+          <g class="node c3" data-id="v-extended"><rect x="0" y="104" width="180" height="56" rx="10"/><text x="90" y="120">Extended lecture</text><text class="sub" x="90" y="137">the lecture plus</text><text class="sub" x="90" y="151">interesting extra facts</text></g>
+          <g class="node c2" data-id="conf-extended"><rect x="196" y="120" width="40" height="24" rx="4"/></g>
+          <text class="label value-label" x="244" y="132">+0.6–0.7</text>
+          <g class="node c2" data-id="learn-extended"><rect x="316" y="120" width="60" height="24" rx="4"/></g>
+          <text class="label value-label" x="384" y="132">no better</text>
+          <g class="node c3" data-id="v-refutation"><rect x="0" y="172" width="180" height="56" rx="10"/><text x="90" y="188">Refutation</text><text class="sub" x="90" y="205">narrator voices wrong</text><text class="sub" x="90" y="219">ideas, then corrects</text></g>
+          <g class="node c2" data-id="conf-refutation"><rect x="196" y="188" width="40" height="24" rx="4"/></g>
+          <text class="label value-label" x="244" y="200">+0.6–0.7</text>
+          <g class="node c2" data-id="learn-refutation"><rect x="316" y="188" width="120" height="24" rx="4"/></g>
+          <text class="label value-label" x="444" y="200">about 2×</text>
+          <g class="node c3" data-id="v-dialogue"><rect x="0" y="240" width="180" height="56" rx="10"/><text x="90" y="256">Dialogue</text><text class="sub" x="90" y="273">student voices wrong</text><text class="sub" x="90" y="287">ideas; tutor corrects</text></g>
+          <g class="node c2" data-id="conf-dialogue"><rect x="196" y="256" width="40" height="24" rx="4"/></g>
+          <text class="label value-label" x="244" y="268">+0.6–0.7</text>
+          <g class="node c2" data-id="learn-dialogue"><rect x="316" y="256" width="120" height="24" rx="4"/></g>
+          <text class="label value-label" x="444" y="268">about 2×</text>
+        </svg>
+        <figcaption>Notice that <span data-ref="ramp-study:conf-lecture conf-extended conf-refutation conf-dialogue">the confidence column is flat</span>, so a reader's confidence can't tell you which version taught, while <span data-ref="ramp-study:learn-refutation learn-dialogue">the learning column</span> separates the two that put the wrong ideas on the table. The bars show the headline results, not raw scores: confidence at the middle of the reported range, learning as multiples of the lecture's gain.</figcaption>
+      </figure>
       <p>If you picked the lecture, you had a reason: it is the more polished explanation, and polish feels like teaching. If you picked the Dialogue, you expected confidence to follow learning. It doesn't. Confidence tracks how smoothly the material went down, and a clear video goes down smoothly whether or not it changes anything. A later experiment found the same from the other side: viewers of a clear video that taught misconceptions felt just as sure as viewers of a correct one, and came away with "more misconceptions and fewer scientifically correct conceptions" (Kulgemeyer and Wittwer, 2022).</p>
     </details>
     <p>That gap between feeling taught and being taught is what this page is about. Clarity is necessary, but the ramp shows it is not sufficient: the reader also has to want the idea, meet their own wrong answer, and see where it breaks. So the question for this page is concrete. <strong>Take a clear, correct paragraph that a newcomer reads, feels good about, and cannot use. What do you change, and how do you find out whether it worked?</strong></p>
@@ -128,6 +182,26 @@
     <details class="predict">
       <summary>A colleague suggests growing by a fixed 1,000 slots instead of doubling: less wasted space, and still "a large amount". Starting empty, a million appends copy roughly how many items in total? About 1 million, about 500 million, or about 500 billion?</summary>
       <p><strong>About 500 million</strong>, nearly 500 times what doubling copies. A copy happens every 1,000 appends and moves everything so far: 1,000 + 2,000 + … + 999,000, which is 1,000 × (1 + 2 + … + 999) = 499,500,000. Doubling copies only at 1, 2, 4, … items, up to 524,288 (2<sup>19</sup>), 1,048,575 in all: about one copy per item.</p>
+      <figure class="frame" id="copies-so-far">
+        <bh-chart type="line" unit="M" y-label="Items copied so far">
+          <table>
+            <thead><tr><th>Appends</th><th>Fixed step of 1,000</th><th>Doubling</th></tr></thead>
+            <tbody>
+              <tr><td>100k</td><td>4.95</td><td>0.13</td></tr>
+              <tr><td>200k</td><td>19.9</td><td>0.26</td></tr>
+              <tr><td>300k</td><td>44.85</td><td>0.52</td></tr>
+              <tr><td>400k</td><td>79.8</td><td>0.52</td></tr>
+              <tr><td>500k</td><td>124.75</td><td>0.52</td></tr>
+              <tr><td>600k</td><td>179.7</td><td>1.05</td></tr>
+              <tr><td>700k</td><td>244.65</td><td>1.05</td></tr>
+              <tr><td>800k</td><td>319.6</td><td>1.05</td></tr>
+              <tr><td>900k</td><td>404.55</td><td>1.05</td></tr>
+              <tr><td>1,000k</td><td>499.5</td><td>1.05</td></tr>
+            </tbody>
+          </table>
+        </bh-chart>
+        <figcaption>Notice that the fixed step curves upward because every resize copies everything so far, while doubling stays on the floor and only steps up when the array fills at 2<sup>k</sup> items. At a million appends the gap is 499.5 million against 1.05 million.</figcaption>
+      </figure>
       <p>"About 1 million" is the answer the paragraph's first sentence teaches: "resize by a large amount", and 1,000 is large. "About 500 billion" is the count for growing by one slot at a time, 1 + 2 + … + 999,999 items. That sum is about 999,999² ÷ 2, so it grows with the square of the number of appends. A step of 1,000 divides it by 1,000, and that is all it does: the total still grows with the square. Ten million appends would cost 100 times as much, not 10 times. Doubling is cheap because its step grows with the array.</p>
     </details>
 
