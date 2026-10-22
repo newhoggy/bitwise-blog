@@ -6,3 +6,7 @@ node_modules/
 # Private pages: plaintext never leaves this machine; keys live in 1Password (see CLAUDE.md).
 docs/*.private.html
 _site/
+# Anatomy figures: standalone pages are an intermediate; the published copy is the page in docs/
+figures/*/*.html
+.claude/skills/anatomy/examples/**/*.html
+.claude/skills/anatomy/examples/**/*.pdf
