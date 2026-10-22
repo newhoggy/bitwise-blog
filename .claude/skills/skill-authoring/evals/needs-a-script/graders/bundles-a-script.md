@@ -1,5 +1,5 @@
 ---
 type: regex
-pattern: 'run_loop'
+pattern: 'scripts/'
 flags: i
 ---

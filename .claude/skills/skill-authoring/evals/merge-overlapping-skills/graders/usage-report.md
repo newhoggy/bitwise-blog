@@ -1,5 +1,5 @@
 ---
 type: regex
-pattern: 'npm run check'
+pattern: 'skill-doctor'
 flags: i
 ---

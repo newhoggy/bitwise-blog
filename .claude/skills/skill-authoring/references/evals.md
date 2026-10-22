@@ -18,7 +18,7 @@ through `claude plugin eval`; they differ in what a case asks.
 - Running, and reading the result
 - Models, cost and thresholds
 - Converting skill-creator's `evals.json`
-- What has been measured here
+- Where the measurements are
 
 ## The decision
 
@@ -113,8 +113,9 @@ Scaffold with `claude plugin eval init --bare <case>` from the skill directory, 
 files by hand. `evals/results/` is written by each run; it is git-ignored.
 
 Choose cases from the gaps the baseline run showed, not from what the skill says. At least
-three, with realistic prompts, at least one a boundary case (an ambiguous request, or a
-prompt where the skill should *not* change the answer). Delete or rewrite a case that
+three, with realistic prompts, at least one a boundary case (an ambiguous request). Over-triggering is covered by the
+should-stay-quiet trigger queries, not by output cases: a case where the skill should not change the
+answer scores the same in both arms and measures nothing. Delete or rewrite a case that
 scores the same with and without the skill: it measures nothing about the skill.
 
 ## Writing cases and graders
@@ -216,92 +217,4 @@ Each entry becomes a case directory:
 
 `pedagogical-writing`'s six cases were converted this way.
 
-## What has been measured here
-
-Run on 2026-10-22 and 23 with Claude Code 2.1.300. Agent `claude-sonnet-5-5`, judge
-`claude-haiku-5-5`, three runs per case per arm, `-j 4`. Each case is graded as the fraction of
-its graders that passed, averaged over runs; `Δ` is with-skill minus without.
-
-**These are small samples.** Three runs move a case in steps of a third, and re-running
-`pedagogical-writing` after fixing two of its graders moved single cases by up to 0.4 (the
-`revise-directory-paragraph` Δ went from +0.17 to −0.17, with no change to the skill). Read the
-mean across cases, and the sign across cases, not any one number.
-
-### `skill-authoring` output evals (5 cases)
-
-Written before the skill body, from the gaps a stub-only baseline showed, then tuned once: the
-reserved-word check in `SKILL.md` was added after a with-skill transcript showed the review
-missing it. The cases are written around what the skill teaches, so a positive Δ here shows the
-skill delivers its content, not that the content is what users need most.
-
-| Case | With | Without | Δ |
-| --- | --- | --- | --- |
-| add-evals | 0.86 | 0.14 | +0.71 |
-| review-flawed-skill | 0.96 | 0.71 | +0.25 |
-| fix-not-firing | 1.00 | 0.73 | +0.27 |
-| design-user-only-skill | 0.89 | 0.83 | +0.06 |
-| skill-or-claude-md | 1.00 | 1.00 | 0.00 |
-| **Mean** | **0.94** | **0.68** | **+0.26** |
-
-This is the run on the final text of the skill. An earlier run on the same cases, before the
-description was reworked for triggering, gave a mean Δ of +0.30 (with 0.96, without 0.66): the same
-skill moves by about 0.04 between runs of three.
-
-Cost $1.77, 2.9 minutes. `skill-or-claude-md` is a guard: Claude already answers it well, and
-the skill did not fire on it (0 of 3), which is the right outcome. `design-user-only-skill`
-still fails its `portability` grader in two of three runs with the skill: Claude recommends
-`disable-model-invocation` without saying it is Claude Code only, even though the skill says
-so. That is the remaining gap.
-
-### `pedagogical-writing` output evals (6 cases, converted from `evals.json`)
-
-| Case | With | Without | Δ |
-| --- | --- | --- | --- |
-| rewrite-token-bucket | 1.00 | 0.47 | +0.53 |
-| design-rank-interactive | 0.81 | 0.38 | +0.43 |
-| outline-bloom-filters | 0.58 | 0.33 | +0.25 |
-| review-deflate-page | 0.94 | 0.83 | +0.11 |
-| plan-rank-select-series | 0.62 | 0.52 | +0.10 |
-| revise-directory-paragraph | 0.56 | 0.72 | −0.17 |
-| **Mean** | **0.75** | **0.54** | **+0.21** |
-
-Cost $4.34, 10.5 minutes. An earlier run of the same suite, before two grader fixes and a longer
-timeout for the review case, gave a mean Δ of +0.25, with `review-deflate-page` at −0.28 because
-one with-skill run hit the 300 s limit. Observations:
-
-- The skill helps most where it supplies a method the prompt does not mention (the token-bucket
-  rewrite, the interactive design) and least where the task is mechanical (the paragraph
-  revision) or the output is long and judged strictly (series planning).
-- Two graders failed in both arms in both runs: the "each page teaches one concept and the plan
-  says what the reader can do" check of `plan-rank-select-series`, and the "each section introduces
-  exactly one new idea" check of `outline-bloom-filters`. By the agentskills.io guidance such
-  graders are broken or too strict, not evidence about the skill. They are kept as converted so the
-  conversion is faithful, and are listed in the PR as follow-up work on that skill's evals.
-  (A third, "each finding gives a location, the missing beat and a fix" in `review-deflate-page`,
-  failed in the first run and passed in 2 of 3 with-skill and 1 of 3 baseline runs in the second.)
-- `review-deflate-page` cannot run the skill's `page-stats.mjs` audit: running it needs `Bash`
-  and the sandbox refuses `Bash` here (see above), and the skill names the script by a repo-root
-  path that does not exist in the sandbox anyway (#77).
-- A `not_contains` grader on "obviously" failed for both arms because the answers quote the word
-  while explaining what changed; it was changed to an `llm` grader.
-
-### Trigger evals (`scripts/run-trigger-evals.mjs`)
-
-| Skill | Description | Should fire | Should stay quiet | Cost |
-| --- | --- | --- | --- | --- |
-| `skill-authoring`, first draft | 842 characters | 7 of 12 | 10 of 10 | $4.80 |
-| `skill-authoring`, after one edit | 986 characters | 11 of 12 (12 of 12 once one query was reworded, see below) | 10 of 10 | $7.54 |
-| `skill-authoring`, 6 held-out queries | as above | 3 of 3 | 3 of 3 | (in the row above) |
-| `pedagogical-writing` | 817 characters | 11 of 12 | 10 of 10 | $3.97 |
-
-The edit named what the five missed queries were about (frontmatter fields and limits, user-only
-invocation, `claude plugin eval`, linting) in the description. Four of the five then fired in all
-three runs. The fifth ("my pedagogical-writing skill didn't fire when I asked Claude to review the
-deflate page") kept missing, because the prompt reads as a request about the page, which another
-skill owns; it was reworded to "my pedagogical-writing skill never seems to load when I ask for a
-page review. how do I find out why?", which fires 3 of 3. That is a change to the query after
-seeing it fail, not to the description, and is recorded so it is not mistaken for a result. The
-held-out queries were written before tuning and not looked at until the end, but the set is small:
-this shows no over-fit, not that there is none. Nothing stole prompts: the should-quiet half stayed at 0
-triggers in every run. Its one miss for `pedagogical-writing` is "is this ADR's context section
-clear enough for someone joining the team next month", which `pedagogical-writing` does not claim.
+The results of the runs made for this repo's skills are in [measurements.md](measurements.md).

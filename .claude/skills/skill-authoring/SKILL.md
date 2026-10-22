@@ -36,21 +36,16 @@ how much machinery a skill needs, and which eval tool does which job.
 
 ## 1. Do you need a skill?
 
-Pick the lightest home that fits.
+Claude already knows when a short always-on rule belongs in `CLAUDE.md` and when a procedure
+earns a skill (a baseline run of that question scored 1.00 without this skill), so this skill
+does not repeat the general split. What it adds:
 
-| The thing is | Put it in |
-| --- | --- |
-| A short fact or rule needed in every session (ids are kebab-case) | `CLAUDE.md` |
-| A rule that must hold every time, however the model behaves | A hook or a repo check (`npm run check`); prose cannot guarantee it |
-| A procedure or body of guidance needed only for some tasks | A skill |
-| Noisy exploration whose intermediate output the parent does not need | A subagent, or a skill with `context: fork` |
-| Access to an outside system | An MCP server |
-| A deterministic step | A script, which a skill may bundle |
-
-This split is a synthesis of the Claude Code docs, which give no single table
-([sources](references/sources.md)). Before adding a skill, check whether an existing one
-should grow instead: a new skill costs a description in every session's context. A
-`CLAUDE.md` section that has grown into a procedure is the usual sign a skill is due.
+- **A rule that must hold every time goes in a repo check or hook**, not in a skill or in
+  prose: `npm run check` is the model, and `npm run lint-skills` is the same for skills.
+- **Look for an existing skill to grow before adding one.** A new skill puts a description in
+  every session's context; `/skill-doctor` shows what each one costs and whether it is used.
+- The split between `CLAUDE.md`, skill, subagent, hook and MCP is the author's synthesis of
+  the Claude Code docs, not a documented rule ([sources](references/sources.md)).
 
 ## 2. How much machinery
 
@@ -103,6 +98,9 @@ what wastes context, then style. For each finding give the fix. Say what already
 
 [references/maintenance.md](references/maintenance.md): regressions, context cost, skills that are
 never invoked, portability, and when to retire or merge.
+Re-review this skill when a model changes, when a neighbouring skill's description changes,
+or when a transcript shows it missed: re-run its evals and compare with
+[references/measurements.md](references/measurements.md).
 
 ## Reference files
 
@@ -117,5 +115,7 @@ never invoked, portability, and when to retire or merge.
   `npm run trigger-evals -- <skill-name>` from the repo root.
 - [references/checklist.md](references/checklist.md): the review checklist.
 - [references/maintenance.md](references/maintenance.md): keeping a skill healthy.
+- [references/measurements.md](references/measurements.md): dated eval results for this repo's
+  skills, models, costs and what the numbers do and do not show.
 - [references/sources.md](references/sources.md): where each claim comes from, and what
   was read versus summarised.

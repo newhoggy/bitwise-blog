@@ -46,7 +46,7 @@ Match how tightly you constrain Claude to how fragile the task is.
 | Skill | Rungs | Why those |
 | --- | --- | --- |
 | `pedagogical-writing` | 1, 2, 3 | Guidance (1) split by task into references (2), with a stats script that is run (3) |
-| `skill-authoring` | 1, 2, 3 | Same shape; the script is the lint |
+| `skill-authoring` | 1, 2, 3 | Same shape; the scripts are the lint (deterministic checks) and the trigger runner (a measurement skill-creator's runner got wrong, so Claude would otherwise rebuild it) |
 
 Neither uses arguments, dynamic context, hooks, forking or packaging: no eval has shown a
 need. Record a new skill's rungs in this table when it ships.
