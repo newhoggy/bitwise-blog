@@ -811,7 +811,8 @@ holds them, with the reasons; this is the short form.
 - **Frontmatter:** `name` (at most 64 characters, matches the directory, no `claude` or
   `anthropic`) and `description` (at most 1,024 characters, third person, says what and when,
   names what it is not for). Add Claude Code-only fields only when they earn their place.
-- **Evals:** `evals/trigger-evals.json` (skill-creator format, optimised with `run_loop.py`)
-  and output cases under `evals/<case>/` run by `claude plugin eval`, which also gives the
-  with/without delta. A skill's rules come from a measured gap against the no-skill baseline.
+- **Evals:** both kinds run through `claude plugin eval`. Trigger queries live in
+  `evals/trigger-evals.json` (skill-creator's format) and are measured with the skill's
+  `scripts/run-trigger-evals.mjs`; output cases are `evals/<case>/` directories, which also give
+  the with/without delta. A skill's rules come from a measured gap against the no-skill baseline.
 - **Check:** `npm run lint-skills` must report 0 errors. Re-run the evals when a skill changes.
