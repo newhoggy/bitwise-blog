@@ -236,14 +236,18 @@ skill delivers its content, not that the content is what users need most.
 
 | Case | With | Without | Δ |
 | --- | --- | --- | --- |
-| add-evals | 1.00 | 0.14 | +0.86 |
-| review-flawed-skill | 0.92 | 0.58 | +0.33 |
-| fix-not-firing | 1.00 | 0.80 | +0.20 |
-| design-user-only-skill | 0.89 | 0.78 | +0.11 |
+| add-evals | 0.86 | 0.14 | +0.71 |
+| review-flawed-skill | 0.96 | 0.71 | +0.25 |
+| fix-not-firing | 1.00 | 0.73 | +0.27 |
+| design-user-only-skill | 0.89 | 0.83 | +0.06 |
 | skill-or-claude-md | 1.00 | 1.00 | 0.00 |
-| **Mean** | **0.96** | **0.66** | **+0.30** |
+| **Mean** | **0.94** | **0.68** | **+0.26** |
 
-Cost $1.70, 3.3 minutes. `skill-or-claude-md` is a guard: Claude already answers it well, and
+This is the run on the final text of the skill. An earlier run on the same cases, before the
+description was reworked for triggering, gave a mean Δ of +0.30 (with 0.96, without 0.66): the same
+skill moves by about 0.04 between runs of three.
+
+Cost $1.77, 2.9 minutes. `skill-or-claude-md` is a guard: Claude already answers it well, and
 the skill did not fire on it (0 of 3), which is the right outcome. `design-user-only-skill`
 still fails its `portability` grader in two of three runs with the skill: Claude recommends
 `disable-model-invocation` without saying it is Claude Code only, even though the skill says
