@@ -1573,7 +1573,9 @@ function cmdCheck() {
     }
 
     // Duplicate ids
-    const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+    // Script bodies are skipped: an inlined figure script builds markup in template strings, and
+    // two figures on one page would each contribute an `id="${id}"` that is not an element.
+    const ids = [...html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "").matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
     const seen = new Set();
     for (const id of ids) { if (seen.has(id)) err(`duplicate id="${id}"`); seen.add(id); }
 
