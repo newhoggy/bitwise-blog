@@ -4,7 +4,7 @@
   "should_trigger": true
  },
  {
-  "query": "my pedagogical-writing skill didn't fire when I asked Claude to review the deflate page, why does that happen?",
+  "query": "my pedagogical-writing skill never seems to load when I ask for a page review. how do I find out why?",
   "should_trigger": true
  },
  {

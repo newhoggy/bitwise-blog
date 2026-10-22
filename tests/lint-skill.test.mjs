@@ -52,6 +52,18 @@ test("parseFrontmatter reads quoted and folded values", () => {
   assert.equal(fm.body, "body\n");
 });
 
+test("parseFrontmatter folds block scalars and drops the indicator", () => {
+  assert.equal(parseFrontmatter("---\nname: x\ndescription: >-\n  one\n  two\n---\n").fields.description, "one two");
+  assert.equal(parseFrontmatter("---\nname: x\ndescription: |\n  one\n  two\n---\n").fields.description, "one\ntwo");
+  const lst = parseFrontmatter("---\nname: x\nallowed-tools:\n  - Bash\n  - Read\n---\n").fields;
+  assert.ok("allowed-tools" in lst);
+});
+
+test("a block-scalar description is measured without its indicator", () => {
+  const long = build(d => edit(d, "SKILL.md", s => s.replace(/^description: .*$/m, "description: >-\n  Guidelines for demos. Use when asked." + " More words.".repeat(100).replace(/^/, "\n  "))));
+  has(messages(long, "error"), /limit 1024/);
+});
+
 test("missing frontmatter and missing SKILL.md are errors", () => {
   has(messages(build(d => edit(d, "SKILL.md", s => s.replace(/^---[\s\S]*?---\n/, ""))), "error"), /no YAML frontmatter/);
   has(messages(build(d => fs.rmSync(path.join(d, "SKILL.md"))), "error"), /SKILL\.md not found/);
@@ -61,6 +73,7 @@ test("name rules", () => {
   has(messages(build(d => edit(d, "SKILL.md", s => s.replace("name: demo-skill", "name: Demo_Skill"))), "error"), /lowercase/);
   has(messages(build(d => edit(d, "SKILL.md", s => s.replace("name: demo-skill", "name: other"))), "error"), /directory name/);
   has(messages(build(d => edit(d, "SKILL.md", s => s.replace("name: demo-skill", "name: claude-demo-skill"))), "error"), /reserved word "claude"/);
+  has(messages(build(d => edit(d, "SKILL.md", s => s.replace("name: demo-skill", "name: myanthropic-demo-skill"))), "error"), /reserved word "anthropic"/);
   has(messages(build(d => edit(d, "SKILL.md", s => s.replace("name: demo-skill", "name: " + "a".repeat(70)))), "error"), /70 characters/);
 });
 
@@ -97,6 +110,9 @@ test("long references need a contents list; unmentioned files are flagged", () =
   has(messages(build(d => edit(d, "references/more.md", s => s + "line\n".repeat(120))), "warning"), /no "Contents" heading/);
   assert.deepEqual(messages(build(d => edit(d, "references/more.md", s => s.replace("# More", "# More\n\n## Contents\n") + "line\n".repeat(120))), "warning"), []);
   has(messages(build(d => fs.writeFileSync(path.join(d, "references", "orphan.md"), "# Orphan\n")), "warning"), /not mentioned in SKILL\.md/);
+  // A file whose bare name appears inside another path is still not mentioned.
+  const sub = build(d => { fs.writeFileSync(path.join(d, "references", "run.md"), "# Run\n"); edit(d, "SKILL.md", s => s + "\nSee notes/run.md elsewhere.\n"); });
+  has(messages(sub, "warning"), /references\/run\.md: not mentioned|not mentioned in SKILL\.md/);
 });
 
 test("repo-root paths to bundled files warn; ${CLAUDE_SKILL_DIR} does not", () => {

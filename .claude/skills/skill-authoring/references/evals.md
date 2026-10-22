@@ -61,11 +61,14 @@ skill versions, and the description rewriting step.
 - Write a few extra queries before you start tuning, mark them `heldout`, and look at them
   only at the end.
 
-Measure with the bundled script, from inside the repo:
+Measure with the bundled script (`scripts/run-trigger-evals.mjs`), from the repo root:
 
 ```bash
-node scripts/run-trigger-evals.mjs <skill-name>   # path relative to this skill's directory
+npm run trigger-evals -- <skill-name> [--runs N] [--only 1,5,9] [--keep]
 ```
+
+`--only` re-runs chosen queries (1-based positions in the file) after an edit; the output lists
+each query with its position. It exits 1 if any query fails or any case failed to load.
 
 It builds a temporary plugin holding **every** skill in `.claude/skills` (so near misses meet
 the neighbours that would answer them), one `claude plugin eval` case per query with
@@ -283,15 +286,18 @@ one with-skill run hit the 300 s limit. Observations:
 | Skill | Description | Should fire | Should stay quiet | Cost |
 | --- | --- | --- | --- | --- |
 | `skill-authoring`, first draft | 842 characters | 7 of 12 | 10 of 10 | $4.80 |
-| `skill-authoring`, after one edit | 986 characters | 11 of 12 | 10 of 10 | $7.54 |
+| `skill-authoring`, after one edit | 986 characters | 11 of 12 (12 of 12 once one query was reworded, see below) | 10 of 10 | $7.54 |
 | `skill-authoring`, 6 held-out queries | as above | 3 of 3 | 3 of 3 | (in the row above) |
 | `pedagogical-writing` | 817 characters | 11 of 12 | 10 of 10 | $3.97 |
 
 The edit named what the five missed queries were about (frontmatter fields and limits, user-only
-invocation, `claude plugin eval`, linting) in the description. Four of the five now fire in all
-three runs; the fifth ("my pedagogical-writing skill didn't fire when I asked Claude to review
-the deflate page") is arguably another skill's, and still misses. The held-out queries were
-written before tuning and not looked at until the end, but the set is small: this shows no
-over-fit, not that there is none. Nothing stole prompts: the should-quiet half stayed at 0
+invocation, `claude plugin eval`, linting) in the description. Four of the five then fired in all
+three runs. The fifth ("my pedagogical-writing skill didn't fire when I asked Claude to review the
+deflate page") kept missing, because the prompt reads as a request about the page, which another
+skill owns; it was reworded to "my pedagogical-writing skill never seems to load when I ask for a
+page review. how do I find out why?", which fires 3 of 3. That is a change to the query after
+seeing it fail, not to the description, and is recorded so it is not mistaken for a result. The
+held-out queries were written before tuning and not looked at until the end, but the set is small:
+this shows no over-fit, not that there is none. Nothing stole prompts: the should-quiet half stayed at 0
 triggers in every run. Its one miss for `pedagogical-writing` is "is this ADR's context section
 clear enough for someone joining the team next month", which `pedagogical-writing` does not claim.

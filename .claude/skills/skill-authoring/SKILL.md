@@ -87,8 +87,8 @@ script that is run, not read.
    Δ near zero on a case means the skill is not helping there: cut or rewrite.
 5. Read two or three transcripts for skipped steps, unread references and helper code
    written again and again (a candidate script).
-6. Run `node scripts/lint-skill.mjs <skill-dir>` (or `--all`) from the repo root, in
-   Claude Code `${CLAUDE_SKILL_DIR}/scripts/lint-skill.mjs`, and fix what it reports.
+6. Run `npm run lint-skills` from the repo root (it runs `scripts/lint-skill.mjs` on every skill;
+   add `-- --strict` to fail on warnings) and fix what it reports.
 7. Try it on one real task before calling it done.
 
 ## 5. Reviewing a skill
@@ -113,7 +113,8 @@ never invoked, portability, and when to retire or merge.
   a description.
 - [references/evals.md](references/evals.md): which tool for which eval, exact commands,
   case layout, fixtures, graders, thresholds and reading Δ. Read it before writing or
-  running any eval. Trigger evals run through `node scripts/run-trigger-evals.mjs <skill-name>`.
+  running any eval. Trigger evals run through `scripts/run-trigger-evals.mjs`, as
+  `npm run trigger-evals -- <skill-name>` from the repo root.
 - [references/checklist.md](references/checklist.md): the review checklist.
 - [references/maintenance.md](references/maintenance.md): keeping a skill healthy.
 - [references/sources.md](references/sources.md): where each claim comes from, and what

@@ -42,7 +42,7 @@ just never runs, or runs on the wrong task.
 4. Write `evals/trigger-evals.json`: about twenty queries, roughly half should-trigger and
    half should-not, with the near misses the hard half
    ([evals](evals.md#trigger-evals)).
-5. Run `scripts/run-trigger-evals.mjs`, edit the description against the queries that fail,
+5. Run `npm run trigger-evals -- <skill-name>`, edit the description against the queries that fail,
    and run it again. Keep the description that scores best on the held-out queries, not on
    the ones it was tuned on.
 6. Check the near misses against **every other skill in the repo and in the user's

@@ -23,24 +23,28 @@ const CLAUDE_CODE_ONLY = new Set([
 const RESERVED = ["claude", "anthropic"];
 const MAX_NAME = 64, MAX_DESC = 1024, MAX_BODY_LINES = 500, LONG_REFERENCE_LINES = 100;
 
-// Minimal frontmatter reader: top-level `key: value` pairs, quoted or plain, with
-// indented continuation lines folded into the value. Enough for the checks below.
+// Minimal frontmatter reader: top-level `key: value` pairs, quoted or plain. Indented continuation
+// lines are folded into the value; a block scalar (`>`, `>-`, `|`, `|-`) loses its indicator and
+// is folded (`>`) or kept on separate lines (`|`). Lists and maps become a flat string, which is
+// enough to know the key is present. Quoted values are not unescaped.
 export function parseFrontmatter(text) {
   const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
   if (!m) return null;
-  const fields = {};
+  const raw = {};
   let key = null;
   for (const line of m[1].split(/\r?\n/)) {
     const kv = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line);
     if (kv) {
       key = kv[1];
-      fields[key] = kv[2];
+      raw[key] = { head: kv[2].trim(), rest: [] };
     } else if (key && /^\s+\S/.test(line)) {
-      fields[key] += " " + line.trim();
+      raw[key].rest.push(line.trim());
     }
   }
-  for (const k of Object.keys(fields)) {
-    let v = fields[k].trim();
+  const fields = {};
+  for (const [k, { head, rest }] of Object.entries(raw)) {
+    const block = /^([>|])[+-]?$/.exec(head);
+    let v = block ? rest.join(block[1] === ">" ? " " : "\n") : [head, ...rest].filter(Boolean).join(" ");
     if (/^(["']).*\1$/.test(v)) v = v.slice(1, -1);
     fields[k] = v;
   }
@@ -71,7 +75,7 @@ export function lintSkill(dir) {
     if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(fields.name)) add("error", skillMd, `name "${fields.name}" must be lowercase letters, digits and single hyphens`);
     if (fields.name !== dirName) add("error", skillMd, `name "${fields.name}" must equal its directory name "${dirName}"`);
     for (const w of RESERVED) {
-      if (fields.name.split("-").includes(w)) add("error", skillMd, `name contains the reserved word "${w}"`);
+      if (fields.name.includes(w)) add("error", skillMd, `name contains the reserved word "${w}"`);
     }
   }
 
@@ -134,7 +138,7 @@ export function lintSkill(dir) {
       if (n > LONG_REFERENCE_LINES && !/^#{1,3}\s+(table of )?contents\b/im.test(fs.readFileSync(f, "utf8"))) add("warning", f, `${n} lines and no "Contents" heading: add a contents list so a partial read still shows the scope`);
     }
     if (/^(references|scripts|assets)\//.test(rel)) {
-      const named = linkedFrom.has(path.resolve(f)) || text.includes(rel) || text.includes(path.basename(f));
+      const named = linkedFrom.has(path.resolve(f)) || text.includes(rel);
       if (!named) add("warning", f, "not mentioned in SKILL.md: Claude will not know it exists");
     }
   }

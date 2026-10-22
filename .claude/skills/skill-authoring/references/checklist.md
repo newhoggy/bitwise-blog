@@ -1,7 +1,7 @@
 # Review checklist
 
-The skill equivalent of `npm run check`. Run `node scripts/lint-skill.mjs <skill-dir>`
-first (from the repo root); it covers the items marked *lint*. The rest need judgment.
+The skill equivalent of `npm run check`. Run `npm run lint-skills` first (from the repo root);
+it covers the items marked *lint*. The rest need judgment.
 Lead a review with what stops the skill loading or triggering, then what wastes context,
 then style, and give a fix for each finding.
 
