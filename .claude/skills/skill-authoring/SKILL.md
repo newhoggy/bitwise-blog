@@ -23,7 +23,11 @@ how much machinery a skill needs, and which eval tool does which job.
    **`description` is at most 1,024 characters**, third person, says what the skill does
    and when to use it, in the words people type, and names what it is *not* for.
 4. **Name bundled files relative to the skill directory**, never by a repo-root path
-   (`.claude/skills/<name>/…`), so the skill loads from anywhere (#77).
+   (`.claude/skills/<name>/…`), so the skill loads from anywhere (#77). For a command,
+   write `<skill-dir>/scripts/x` and say `<skill-dir>` is the directory holding SKILL.md:
+   pi does not expand `${CLAUDE_SKILL_DIR}`, and a bare `scripts/x` runs from the repo root.
+   Pi finds the skills through `.pi/settings.json` (`"skills": ["../.claude/skills"]`), so
+   `.claude/skills/` stays the only copy. Pi asks you to trust the project the first time.
 5. **Keep frontmatter to the cross-surface fields** (`name`, `description`, `license`,
    `compatibility`, `metadata`, `allowed-tools`) unless a Claude Code-only field earns its
    place, so the skill still loads in pi and claude.ai.
