@@ -7,7 +7,11 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const PAGE = "docs/how-deflate-works.html";
+// Any public page with a <main> to inject into: the test must not depend on one page staying put.
+const PAGE = "docs/" + fs.readdirSync(path.join(source, "docs")).filter((f) => f.endsWith(".html") && !f.endsWith(".private.html")).find((f) => {
+  const html = fs.readFileSync(path.join(source, "docs", f), "utf8");
+  return html.includes("</main>") && !html.includes('id="sealed-payload"');
+});
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bh-dupid-test-"));
@@ -40,5 +44,8 @@ test("check does not read ids out of script text", (t) => {
   const f = fixture(t);
   const script = "<script>const gradient = `<linearGradient id=\"${id}\"></linearGradient>`;</script>";
   f.inject(script + script);
-  assert.doesNotMatch(f.check(), /duplicate id/);
+  const out = f.check();
+  // `check` must have run to its summary, or the absence below proves nothing.
+  assert.match(out, /\d+ files/);
+  assert.doesNotMatch(out, /duplicate id/);
 });

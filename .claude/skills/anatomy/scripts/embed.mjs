@@ -31,19 +31,35 @@ function fail(message) {
   process.exit(1);
 }
 
-// Top-level CSS rules, brace-depth aware, so an @media block counts as one rule.
+// Top-level CSS rules, brace-depth aware, so an @media block counts as one rule. Braces inside
+// comments and quoted strings (`content: "{"`) do not count.
 function topLevelRules(css) {
   const rules = [];
   let depth = 0;
   let start = 0;
   for (let i = 0; i < css.length; i++) {
-    if (css[i] === "{") depth++;
-    else if (css[i] === "}" && --depth === 0) {
+    const c = css[i];
+    if (c === "/" && css[i + 1] === "*") {
+      const end = css.indexOf("*/", i + 2);
+      const lead = depth === 0 && !css.slice(start, i).trim();
+      i = end < 0 ? css.length : end + 1;
+      if (lead) start = i + 1; // a comment between rules is not part of the next rule's selector
+    } else if (c === '"' || c === "'") {
+      for (i++; i < css.length && css[i] !== c; i++) if (css[i] === "\\") i++;
+    } else if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) {
       rules.push(css.slice(start, i + 1).trim());
       start = i + 1;
     }
   }
   return rules.filter(Boolean);
+}
+
+// Selectors of the rules nested in an at-rule block (@media, @supports, @layer), one level deep.
+function nestedSelectors(rule) {
+  const open = rule.indexOf("{");
+  if (!rule.startsWith("@") || open < 0) return [];
+  return topLevelRules(rule.slice(open + 1, rule.lastIndexOf("}"))).map((r) => r.slice(0, r.indexOf("{")).trim());
 }
 
 // The built page up to its </main>. The kit's own source comes after, and mentions <style>,
@@ -58,10 +74,14 @@ function figureCss(built) {
   const blocks = [...beforeScript(built).matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
   if (!blocks.length) fail("no <style> in the built page");
   const kept = [];
+  const pageWide = (selector) => PAGE_SELECTORS.has(selector) || /(^|[\s,>+~])(html|body|:root)\b/.test(selector);
+  const warn = (selector) => console.warn(`embed: warning: the figure's CSS has a rule on "${selector}", which restyles the whole page; scope it to the figure`);
   for (const rule of blocks.flatMap(topLevelRules)) {
     const selector = rule.slice(0, rule.indexOf("{")).trim();
     if (PAGE_SELECTORS.has(selector)) continue;
-    if (/(^|[\s,>+~])(html|body|:root)\b/.test(selector)) console.warn(`embed: warning: the figure's CSS has a rule on "${selector}", which restyles the whole page; scope it to the figure`);
+    if (pageWide(selector)) warn(selector);
+    // A page-wide rule inside @media is not dropped (the block may hold other rules), so say so.
+    for (const inner of nestedSelectors(rule)) if (pageWide(inner)) warn(`${selector} { ${inner} }`);
     kept.push(rule);
   }
   return kept.join("\n");
