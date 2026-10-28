@@ -438,7 +438,7 @@ function draw() {
   const len = Math.max(tip - BAR.join, 1);
   barFront.innerHTML = solidSvg(slabOf({ x: BAR.join, y: -BAR.w / 2, w: len, d: BAR.w, r: 1 }, ZB, BAR.h, P, 3, 0.4), { tone: "mid" });
   const next = ((1 - phi) / RATE).toFixed(1);
-  const text = coinsIn + " of " + B + " tokens · " + sent + " sent · " + refused + " × 429";
+  const text = coinsIn + " of " + B + " tokens · " + sent + " admitted · " + refused + " rejected";
   if (readout.textContent !== text) readout.textContent = text;
   stage.setAttribute("aria-valuenow", String(coinsIn));
   stage.setAttribute("aria-valuetext", text + ", next token in " + next + " s");
@@ -491,13 +491,13 @@ const body = k.plateHtml({
   fig: "Fig 1",
   title: "Token bucket",
   hint: "Press the button or Space",
-  readout: `${B} of ${B} tokens · 0 sent · 0 × 429`,
+  readout: `${B} of ${B} tokens · 0 admitted · 0 rejected`,
   keys: [
-    { mark: "lit", label: "A coin on the move: dropped by the timer, or sent on to the service" },
+    { mark: "lit", label: "A coin on the move: dropped by the timer, sent on to the service, or lost" },
     { mark: "raised", label: "The six coins the magazine holds" },
   ],
   caption:
-    "A bucket that holds six tokens, refilled by one every 1.25 s. Each press takes the bottom coin; with none left the pusher finds nothing and the 429 flag goes up. A coin dropped onto a full magazine is lost.",
+    "A bucket that holds six tokens, refilled by one every 1.25 s. Each press takes the bottom coin; with none left the pusher finds nothing and the 429 flag goes up. A coin dropped onto a full magazine is lost. The machine counts whole coins and its drip clock keeps running when the magazine is full, so after a take from a full magazine the next coin can land sooner than the formula below allows.",
   body: `<style>.iso [data-press] { cursor: pointer; }</style><div class="iso-stage" tabindex="0" role="button" aria-label="Token bucket: press Space, or the button, to send a request" aria-valuenow="${B}">${svg}</div>`,
 });
 
