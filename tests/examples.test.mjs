@@ -208,9 +208,9 @@ test("check rejects the `examples` tag, a bad marker value and a missing example
   edit("docs/glossary.html", '<meta name="bh:tags" content="glossary, reference">', '<meta name="bh:tags" content="glossary, examples">');
   assert.match(errors(), /"examples" tag is reserved/);
   edit("docs/glossary.html", '<meta name="bh:tags" content="glossary, examples">', '<meta name="bh:tags" content="glossary, reference">');
-  edit("docs/token-bucket-rate-limiting.html", 'name="bh:example" content="true"', 'name="bh:example" content="yes"');
+  edit("docs/edge-rate-limiting-design.html", 'name="bh:example" content="true"', 'name="bh:example" content="yes"');
   assert.match(errors(), /bh:example must be "true"/);
-  edit("docs/token-bucket-rate-limiting.html", 'name="bh:example" content="yes"', 'name="bh:example" content="true"');
+  edit("docs/edge-rate-limiting-design.html", 'name="bh:example" content="yes"', 'name="bh:example" content="true"');
   edit("docs/glossary.html", '  <script src="../theme/examples.js"></script>\n', "");
   assert.match(errors(), /theme\/examples\.js/);
 });
@@ -219,16 +219,16 @@ test("check warns when an ordinary page links to an example page, but not from t
   const dir = scratchRepo(t);
   const p = path.join(dir, "docs/announcing-patchcov.html");
   const text = fs.readFileSync(p, "utf8");
-  fs.writeFileSync(p, text.replace("</article>", '<p>See <a href="token-bucket-rate-limiting.html">the explainer</a>.</p></article>'));
+  fs.writeFileSync(p, text.replace("</article>", '<p>See <a href="edge-rate-limiting-design.html">the explainer</a>.</p></article>'));
   assert.notEqual(fs.readFileSync(p, "utf8"), text, "the injection must change the file");
   const out = bh(dir, "check").stdout;
-  assert.match(out, /warn.*links to example page token-bucket-rate-limiting\.html/);
+  assert.match(out, /warn.*links to example page edge-rate-limiting-design\.html/);
   assert.doesNotMatch(out, /glossary\.html[\s\S]*links to example page/);
 });
 
 test("check requires the marker to come before examples.js", (t) => {
   const dir = scratchRepo(t);
-  const p = path.join(dir, "docs/token-bucket-rate-limiting.html");
+  const p = path.join(dir, "docs/edge-rate-limiting-design.html");
   const text = fs.readFileSync(p, "utf8");
   const marker = '  <meta name="bh:example" content="true">\n', script = '  <script src="../theme/examples.js"></script>\n';
   assert.ok(text.includes(marker) && text.includes(script));
