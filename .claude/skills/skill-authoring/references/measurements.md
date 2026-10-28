@@ -79,6 +79,7 @@ one with-skill run hit the 300 s limit. Observations:
   exactly one new idea" check of `outline-bloom-filters`. By the agentskills.io guidance such
   graders are broken or too strict, not evidence about the skill. They are kept as converted so the
   conversion is faithful, and are listed in the PR as follow-up work on that skill's evals.
+  (Both were replaced on 2026-10-29; see the last section.)
   (A third, "each finding gives a location, the missing beat and a fix" in `review-deflate-page`,
   failed in the first run and passed in 2 of 3 with-skill and 1 of 3 baseline runs in the second.)
 - `review-deflate-page` cannot run the skill's `page-stats.mjs` audit: running it needs `Bash`
@@ -131,8 +132,8 @@ fix-not-firing +0.33, review-flawed-skill +0.29, needs-a-script +0.27. `pedagogi
 plan-rank-select-series +0.48, outline-bloom-filters +0.21, rewrite-token-bucket +0.20,
 design-rank-interactive +0.19, review-deflate-page +0.17, revise-directory-paragraph 0.00. The
 graders that failed in both arms last time still do (`plan-rank-select-series` "each page teaches one
-concept", `outline-bloom-filters` "exactly one new idea"), so they remain follow-up work on that
-skill's evals. The `review-deflate-page` case cost $2.62 of the $4.95; it is the one that runs long.
+concept", `outline-bloom-filters` "exactly one new idea"), so they remained follow-up work on that
+skill's evals (closed on 2026-10-29; see the last section). The `review-deflate-page` case cost $2.62 of the $4.95; it is the one that runs long.
 
 `revise-directory-paragraph` was deleted after this run (Δ 0.00 here, −0.17 and +0.17 in earlier
 runs, so the skill does not earn its context on a mechanical rewrite). The tables above keep it
@@ -164,7 +165,7 @@ with-skill arm passes at least two more of five runs than the baseline, otherwis
 
 | Grader | With | Without | Result |
 | --- | --- | --- | --- |
-| plan 01: each page has a sentence saying what the reader will understand or be able to do | 2 of 5 | 0 of 5 | kept, at the threshold |
+| plan 01: each page has a sentence saying what the reader will understand or be able to do | 2 of 5 | 0 of 5 | kept, at the threshold; no gap in the later suite run (below) |
 | outline 04: for at least three steps the outline says why the next section follows | 5 of 5 | 0 of 5 | kept |
 
 The "one concept per page" and "exactly one new idea" halves are dropped, not reworded: I did
@@ -191,7 +192,8 @@ is the size of the run-to-run movement for this case (its Δ was +0.17, +0.00 an
 **Full suite, 5 cases, $4.86, 9.0 minutes.** Mean Δ +0.28 (+0.25 over the same five cases on
 2026-10-28). Per case: rewrite-token-bucket +0.40, design-rank-interactive +0.38,
 plan-rank-select-series +0.24, outline-bloom-filters +0.21, review-deflate-page +0.17. Every case is
-positive.
+positive, but as the note at the top says, read the mean and the sign across cases, not one
+number: review-deflate-page's +0.17 is within the run-to-run movement.
 
 Not done here: two more graders now score 0 in both arms, and were neither read nor reworded.
 `outline-bloom-filters` "the crack is located" (03) failed 0 of 6 in the first run today and 0 of 3
