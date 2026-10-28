@@ -50,6 +50,14 @@
 
     <ul class="cards wide" id="doc-list" data-unlisted-cards data-private-cards>
       <!-- bh:index:start -->
+      <li class="card doc-card" data-kind="explainer" data-tags="rate limiting,networking,distributed systems" data-search="token bucket rate limiting how a token bucket admits bursts but enforces an average rate — with a live simulation, implementations, and the mistakes that bite in production. rate limiting, networking, distributed systems explainer">
+        <a class="card-link" href="docs/token-bucket-rate-limiting.html">
+          <span class="eyebrow">Explainer</span>
+          <h3>Token bucket rate limiting</h3>
+          <p>How a token bucket admits bursts but enforces an average rate — with a live simulation, implementations, and the mistakes that bite in production.</p>
+        </a>
+        <span class="card-meta"><span class="badge accepted">accepted</span><time datetime="2026-10-29">2026-10-29</time></span>
+      </li>
       <li class="card doc-card" data-kind="explainer" data-tags="writing,pedagogy,explainers" data-search="pedagogical writing: so the reader could have invented it a clear, correct explanation can teach almost nothing. pedagogical writing orders an idea so the reader could have invented it: a need, a naive attempt, its crack, then the fix and its name. writing, pedagogy, explainers explainer">
         <a class="card-link" href="docs/pedagogical-writing.html">
           <span class="eyebrow">Explainer</span>
@@ -130,14 +138,6 @@
           <p>Replace per-service limiters with one token bucket per client in the gateway, backed by Redis, so a client&#39;s limit holds however far we scale.</p>
         </a>
         <span class="card-meta"><span class="badge review">review</span><time datetime="2026-10-05">2026-10-05</time></span>
-      </li>
-      <li class="card doc-card" data-example data-kind="explainer" data-tags="examples,rate limiting,networking,distributed systems" data-search="token bucket rate limiting how a token bucket admits bursts but enforces an average rate — with a live simulation, implementations, and the mistakes that bite in production. examples, rate limiting, networking, distributed systems explainer">
-        <a class="card-link" href="docs/token-bucket-rate-limiting.html">
-          <span class="eyebrow">Example · Explainer</span>
-          <h3>Token bucket rate limiting</h3>
-          <p>How a token bucket admits bursts but enforces an average rate — with a live simulation, implementations, and the mistakes that bite in production.</p>
-        </a>
-        <span class="card-meta"><span class="badge accepted">accepted</span><time datetime="2026-10-05">2026-10-05</time></span>
       </li>
       <li class="card doc-card is-superseded" data-example data-kind="decision" data-tags="examples,rate limiting,architecture" data-search="adr-001: rate limit inside each service each service enforces its own per-client token bucket in process, so we can ship limits before launch without new infrastructure. examples, rate limiting, architecture decision">
         <a class="card-link" href="docs/adr-001-rate-limit-in-each-service.html">
