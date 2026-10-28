@@ -36,8 +36,10 @@ Review progress:
 Step 1:
 
 ```bash
-node ${CLAUDE_SKILL_DIR}/scripts/page-stats.mjs docs/<slug>.html
+node <skill-dir>/scripts/page-stats.mjs docs/<slug>.html
 ```
+
+`<skill-dir>` is the directory holding SKILL.md.
 
 It prints words per section, voice rates against the 3Blue1Brown medians, the
 number of `details.predict` folds, and every promise phrase with its section.
