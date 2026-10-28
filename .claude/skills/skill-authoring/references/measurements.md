@@ -14,6 +14,7 @@ mean across cases, and the sign across cases, not any one number.
 - `skill-authoring` output evals, three agent models
 - `pedagogical-writing` output evals
 - Trigger evals
+- Re-run on 2026-10-28, after the quoting and held-out edits
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -105,12 +106,29 @@ seeing it fail, not to the description, and is recorded so it is not mistaken fo
 held-out queries were written before tuning and not looked at until the end, but the set is small:
 this shows no over-fit, not that there is none. Nothing stole prompts: the should-quiet half stayed at 0
 triggers in every run. The six `pedagogical-writing` held-out queries were written after its
-description was final and run once; the miss is "give me a better running example for the
-arithmetic coding explainer, the numbers I picked don't come out clean", which fired in 1 of 3
-runs. It is left as a miss: tuning the description against it would turn the held-out part into
-a train part, so it is evidence for the next tuning round. Two edits made at the same time are
-not re-measured: `skill-authoring`'s description is now a double-quoted string (the words are
-the same, with `'authoring'` in single quotes; 986 characters), and `pedagogical-writing`'s
-script paths now use `${CLAUDE_SKILL_DIR}`, which cannot change triggering. Its one miss for
-`pedagogical-writing` before that was "is this ADR's context section
-clear enough for someone joining the team next month", which `pedagogical-writing` does not claim.
+description was final. One of them ("give me a better running example for the arithmetic
+coding explainer, the numbers I picked don't come out clean") fired in 1 of 3 runs the first
+time and 2 of 3 in the re-run below: one query moves by that much between runs, so a single
+3-run result is not a miss or a pass. The description was not tuned against it. Its one miss on the
+original 22 queries is "is this ADR's context section clear enough for someone joining the team next month", which `pedagogical-writing` does not claim.
+
+### Re-run on 2026-10-28, after the quoting and held-out edits
+
+Claude Code 2.1.310, the same models (agent `claude-sonnet-5-5`, judge `claude-haiku-5-5`), three runs per
+arm per case, `-j 4`. It follows the edit that quoted `skill-authoring`'s description and added six
+held-out queries to `pedagogical-writing`.
+
+| Suite | Result | Earlier | Cost |
+| --- | --- | --- | --- |
+| `skill-authoring` trigger evals (28 queries: 22 train, 6 held-out) | 28 of 28 (train 22 of 22, held-out 6 of 6) | 22 of 22 | $7.52 |
+| `pedagogical-writing` trigger evals (28 queries: 22 train, 6 held-out) | 27 of 28 (train 21 of 22, held-out 6 of 6); the miss is the ADR-context query, 0 of 3 | 21 of 22 | $4.92 |
+| `skill-authoring` output evals (5 cases) | mean Δ +0.48; with-skill 0.92 to 1.00 | +0.45 | $1.93 |
+| `pedagogical-writing` output evals (6 cases) | mean Δ +0.21; `revise-directory-paragraph` Δ 0.00 | +0.21 | $4.95 |
+
+Nothing regressed. Per case, `skill-authoring`: add-evals +0.90, merge-overlapping-skills +0.60,
+fix-not-firing +0.33, review-flawed-skill +0.29, needs-a-script +0.27. `pedagogical-writing`:
+plan-rank-select-series +0.48, outline-bloom-filters +0.21, rewrite-token-bucket +0.20,
+design-rank-interactive +0.19, review-deflate-page +0.17, revise-directory-paragraph 0.00. The
+graders that failed in both arms last time still do (`plan-rank-select-series` "each page teaches one
+concept", `outline-bloom-filters` "exactly one new idea"), so they remain follow-up work on that
+skill's evals. The `review-deflate-page` case cost $2.62 of the $4.95; it is the one that runs long.
