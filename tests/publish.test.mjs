@@ -27,7 +27,7 @@ function data(stage, file, global) {
   vm.runInNewContext(fs.readFileSync(path.join(stage, "theme", file), "utf8"), { window });
   return window[global];
 }
-const example = "docs/token-bucket-rate-limiting.html";
+const example = "docs/edge-rate-limiting-design.html";
 const post = "docs/announcing-patchcov.html";
 // Unlisted pages the repo itself already has: the fixtures add their own on top of these.
 const REPO_UNLISTED = new Set(data(ROOT, "unlisted-slugs.js", "BH_UNLISTED_SLUGS"));
@@ -41,10 +41,10 @@ test("published artifact omits examples, keeps posts and local source, and serve
   fs.writeFileSync(exampleFile, html.replace("</article>", `<p><a href="announcing-patchcov.html">Post</a></p></article>`));
   const postFile = path.join(f.source, post);
   html = fs.readFileSync(postFile, "utf8");
-  const links = ['token-bucket-rate-limiting.html#implementation', '/docs/token-bucket-rate-limiting.html?examples',
-    'https://bitwise.john-ky.io/docs/token-bucket-rate-limiting.html', '%74oken-bucket-rate-limiting.html'];
+  const links = ['edge-rate-limiting-design.html#implementation', '/docs/edge-rate-limiting-design.html?examples',
+    'https://bitwise.john-ky.io/docs/edge-rate-limiting-design.html', '%65dge-rate-limiting-design.html'];
   fs.writeFileSync(postFile, html.replace("</article>", links.map((href) => `<p><a href="${href}"><em>Example words</em></a></p>`).join("") +
-    '<a href="https://elsewhere.test/docs/token-bucket-rate-limiting.html">External</a></article>'));
+    '<a href="https://elsewhere.test/docs/edge-rate-limiting-design.html">External</a></article>'));
   for (const document of [example, post]) {
     fs.writeFileSync(path.join(f.source, "reviews", path.basename(document) + ".json"), JSON.stringify({
       format: "bh-review/1", document, reviewer: "Reader", comments: [{ id: document, kind: "comment", text: "Review words", created: "2026-10-13T00:00:00Z", target: { quote: "words" } }],
@@ -54,7 +54,7 @@ test("published artifact omits examples, keeps posts and local source, and serve
   const originalIndex = fs.readFileSync(path.join(f.source, "index.html"));
   f.assemble();
   const removed = preparePublishedSite(f.stage, f.source);
-  assert.equal(removed.length, 4);
+  assert.equal(removed.length, 3);
   assert.deepEqual(fs.readFileSync(exampleFile), original);
   assert.deepEqual(fs.readFileSync(path.join(f.source, "index.html")), originalIndex);
   for (const href of removed) {
@@ -91,7 +91,7 @@ test("published artifact omits examples, keeps posts and local source, and serve
   for (const href of links) assert.ok(!publishedPost.includes(`href="${href}"`));
   assert.ok(publishedPost.includes('<em>Example words</em>'));
   assert.ok(publishedPost.includes('href="https://elsewhere.test/'));
-  assert.ok(!fs.readFileSync(path.join(f.stage, "docs/glossary.html"), "utf8").includes('href="token-bucket-rate-limiting.html"'));
+  assert.ok(!fs.readFileSync(path.join(f.stage, "docs/glossary.html"), "utf8").includes('href="edge-rate-limiting-design.html"'));
   assert.ok(!fs.readFileSync(path.join(f.stage, "theme/glossary.js"), "utf8").includes(example));
   const server = http.createServer((req, res) => {
     const file = path.join(f.stage, new URL(req.url, "http://local").pathname);
@@ -117,7 +117,7 @@ test("publication fails loudly for no active markers, mismatched pages and missi
     }
     f.assemble();
     if (fault === "missing-page") fs.unlinkSync(path.join(f.stage, example));
-    if (fault === "missing-card") fs.unlinkSync(path.join(f.stage, "docs/assets/og/token-bucket-rate-limiting.png"));
+    if (fault === "missing-card") fs.unlinkSync(path.join(f.stage, "docs/assets/og/edge-rate-limiting-design.png"));
     assert.throws(() => preparePublishedSite(f.stage, f.source), /Expected example|do not match/);
     assert.ok(fs.existsSync(path.join(f.stage, "docs/adr-002-rate-limit-at-the-edge.html")), "failure before pruning");
   }
@@ -131,17 +131,17 @@ test("project subpaths normalize a missing trailing slash and preserve unrelated
   pkg.homepage = "https://fork.example/blog";
   fs.writeFileSync(pkgPath, JSON.stringify(pkg));
   const file = path.join(f.source, post), original = fs.readFileSync(file, "utf8");
-  const links = ["token-bucket-rate-limiting.html", "/blog/docs/token-bucket-rate-limiting.html",
-    "https://fork.example/blog/docs/token-bucket-rate-limiting.html#implementation"];
+  const links = ["edge-rate-limiting-design.html", "/blog/docs/edge-rate-limiting-design.html",
+    "https://fork.example/blog/docs/edge-rate-limiting-design.html#implementation"];
   const injected = original.replace("</article>", links.map((href) => `<a href='${href}'>Removed link</a>`).join("") +
-    '<a data-href="token-bucket-rate-limiting.html" href="glossary.html">Kept link</a></article>');
+    '<a data-href="edge-rate-limiting-design.html" href="glossary.html">Kept link</a></article>');
   assert.notEqual(injected, original);
   fs.writeFileSync(file, injected);
   f.assemble();
   preparePublishedSite(f.stage, f.source);
   const result = fs.readFileSync(path.join(f.stage, post), "utf8");
   for (const href of links) assert.ok(!result.includes(`href='${href}'`), href);
-  assert.ok(result.includes('<a data-href="token-bucket-rate-limiting.html" href="glossary.html">Kept link</a>'));
+  assert.ok(result.includes('<a data-href="edge-rate-limiting-design.html" href="glossary.html">Kept link</a>'));
 });
 
 test("published artifact keeps unlisted pages and their cards, and leaves them out of the rebuilt index, search and backlinks", async (t) => {

@@ -119,11 +119,10 @@ window.BH_SITE = {
    "title": "Token bucket rate limiting",
    "kind": "explainer",
    "status": "accepted",
-   "date": "2026-10-05",
+   "date": "2026-10-29",
    "description": "How a token bucket admits bursts but enforces an average rate — with a live simulation, implementations, and the mistakes that bite in production.",
    "supersedes": "",
-   "supersededBy": "",
-   "example": true
+   "supersededBy": ""
   }
  ],
  "backlinks": {
