@@ -102,8 +102,8 @@ function figureMarkup(built, id) {
   const [tag, name, attrs] = first;
   const cls = /\sclass="([^"]*)"/.exec(attrs);
   const decorated = cls
-    ? attrs.replace(cls[0], ` class="${cls[1]} iso wide" id="${id}"`)
-    : `${attrs} class="iso wide" id="${id}"`;
+    ? attrs.replace(cls[0], ` class="${cls[1]} iso wide no-glossary" id="${id}" data-vr-mask`)
+    : `${attrs} class="iso wide no-glossary" id="${id}" data-vr-mask`;
   let out = `<${name}${decorated}>${markup.slice(tag.length)}`;
   if (name !== "figure") {
     if (!/<figure\b/.test(out)) fail("no <figure> in the built page's markup");
@@ -144,6 +144,8 @@ ${css}
 #${id}.iso { --anatomy-muted: #8e8e8e; }
 #${id}.iso[data-theme="light"] { --anatomy-muted: #6b6b70; }
 #${id} figcaption::before, #${id} > figcaption::before { content: none; }
+/* The blog's copy-link button sits in the figure's top-right corner, where the kit puts the title. */
+#${id} .iso-plate-corner[data-corner="title"] { right: 36px; }
 /* anatomy:end ${id} */`;
 }
 

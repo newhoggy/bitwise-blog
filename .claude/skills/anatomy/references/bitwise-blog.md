@@ -40,9 +40,10 @@ What it does, and why:
 | It does | Because |
 |---|---|
 | Drops the kit's page CSS (`html`, `body`, `*`, `.iso-page`) and keeps the rest | That CSS sets `html{color-scheme:dark}` and repaints the body, which would break every other part of the page. |
-| Puts `iso wide` and the id on the figure (or on its wrapper, with the inner `<figure>` getting `<id>-figure`) | The kit styles everything under `.iso`; the house rules want an id on every figure and `wide` for figures. |
+| Puts `iso wide no-glossary` and the id on the figure (or on its wrapper, with the inner `<figure>` getting `<id>-figure`) | The kit styles everything under `.iso`; the house rules want an id on every figure and `wide` for figures. `no-glossary` keeps the glossary from underlining words in the card's title and legend; `data-vr-mask` keeps the always-moving figure out of the `npm run visual` diffs. |
 | Starts the script with a theme bridge | The kit themes from `data-theme` on its own wrapper and ignores `prefers-color-scheme`. Without the bridge the figure stays dark in a light page. The bridge copies the blog's choice (the toggle on `<html>`, else the system setting) onto the wrapper and follows changes. |
 | Sets the muted text to `#8e8e8e` (dark) and `#6b6b70` (light) | The kit's own values are about 3.6:1 and 3.3:1; the house bar is 4.5:1. |
+| Moves the plate's title 36px in from the right | The blog's copy-link button sits in the figure's top-right corner and would cover it. |
 | Removes the `Figure N —` prefix on the kit's legend | The blog's `figcaption` counter would put it in front of the legend; the plate already carries `Fig N`. |
 
 ## 3. Then, as for any page
