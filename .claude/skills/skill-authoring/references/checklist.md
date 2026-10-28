@@ -16,8 +16,9 @@ then style, and give a fix for each finding.
 
 ## Loads
 
-- [ ] *lint* `SKILL.md` exists and starts with parseable frontmatter. Broken YAML makes
-  Claude Code load the body with no description.
+- [ ] *lint* `SKILL.md` exists and starts with frontmatter. Broken YAML makes Claude Code
+  load the body with no description: `claude plugin validate .claude/skills` parses every
+  one (the lint does not). Quote a `description` that contains `: `.
 - [ ] *lint* `name` is at most 64 characters, lowercase letters, digits and hyphens, equals
   the directory name, and has no `claude` or `anthropic` in it.
 - [ ] *lint* `description` is present and at most 1,024 characters, with no angle brackets.
@@ -28,8 +29,9 @@ then style, and give a fix for each finding.
 - [ ] *lint* The description is third person and says when to use the skill.
 - [ ] The description uses the words people type and names the near misses with the
   neighbour that owns each ("Not for …").
-- [ ] `evals/trigger-evals.json` has about twenty queries, half of them near misses, and the
-  last run passed on the held-out part ([evals](evals.md#trigger-evals)).
+- [ ] `evals/trigger-evals.json` has about twenty queries, half of them near misses, about
+  40% marked `heldout` before tuning, and the last run passed on the held-out part
+  ([evals](evals.md#trigger-evals)).
 - [ ] Checked against every other skill in the repo and the user's own: no stolen prompts.
 
 ## Earns its context

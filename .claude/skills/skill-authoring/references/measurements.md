@@ -93,6 +93,7 @@ one with-skill run hit the 300 s limit. Observations:
 | `skill-authoring`, after one edit | 986 characters | 11 of 12 (12 of 12 once one query was reworded, see below) | 10 of 10 | $7.54 |
 | `skill-authoring`, 6 held-out queries | as above | 3 of 3 | 3 of 3 | (in the row above) |
 | `pedagogical-writing` | 817 characters | 11 of 12 | 10 of 10 | $3.97 |
+| `pedagogical-writing`, 6 held-out queries (added 2026-10-28, Claude Code 2.1.310) | as above | 2 of 3 | 3 of 3 | $0.88 |
 
 The edit named what the five missed queries were about (frontmatter fields and limits, user-only
 invocation, `claude plugin eval`, linting) in the description. Four of the five then fired in all
@@ -103,5 +104,13 @@ page review. how do I find out why?", which fires 3 of 3. That is a change to th
 seeing it fail, not to the description, and is recorded so it is not mistaken for a result. The
 held-out queries were written before tuning and not looked at until the end, but the set is small:
 this shows no over-fit, not that there is none. Nothing stole prompts: the should-quiet half stayed at 0
-triggers in every run. Its one miss for `pedagogical-writing` is "is this ADR's context section
+triggers in every run. The six `pedagogical-writing` held-out queries were written after its
+description was final and run once; the miss is "give me a better running example for the
+arithmetic coding explainer, the numbers I picked don't come out clean", which fired in 1 of 3
+runs. It is left as a miss: tuning the description against it would turn the held-out part into
+a train part, so it is evidence for the next tuning round. Two edits made at the same time are
+not re-measured: `skill-authoring`'s description is now a double-quoted string (the words are
+the same, with `'authoring'` in single quotes; 986 characters), and `pedagogical-writing`'s
+script paths now use `${CLAUDE_SKILL_DIR}`, which cannot change triggering. Its one miss for
+`pedagogical-writing` before that was "is this ADR's context section
 clear enough for someone joining the team next month", which `pedagogical-writing` does not claim.

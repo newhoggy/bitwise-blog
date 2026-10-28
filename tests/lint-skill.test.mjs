@@ -112,7 +112,8 @@ test("long references need a contents list; unmentioned files are flagged", () =
   has(messages(build(d => fs.writeFileSync(path.join(d, "references", "orphan.md"), "# Orphan\n")), "warning"), /not mentioned in SKILL\.md/);
   // A file whose bare name appears inside another path is still not mentioned.
   const sub = build(d => { fs.writeFileSync(path.join(d, "references", "run.md"), "# Run\n"); edit(d, "SKILL.md", s => s + "\nSee notes/run.md elsewhere.\n"); });
-  has(messages(sub, "warning"), /references\/run\.md: not mentioned|not mentioned in SKILL\.md/);
+  const flagged = lintSkill(sub).filter(r => /not mentioned in SKILL\.md/.test(r.msg)).map(r => r.file);
+  assert.ok(flagged.some(f => f.endsWith(path.join("references", "run.md"))), `expected references/run.md in:\n${flagged.join("\n")}`);
 });
 
 test("repo-root paths to bundled files warn; ${CLAUDE_SKILL_DIR} does not", () => {

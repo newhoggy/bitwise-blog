@@ -40,11 +40,12 @@ just never runs, or runs on the wrong task.
    them from the neighbours' own descriptions.
 3. Draft the description from step 1's words, then add "Not for …" from step 2.
 4. Write `evals/trigger-evals.json`: about twenty queries, roughly half should-trigger and
-   half should-not, with the near misses the hard half
-   ([evals](evals.md#trigger-evals)).
-5. Run `npm run trigger-evals -- <skill-name>`, edit the description against the queries that fail,
-   and run it again. Keep the description that scores best on the held-out queries, not on
-   the ones it was tuned on.
+   half should-not, with the near misses the hard half. Set about 40% of them aside as
+   `"heldout": true` before you tune ([evals](evals.md#trigger-evals)).
+5. Run `npm run trigger-evals -- <skill-name>`, edit the description against the failing
+   *train* queries only, and run it again. Generalise from a failure (the category of
+   prompt it stands for) instead of copying its keywords into the description. Keep the
+   description that scores best on the held-out queries, not on the ones it was tuned on.
 6. Check the near misses against **every other skill in the repo and in the user's
    configuration**, not only the one beside it. A new description can steal prompts from an
    old skill.

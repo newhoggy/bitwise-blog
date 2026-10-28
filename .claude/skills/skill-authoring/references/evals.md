@@ -15,7 +15,7 @@ through `claude plugin eval`; they differ in what a case asks.
 - Output-quality evals
 - Writing cases and graders
 - Fixtures: the sandbox is empty
-- Running, and reading the result
+- Running, and reading the result (and comparing with the previous version)
 - Models, cost and thresholds
 - Converting skill-creator's `evals.json`
 - Where the measurements are
@@ -58,8 +58,14 @@ skill versions, and the description rewriting step.
   misses that share vocabulary with the skill but belong to another skill or to plain
   Claude, not obviously unrelated prompts. Take them from the neighbours' own descriptions.
 - Realistic prompts: file names, context, casual phrasing, typos.
-- Write a few extra queries before you start tuning, mark them `heldout`, and look at them
-  only at the end.
+- **Split them before you tune** (the agentskills.io method): about 60% train and 40%
+  held-out, each with a proportional mix of should-trigger and should-not, fixed for the
+  whole process. Mark the held-out ones `"heldout": true`. Only failures in the train part
+  guide a rewrite; the held-out part says whether the rewrite generalises. Do not add a
+  keyword copied from a failed query: find the category it stands for. Stop after about
+  five iterations, and keep the description with the best held-out score, which may not be
+  the last one. Never mark a query held-out after tuning against it: it is then a train
+  query. The script reports the two parts separately.
 
 Measure with the bundled script (`scripts/run-trigger-evals.mjs`), from the repo root:
 
@@ -165,7 +171,7 @@ Each run starts in an empty temporary workspace with a temporary home. User sett
 claude plugin eval .claude/skills/<name> \
   --scaffold --trust-plugin --allow-tools "Bash(node *)" \
   --model claude-sonnet-5-5 --judge-model claude-haiku-5-5 \
-  -j 4 --max-cost-usd 15 --no-publish --json /tmp/<name>.json
+  -j 4 --max-cost-usd 15 --no-publish
 ```
 
 - Add `--case '<glob>'` or `--tag <tag>` to run part of the suite, `--runs N` to change the
@@ -185,11 +191,29 @@ claude plugin eval .claude/skills/<name> \
     then the rubric, then the skill.
   - With three runs a case moves in steps of a third. Treat a difference under about 0.2 on
     one case as noise; look for the same sign across cases.
-- Always open one with-skill and one baseline transcript (`tracePath` in the JSON). The
+- Always open one with-skill and one baseline transcript (`tracePath` in `aggregate-result.json`). The
   score says whether; the transcript says why.
 - **Exit codes:** 0 pass; 1 a case below `--threshold` (default 1.0), a case that failed to
   load, or an API error; 2 the cost ceiling was hit. Cases that fail to load are listed at
   the top of the output: read it, because a skipped case does not lower the score.
+
+### Comparing with the previous version
+
+The with/without delta says the skill helps; it does not say that your edit helped. The
+only built-in baseline is no skill, so to compare two versions of the same skill run the
+suite twice with `--ablation none` and compare the `WITH` scores:
+
+```bash
+snap=$(mktemp -d)                                  # the version before your edit
+git archive <ref> .claude/skills/<name> | tar -x -C "$snap"
+claude plugin eval "$snap/.claude/skills/<name>" --scaffold --trust-plugin --ablation none \
+  --model claude-sonnet-5-5 --judge-model claude-haiku-5-5 -j 4 --max-cost-usd 15 --no-publish
+```
+
+Then run the same command on `.claude/skills/<name>` and compare case by case, with the
+same noise rule as for Δ. Write down the cost and duration that each run reports too: a
+skill version that gains 0.1 and doubles the cost is a trade-off, not a win. For a blind
+side-by-side read of two outputs, use skill-creator's comparison mode.
 
 ## Models, cost and thresholds
 

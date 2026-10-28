@@ -36,7 +36,7 @@ Review progress:
 Step 1:
 
 ```bash
-node .claude/skills/pedagogical-writing/scripts/page-stats.mjs docs/<slug>.html
+node ${CLAUDE_SKILL_DIR}/scripts/page-stats.mjs docs/<slug>.html
 ```
 
 It prints words per section, voice rates against the 3Blue1Brown medians, the

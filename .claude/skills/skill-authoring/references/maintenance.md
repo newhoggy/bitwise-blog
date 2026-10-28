@@ -24,6 +24,9 @@ instead of waiting for someone to notice.
   weight, and a case that scored `Δ ≈ 0` may now be one the skill no longer needs.
 - Record the date, models, command and scores in the PR or the commit. A score without those
   cannot be compared next time.
+- To show that an edit helped, and not only that the skill helps, compare against the
+  previous version of the skill, not just the no-skill baseline
+  ([evals](evals.md#comparing-with-the-previous-version)).
 
 ## Read transcripts after real use
 
@@ -63,8 +66,13 @@ Every skill's name and description are always in context.
   listing's cost and biggest contributors; `/skill-doctor` reports each skill's cost, its
   recent use, and skills that have never been invoked. `/skill-doctor` is a usage report, not
   a linter. `claude plugin validate <path>` checks structure.
-- Each entry's `description` + `when_to_use` is truncated at 1,536 characters in the listing.
-  Trim a description that is longer than the triggering needs.
+- Each entry's `description` + `when_to_use` is truncated at 1,536 characters in the listing
+  (the cap is the `skillListingMaxDescChars` setting). Trim a description that is longer
+  than the triggering needs, and put the key use case first.
+- To keep a rarely used skill listed without paying for its description, set it to
+  `"name-only"` in `skillOverrides` (settings); `"off"` hides it and `"user-invocable-only"`
+  keeps it for `/skill-name` alone. This changes how the skill triggers, so re-run its trigger
+  evals if it stays enabled for Claude.
 
 ## Portability
 

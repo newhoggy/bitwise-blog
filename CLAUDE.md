@@ -813,6 +813,8 @@ holds them, with the reasons; this is the short form.
   names what it is not for). Add Claude Code-only fields only when they earn their place.
 - **Evals:** both kinds run through `claude plugin eval`. Trigger queries live in
   `evals/trigger-evals.json` (skill-creator's format) and are measured with
-  `npm run trigger-evals -- <skill>`; output cases are `evals/<case>/` directories, which also give
+  `npm run trigger-evals -- <skill>` (set about 40% of the queries aside as `"heldout": true`
+  before tuning a description); output cases are `evals/<case>/` directories, which also give
   the with/without delta. A skill's rules come from a measured gap against the no-skill baseline.
-- **Check:** `npm run lint-skills` must report 0 errors. Re-run the evals when a skill changes.
+- **Check:** `npm run lint-skills` must report 0 errors, and `claude plugin validate .claude/skills`
+  must pass (it parses the frontmatter, which the lint does not). Re-run the evals when a skill changes.

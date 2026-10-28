@@ -85,7 +85,7 @@ function run() {
     const errors = arm.filter(r => r.error && !/maximum number of turns/i.test(r.error)).length;
     const pass = n > 0 && ok / n >= 0.5;
     if (!pass) failed++;
-    rows.push({ i, pass, ok, n, errors, should: queries[i].should_trigger, query: queries[i].query });
+    rows.push({ i, pass, ok, n, errors, should: queries[i].should_trigger, heldout: queries[i].heldout === true, query: queries[i].query });
   }
   rows.sort((a, b) => a.i - b.i);
   // A case that failed to load is absent from the result, and would otherwise lower nothing.
@@ -93,8 +93,11 @@ function run() {
   if (missing) { failed += missing; console.error(`${missing} of ${queries.length} cases are missing from the result: they failed to load (read the top of the claude plugin eval output).`); }
   for (const r of rows) {
     const fired = r.should ? r.ok : r.n - r.ok;
-    console.log(`${r.pass ? "PASS" : "FAIL"} #${position[r.i]} fired ${fired}/${r.n} expected=${r.should ? "fire" : "quiet"}${r.errors ? ` (${r.errors} errored)` : ""}  ${r.query.slice(0, 90)}`);
+    console.log(`${r.pass ? "PASS" : "FAIL"} #${position[r.i]}${r.heldout ? " held-out" : ""} fired ${fired}/${r.n} expected=${r.should ? "fire" : "quiet"}${r.errors ? ` (${r.errors} errored)` : ""}  ${r.query.slice(0, 90)}`);
   }
+  // Tune against the train part only; the held-out part says whether a rewrite generalises.
+  const part = hs => { const p = rows.filter(r => r.heldout === hs); return p.length ? `${p.filter(r => r.pass).length}/${p.length}` : "none"; };
+  if (rows.some(r => r.heldout)) console.log(`\npassed: train ${part(false)}, held-out ${part(true)}`);
   const should = rows.filter(r => r.should), shouldnt = rows.filter(r => !r.should);
   console.log(`\n${rows.length - (failed - missing)}/${queries.length} queries passed ` +
     `(should-fire ${should.filter(r => r.pass).length}/${should.length}, should-stay-quiet ${shouldnt.filter(r => r.pass).length}/${shouldnt.length}); ` +

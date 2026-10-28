@@ -1,6 +1,6 @@
 ---
 name: skill-authoring
-description: Guidelines for writing, testing and maintaining Agent Skills (SKILL.md folders) in this repo: whether a task needs a skill at all, how much machinery it needs (references, scripts, arguments, user-only invocation, hooks, forked context), SKILL.md frontmatter fields and limits (name, description length, what breaks in pi), writing a description that triggers when it should and stays quiet when it shouldn't, trigger and output evals with a no-skill baseline (`claude plugin eval`), linting a skill, and keeping it healthy after it ships. Use when creating, reviewing, linting, debugging or improving a skill, when a skill isn't firing or fires too often, when adding evals to a skill, or when asked how a skill should be structured, even if the request doesn't say "authoring". Adds the repo's rules on top of skill-creator. Not for writing blog pages (pedagogical-writing), editing CLAUDE.md, settings.json or hooks (update-config), or building an app on the Claude API (claude-api).
+description: "Guidelines for writing, testing and maintaining Agent Skills (SKILL.md folders) in this repo: whether a task needs a skill at all, how much machinery it needs (references, scripts, arguments, user-only invocation, hooks, forked context), SKILL.md frontmatter fields and limits (name, description length, what breaks in pi), writing a description that triggers when it should and stays quiet when it shouldn't, trigger and output evals with a no-skill baseline (`claude plugin eval`), linting a skill, and keeping it healthy after it ships. Use when creating, reviewing, linting, debugging or improving a skill, when a skill isn't firing or fires too often, when adding evals to a skill, or when asked how a skill should be structured, even if the request doesn't say 'authoring'. Adds the repo's rules on top of skill-creator. Not for writing blog pages (pedagogical-writing), editing CLAUDE.md, settings.json or hooks (update-config), or building an app on the Claude API (claude-api)."
 ---
 
 # Skill authoring
@@ -33,6 +33,26 @@ how much machinery a skill needs, and which eval tool does which job.
    also give the with/without delta. A skill ships with both ([evals](references/evals.md)).
 7. **Re-run lint and evals on every change to a skill**, and read a transcript, not just
    the score.
+
+## Gotchas
+
+Mistakes this repo has already made or measured. They stay here, not in a reference, because
+the trigger for each is easy to miss until it has cost a run.
+
+- **Quote a `description` that contains `: `.** Claude Code 2.1.310 loads it unquoted
+  (tested), but a strict YAML parser reads the second colon as a nested mapping. Whether
+  pi or a claude.ai upload does is untested, so the quote is the cheap hedge.
+- **A temporary plugin for trigger evals needs `.claude-plugin/plugin.json`.** Without it no
+  skill loads and every query scores 0, which looks like a description failure.
+- **Skill-creator's `run_eval.py` scored 0 of 12** on this repo (it counts only a first-call
+  trigger, tests a proxy of the description, and times out at 30 s). Use
+  `scripts/run-trigger-evals.mjs`.
+- **Eval sandboxes are empty and have no `Bash`.** A case that needs a repo file scaffolds
+  it in; a bundled script cannot be run by a case ([evals](references/evals.md#fixtures-the-sandbox-is-empty)).
+- **Regex graders take `flags: i`, never `(?i)`.** JavaScript has no inline flags and the
+  grader throws.
+- **Rewording a query after it fails is not a result.** Record it as a change to the query
+  ([measurements](references/measurements.md)).
 
 ## 1. Do you need a skill?
 
@@ -83,7 +103,9 @@ script that is run, not read.
 5. Read two or three transcripts for skipped steps, unread references and helper code
    written again and again (a candidate script).
 6. Run `npm run lint-skills` from the repo root (it runs `scripts/lint-skill.mjs` on every skill;
-   add `-- --strict` to fail on warnings) and fix what it reports.
+   add `-- --strict` to fail on warnings) and fix what it reports. Then run
+   `claude plugin validate .claude/skills` (Claude Code 2.1.233 or later), which is Claude's
+   own check that every frontmatter parses; the lint reads files but does not parse YAML.
 7. Try it on one real task before calling it done.
 
 ## 5. Reviewing a skill

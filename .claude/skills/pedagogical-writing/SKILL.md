@@ -407,7 +407,7 @@ patching sentences.
 Read [references/review.md](references/review.md) first; it has the audits.
 For a page past ~3,000 words or part of a series, also read
 [references/long-pages-and-series.md](references/long-pages-and-series.md).
-Run `node .claude/skills/pedagogical-writing/scripts/page-stats.mjs <page>` for
+Run `node ${CLAUDE_SKILL_DIR}/scripts/page-stats.mjs <page>` for
 words per section, voice rates against the 3Blue1Brown medians, every promise
 phrase to match against its payoff, and the "obviously"s, document signposts
 and empty verbs to check. In short, check:
