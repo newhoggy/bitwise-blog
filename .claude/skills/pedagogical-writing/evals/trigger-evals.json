@@ -20,5 +20,11 @@
   {"query": "write the PR description for the atom feed change", "should_trigger": false},
   {"query": "make the dark-mode contrast on the tldr box easier to read", "should_trigger": false},
   {"query": "summarise the gpu-deflate optimization study in three bullets for a slack message", "should_trigger": false},
-  {"query": "the bh-playground slider on the token bucket page does not update the readout; find the bug", "should_trigger": false}
+  {"query": "the bh-playground slider on the token bucket page does not update the readout; find the bug", "should_trigger": false},
+  {"query": "my lecture notes on Fourier series jump straight to the formula. how should I reorder them so students feel why it's needed before they see it?", "should_trigger": true, "heldout": true},
+  {"query": "the draft of my bloom filter tutorial loses people at the hash function part, how would you restructure it?", "should_trigger": true, "heldout": true},
+  {"query": "give me a better running example for the arithmetic coding explainer, the numbers I picked don't come out clean", "should_trigger": true, "heldout": true},
+  {"query": "write a README for the scripts directory that lists each script and its flags", "should_trigger": false, "heldout": true},
+  {"query": "turn docs/how-deflate-works.html into a standalone file I can email to a colleague", "should_trigger": false, "heldout": true},
+  {"query": "shorten this error message: 'Unable to complete the requested operation because the specified file could not be located'", "should_trigger": false, "heldout": true}
 ]
