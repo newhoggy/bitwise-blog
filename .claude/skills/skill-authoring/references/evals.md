@@ -239,6 +239,8 @@ Each entry becomes a case directory:
 - Add the `tool_used: Skill` indicator.
 - Delete `evals.json` in the same change, so there is one source of truth.
 
-`pedagogical-writing`'s six cases were converted this way.
+`pedagogical-writing`'s six cases were converted this way. One of them,
+`revise-directory-paragraph`, was deleted afterwards because it scored the same with and without
+the skill (Δ 0.00, and −0.17 in an earlier run), which is the rule above applied to its own suite.
 
 The results of the runs made for this repo's skills are in [measurements.md](measurements.md).

@@ -123,7 +123,7 @@ held-out queries to `pedagogical-writing`.
 | `skill-authoring` trigger evals (28 queries: 22 train, 6 held-out) | 28 of 28 (train 22 of 22, held-out 6 of 6) | 22 of 22 | $7.52 |
 | `pedagogical-writing` trigger evals (28 queries: 22 train, 6 held-out) | 27 of 28 (train 21 of 22, held-out 6 of 6); the miss is the ADR-context query, 0 of 3 | 21 of 22 | $4.92 |
 | `skill-authoring` output evals (5 cases) | mean Δ +0.48; with-skill 0.92 to 1.00 | +0.45 | $1.93 |
-| `pedagogical-writing` output evals (6 cases) | mean Δ +0.21; `revise-directory-paragraph` Δ 0.00 | +0.21 | $4.95 |
+| `pedagogical-writing` output evals (6 cases, one since deleted) | mean Δ +0.21; `revise-directory-paragraph` Δ 0.00 | +0.21 | $4.95 |
 
 Nothing regressed. Per case, `skill-authoring`: add-evals +0.90, merge-overlapping-skills +0.60,
 fix-not-firing +0.33, review-flawed-skill +0.29, needs-a-script +0.27. `pedagogical-writing`:
@@ -132,3 +132,9 @@ design-rank-interactive +0.19, review-deflate-page +0.17, revise-directory-parag
 graders that failed in both arms last time still do (`plan-rank-select-series` "each page teaches one
 concept", `outline-bloom-filters` "exactly one new idea"), so they remain follow-up work on that
 skill's evals. The `review-deflate-page` case cost $2.62 of the $4.95; it is the one that runs long.
+
+`revise-directory-paragraph` was deleted after this run (Δ 0.00 here, −0.17 and +0.17 in earlier
+runs, so the skill does not earn its context on a mechanical rewrite). The tables above keep it
+because they record what was run. Over the remaining five cases the same run's mean Δ is +0.25.
+The 2026-10-28 `review-deflate-page` case kept its 25 turns and 900 s limit: an earlier with-skill
+run hit a shorter limit, so lowering them to save cost would need its own measurement.
