@@ -15,6 +15,7 @@ mean across cases, and the sign across cases, not any one number.
 - `pedagogical-writing` output evals
 - Trigger evals
 - Re-run on 2026-10-28, after the quoting and held-out edits
+- 2026-10-29: the two always-failing graders, and what limits `review-deflate-page` needs
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -138,3 +139,62 @@ runs, so the skill does not earn its context on a mechanical rewrite). The table
 because they record what was run. Over the remaining five cases the same run's mean Δ is +0.25.
 The 2026-10-28 `review-deflate-page` case kept its 25 turns and 900 s limit: an earlier with-skill
 run hit a shorter limit, so lowering them to save cost would need its own measurement.
+
+### 2026-10-29: the two always-failing graders, and the `review-deflate-page` limits (#83)
+
+Claude Code 2.1.310, the same models, three runs per arm unless stated. I read the final answer of
+every run of the two cases first (`aggregate-result.json` keeps it in each grader's `evidence`; the
+trace files are deleted after the run unless `--keep-temp` is passed).
+
+**What was wrong with the graders.** Both bundled a claim a judge cannot decide with one it can.
+
+- `plan-rank-select-series` "each page teaches one concept, and the plan says what the reader can
+  do after each page". Page 1 of every plan holds rank, a naive scan, a stored-answer table, block
+  counts, a popcount and the word "succinct": whether that is one concept is not decidable from a
+  plan. The second half is decidable, and it split the arms for a reason unrelated to the skill: the
+  only run of six that passed was a baseline plan with a `Goal: The reader can ...` line per page,
+  while the with-skill plans describe each page by its need, naive attempt, crack, fix and teaser.
+- `outline-bloom-filters` "each section introduces exactly one new idea that follows from the one
+  before" failed 0 of 6. "Exactly one" is a count an outline does not support (a with-skill outline's
+  section 3 names the filter, the bit array and the hash functions together). "Follows from the one
+  before" is checkable, and is what the skill teaches ("a ladder, not a list").
+
+**Replacements**, worded before they were run and not changed afterwards. Rule: keep one if the
+with-skill arm passes at least two more of five runs than the baseline, otherwise delete it.
+
+| Grader | With | Without | Result |
+| --- | --- | --- | --- |
+| plan 01: each page has a sentence saying what the reader will understand or be able to do | 2 of 5 | 0 of 5 | kept, at the threshold |
+| outline 04: for at least three steps the outline says why the next section follows | 5 of 5 | 0 of 5 | kept |
+
+The "one concept per page" and "exactly one new idea" halves are dropped, not reworded: I did
+not find a phrasing a judge could decide from a plan or an outline. The plan grader is the weak result. In the full-suite run that
+followed (3 runs per arm) it passed 1 of 3 with the skill and 1 of 3 without, so over the eight runs
+of each arm it is 3 against 1. Treat it as unproven. The outline grader passed 3 of 3 against 0 of 3 again.
+
+**`review-deflate-page` limits.** Measured on the unchanged case (`max_turns: 25`,
+`timeout_seconds: 900`), two sets of three runs per arm:
+
+| Arm | Turns | Seconds | Cost per run |
+| --- | --- | --- | --- |
+| with-skill | 13, 9, 9 then 11, 13, 9 | 122, 191, 149 then 102, 124, 157 | $0.33 to $0.73 |
+| baseline | 13, 7, 10 then 6, 12, 11 | 115, 88, 66 then 115, 84, 95 | $0.22 to $0.63 |
+
+No run came within 12 turns or 700 seconds of its limit, and cost follows the turns taken, not the
+limit, so lowering the limits would change none of these runs and only cap a tail that has not
+appeared. The cost varies between runs by a factor of two or more at the same turn count. The likely
+driver is the 260 KB fixture page re-read on every turn plus the skill's own reads (not measured). The
+limits stay as they are; a smaller fixture would cut the cost but would change what the case tests.
+Its with-skill score was 0.94 on 2026-10-28 and 0.78 in both sets today with nothing changed, which
+is the size of the run-to-run movement for this case (its Δ was +0.17, +0.00 and +0.17).
+
+**Full suite, 5 cases, $4.86, 9.0 minutes.** Mean Δ +0.28 (+0.25 over the same five cases on
+2026-10-28). Per case: rewrite-token-bucket +0.40, design-rank-interactive +0.38,
+plan-rank-select-series +0.24, outline-bloom-filters +0.21, review-deflate-page +0.17. Every case is
+positive.
+
+Not done here: two more graders now score 0 in both arms, and were neither read nor reworded.
+`outline-bloom-filters` "the crack is located" (03) failed 0 of 6 in the first run today and 0 of 3
+in both arms of the full-suite run. `plan-rank-select-series` "prerequisites are named by title"
+(03) was 0 of 3 in both arms of the full-suite run. They are the next candidates for the same
+treatment.
