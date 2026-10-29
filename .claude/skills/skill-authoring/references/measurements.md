@@ -269,20 +269,20 @@ runner now keeps each run's trace with `--keep` and prints the text of every err
 | 5 | all 30, 3 runs | 29 of 30 (train 22 of 22, held-out 7 of 8); miss #25 (0 of 3); no errors | $5.49 |
 | 6 | #17 and #18, 10 runs | quiet, no errors | $0.71 |
 
-**#25 misses because the sandbox is empty, not because of the turn cap.** Every trace has the
-same start: Grep for "arithmetic coding" and Glob for `*arithmetic*` in the working directory,
-then a wider Grep or Glob (in some runs one outside the working directory, which is denied, or a
-Bash call, which the case does not grant). All come back empty. Claude then says so and writes an
+**#25 misses because the sandbox is empty, not because of the turn cap.** Every trace has the same
+start: Grep for "arithmetic coding" and Glob for `*arithmetic*` in the working directory, then a
+wider Grep or Glob (in some runs one outside the working directory, which is denied, or a Bash
+call, which the case does not grant). All come back empty. Claude then says so and writes an
 example itself ("I couldn't find the explainer anywhere in the repo, so I don't know which numbers
-you picked. Here is a replacement example that works out exactly…"), or asks for the path. No run called a skill. At the 3-turn cap, 2 of 10
-runs (today's, including one run by hand) ended at the cap and 8 ended on their own; at 10 turns,
-all 10 (six above, four by hand) ended on their own in 4 to 6 turns. So more turns would not help.
-Putting the explainer in a fixture needs a `scaffold_script`, which `claude plugin eval` runs only
-with `--scaffold` (author bash, run as the user), and a per-query fixture does not fit
-`trigger-evals.json`; it is not done. #25 stays held-out and unchanged (rewording it now would make
-it a train query), and is a known miss of the harness: the held-out bar for `pedagogical-writing`
-is 7 of 8 with #25 the miss, and the rule for writing such queries is in `evals.md` ("The working
-directory is empty").
+you picked. Here is a replacement example that works out exactly…"), or asks for the path. No run
+called a skill. At the 3-turn cap, 2 of 10 runs (rows 1 and 5 above, and one by hand) ended at the
+cap and 8 ended on their own; at 10 turns, all 10 (six above, four by hand) ended on their own in 4
+to 6 turns. So more turns would not help. Putting the explainer in a fixture needs a
+`scaffold_script`, which `claude plugin eval` runs only with `--scaffold` (author bash, run as the
+user), and a per-query fixture does not fit `trigger-evals.json`; it is not done. #25 stays
+held-out and unchanged (rewording it now would make it a train query), and is a known miss of the
+harness: the held-out bar for `pedagogical-writing` is 7 of 8 with #25 the miss, and the rule for
+writing such queries is in `evals.md` ("The working directory is empty").
 
 **The #17 errors did not come back.** None of 19 runs of #17, or of 19 of #18, errored, including
 a full-suite run at the same concurrency (`-j 5`) as on 2026-10-29. #17 answers in one turn with no

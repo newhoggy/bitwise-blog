@@ -11,7 +11,8 @@ const runner = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.c
 // A stand-in for `claude plugin eval`: for each case in the plugin it writes one trace per run in a
 // scratch directory named e-*, as the real one does, and a result JSON. Each run's behaviour comes
 // from FAKE_RUNS, keyed by query text. Without --keep-temp it deletes the scratch directories; with
-// it, it leaves them read-only with a mode-000 sealed/ inside, as the real one does.
+// it, it leaves them read-only with a mode-000 sealed/ inside, as the real one does. A run with
+// noTrace gets a scratch directory but no trace, like one that failed before it started.
 const FAKE_CLAUDE = `#!/usr/bin/env node
 const fs = require("fs"), path = require("path");
 const args = process.argv.slice(2);
@@ -34,7 +35,7 @@ for (const name of fs.readdirSync(path.join(plugin, "evals")).sort()) {
       lines.push({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "t" + k, content: "x", ...(t.error ? { is_error: true } : {}) }] } });
     });
     lines.push({ type: "result", subtype: r.end ?? "success" });
-    fs.writeFileSync(tracePath, lines.map(l => JSON.stringify(l)).join("\\n") + "\\n");
+    if (!r.noTrace) fs.writeFileSync(tracePath, lines.map(l => JSON.stringify(l)).join("\\n") + "\\n");
     if (keepTemp) {
       fs.mkdirSync(path.join(scratch, "sealed", "home"), { recursive: true });
       fs.chmodSync(path.join(scratch, "sealed"), 0o000);
@@ -77,12 +78,22 @@ function setup(plan) {
   return { root, run };
 }
 
+// The fake's read-only scratch directories survive a plain rm -rf when the runner fails to remove them.
+function remove(dir) {
+  const writable = d => {
+    fs.chmodSync(d, 0o700);
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) if (e.isDirectory()) writable(path.join(d, e.name));
+  };
+  writable(dir);
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
 test("prints the text of every counted error, but not of the turn cap", (t) => {
   const { root, run } = setup({
     [SHOULD]: [{ fire: true }, { fire: true }, {}],
     [QUIET]: [{ error: "exit 1: API Error: 529 overloaded" }, {}, { error: "exit 1: Reached maximum number of turns (3)", end: "error_max_turns" }],
   });
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => remove(root));
   const res = run("--max-turns", "7");
   assert.equal(res.status, 0, res.stderr);
   assert.match(res.stdout, /PASS #2 held-out fired 0\/3 expected=quiet \(1 errored\)/);
@@ -96,13 +107,13 @@ test("prints the text of every counted error, but not of the turn cap", (t) => {
   assert.deepEqual(res.log.maxTurns, [7, 7]);
 });
 
-test("--keep copies every trace, removes the scratch directories and lists a miss's tool calls", (t) => {
+test("--keep copies every trace, removes the scratch directories and lists each miss's tool calls", (t) => {
   const tools = [{ name: "Grep" }, { name: "Glob", error: true }];
   const { root, run } = setup({
     [SHOULD]: [{ tools, end: "error_max_turns", error: "exit 1: Reached maximum number of turns (3)" }, { tools }, { tools, fire: true }],
-    [QUIET]: [{}, {}, {}],
+    [QUIET]: [{ noTrace: true }, {}, { tools: [{ name: "Read" }], fire: true }],
   });
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => remove(root));
   const res = run("--keep");
   assert.equal(res.status, 1, res.stderr);
   assert.ok(res.log.args.includes("--keep-temp"));
@@ -111,10 +122,23 @@ test("--keep copies every trace, removes the scratch directories and lists a mis
 
   const kept = /^kept (\S+)/m.exec(res.stdout)[1];
   assert.deepEqual(fs.readdirSync(path.join(kept, "traces")).sort(),
-    ["q1-run1.jsonl", "q1-run2.jsonl", "q1-run3.jsonl", "q2-run1.jsonl", "q2-run2.jsonl", "q2-run3.jsonl"]);
+    ["q1-run1.jsonl", "q1-run2.jsonl", "q1-run3.jsonl", "q2-run2.jsonl", "q2-run3.jsonl"]);
   assert.match(res.stdout, /FAIL #1 fired 1\/3 expected=fire/);
   assert.match(res.stdout, /^ {4}run 1 tools: Grep, Glob \(error\); turn cap  traces\/q1-run1\.jsonl$/m);
-  assert.match(res.stdout, /^ {4}run 3 tools: Grep, Glob \(error\), Skill repo-skills:demo; success  traces\/q1-run3\.jsonl$/m);
-  // A passing query with no errors prints no tool lines.
-  assert.doesNotMatch(res.stdout, /q2-run/);
+  assert.match(res.stdout, /^ {4}run 2 tools: Grep, Glob \(error\); success  traces\/q1-run2\.jsonl$/m);
+  // Only the runs that did not behave as labelled are listed, whether or not the query passed.
+  assert.doesNotMatch(res.stdout, /q1-run3/);
+  assert.match(res.stdout, /PASS #2 held-out fired 1\/3 expected=quiet/);
+  assert.match(res.stdout, /^ {4}run 3 tools: Read, Skill repo-skills:demo; success  traces\/q2-run3\.jsonl$/m);
+  assert.doesNotMatch(res.stdout, /q2-run[12]/);
+});
+
+test("--max-turns must be a whole number", (t) => {
+  const { root } = setup({ [SHOULD]: [{}], [QUIET]: [{}] });
+  t.after(() => remove(root));
+  for (const bad of ["ten", "0", "2.5"]) {
+    const res = spawnSync(process.execPath, [runner, "demo", "--max-turns", bad], { cwd: path.join(root, "repo"), encoding: "utf8" });
+    assert.equal(res.status, 2, bad);
+    assert.match(res.stderr, /--max-turns takes a whole number/);
+  }
 });
