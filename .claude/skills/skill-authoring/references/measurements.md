@@ -176,7 +176,7 @@ with-skill arm passes at least two more of five runs than the baseline, otherwis
 
 | Grader | With | Without | Result |
 | --- | --- | --- | --- |
-| plan 01: each page has a sentence saying what the reader will understand or be able to do | 2 of 5 | 0 of 5 | kept, at the threshold; no gap in the later suite run (below); deleted in #97 |
+| plan 01: each page has a sentence saying what the reader will understand or be able to do | 2 of 5 | 0 of 5 | deleted in #97 (it was kept, at the threshold; no gap in the later suite run, below) |
 | outline 04: for at least three steps the outline says why the next section follows | 5 of 5 | 0 of 5 | kept |
 
 The "one concept per page" and "exactly one new idea" halves are dropped, not reworded: I did
@@ -525,9 +525,9 @@ cases are figure-building prompts, not trigger queries.
 Claude Code 2.1.310, agent `claude-sonnet-5-5`, judge `claude-haiku-5-5`, **both arms**, five runs
 per arm per case, `-j 4`, `--keep-temp`. I read the final answers behind the verdicts
 (`aggregate-result.json` keeps them in each grader's `evidence`). `--case` takes one case per run,
-so each case was a separate run. Passes out of 5, with the skill / without:
+so each case was a separate run. Passes out of 5, as with-skill / baseline:
 
-| Grader | Wording before this change | Old wording | Reworded | Result |
+| Grader | Wording before this change | Old wording, with / without | Reworded, with / without | Result |
 | --- | --- | --- | --- | --- |
 | `plan` 01 | for each of the three pages the plan gives a sentence saying what the reader will understand or be able to do, and not only a list of topics | 1 / 3 | 4 / 4 | deleted |
 | `outline` 03 | the crack is located (which lookups go wrong and why), and the fix follows from it | 3 / 0 | 4 / 0 | reworded |
@@ -551,12 +551,15 @@ keep a replacement only if the with-skill arm passes at least two more of five t
   vocabulary (need, naive attempt, crack) does not change what a judge accepts. Deleted. The case's
   other five graders are unchanged.
 - **`outline` 03 separated the arms before it was reworded** (3 of 5 against 0 of 5; it was 1 of 3
-  in the #95 runs and 0 of 6 in #83's, so it moves a lot). Its with-skill failures were not missing
+  in the #85 runs (PR #95) and 0 of 6 in #83's, so it moves a lot). Its with-skill failures were not missing
   cracks: two of the answers had a "Crack" line or section and named the property the fix needs,
   and the judge still voted `FAIL FAIL FAIL` on "which lookups go wrong", which asks for more than
   an outline gives. The baseline outlines describe the structure and never show a failure of a
   naive attempt, so they fail on any wording. The reworded text asks for a specific failure and
   what causes it, and what the fix must do about it; it passed 4 of 5 against 0 of 5.
+  That is the same case and prompt the rewording was drawn from, five runs, and this grader has
+  moved from 0 of 6 to 3 of 5 on one wording, so read the 4 as "still separates the arms", not as
+  a measured rate.
 - **`plan` 03 ("prerequisites by title") stays.** It is not one of the three. Old and new runs
   passed it 2 of 5 and 1 of 5 with the skill and 0 of 5 and 0 of 5 without, so 3 against 0 over ten
   runs.
