@@ -12,16 +12,17 @@
 // description, which loses to the real skill if it is installed, and (c) times out at 30
 // seconds. All three scored every query 0 on this repo's first trial.
 //
-// A query passes when at least half of its runs behave as labelled. The sandbox loads no
-// user settings, CLAUDE.md or user-level skills, so a prompt that only a user-level skill
-// would catch is not tested here. The query list is evals/trigger-evals.json
-// (skill-creator's format, so run_loop.py can still read it). No dependencies.
+// A query is scored on its clean runs, those without an error other than the turn cap: it passes
+// when at least half of them behave as labelled, and is ERROR (not passed) when fewer than half of
+// all its runs are clean. The sandbox loads no user settings, CLAUDE.md or user-level skills, so
+// a prompt that only a user-level skill would catch is not tested here. The query list is
+// evals/trigger-evals.json (skill-creator's format, so run_loop.py can still read it). No
+// dependencies.
 //
-// Every error other than the turn cap is printed under its query: a should-stay-quiet query
-// "passes" on an errored run, so the text is the only sign of it. --keep keeps the temporary
-// plugin and copies each run's trace into its traces/ directory, and lists the tool calls of
-// every run that did not behave as labelled, or errored, so a miss can be read rather than guessed
-// from turn counts.
+// Every error other than the turn cap is printed under its query, so an ERROR names its cause.
+// --keep keeps the temporary plugin and copies each run's trace into its traces/ directory, and
+// lists the tool calls of every run that did not behave as labelled, or errored, so a miss can be
+// read rather than guessed from turn counts.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -137,13 +138,16 @@ function report(result) {
   for (const c of result.cases) {
     const i = Number(/^q(\d+)-/.exec(c.name)[1]) - 1;
     const arm = c.arms.with ?? [];
-    const ok = arm.filter(passed).length;
-    const n = arm.length;
-    const errors = arm.filter(counted).length;
-    const pass = n > 0 && ok / n >= 0.5;
+    // An errored run never reached the skill: it would pass a quiet query and fail a firing one.
+    const clean = arm.filter(r => !counted(r));
+    const ok = clean.filter(passed).length;
+    const n = clean.length;
+    const errors = arm.length - n;
+    const status = n === 0 || n * 2 < arm.length ? "ERROR" : ok * 2 >= n ? "PASS" : "FAIL";
+    const pass = status === "PASS";
     if (!pass) failed++;
     const traces = keep ? arm.map((r, k) => copyTrace(r.tracePath, path.join(tmp, "traces", `q${position[i]}-run${k + 1}.jsonl`))) : [];
-    rows.push({ i, pass, ok, n, errors, arm, traces, should: queries[i].should_trigger, heldout: queries[i].heldout === true, query: queries[i].query });
+    rows.push({ i, status, pass, ok, n, errors, arm, traces, should: queries[i].should_trigger, heldout: queries[i].heldout === true, query: queries[i].query });
   }
   rows.sort((a, b) => a.i - b.i);
   // A case that failed to load is absent from the result, and would otherwise lower nothing.
@@ -151,7 +155,7 @@ function report(result) {
   if (missing) { failed += missing; console.error(`${missing} of ${queries.length} cases are missing from the result: they failed to load (read the top of the claude plugin eval output).`); }
   for (const r of rows) {
     const fired = r.should ? r.ok : r.n - r.ok;
-    console.log(`${r.pass ? "PASS" : "FAIL"} #${position[r.i]}${r.heldout ? " held-out" : ""} fired ${fired}/${r.n} expected=${r.should ? "fire" : "quiet"}${r.errors ? ` (${r.errors} errored)` : ""}  ${r.query.slice(0, 90)}`);
+    console.log(`${r.status} #${position[r.i]}${r.heldout ? " held-out" : ""} fired ${fired}/${r.n} expected=${r.should ? "fire" : "quiet"}${r.errors ? ` (${r.errors} errored)` : ""}  ${r.query.slice(0, 90)}`);
     r.arm.forEach((run, k) => {
       if (counted(run)) console.log(`    run ${k + 1} error: ${String(run.error).replace(/\s+/g, " ").slice(0, 300)}`);
       const trace = r.traces[k];
@@ -163,8 +167,10 @@ function report(result) {
   const part = hs => { const p = rows.filter(r => r.heldout === hs); return p.length ? `${p.filter(r => r.pass).length}/${p.length}` : "none"; };
   if (rows.some(r => r.heldout)) console.log(`\npassed: train ${part(false)}, held-out ${part(true)}`);
   const should = rows.filter(r => r.should), shouldnt = rows.filter(r => !r.should);
+  const errored = rows.filter(r => r.status === "ERROR").length;
   console.log(`\n${rows.length - (failed - missing)}/${queries.length} queries passed ` +
-    `(should-fire ${should.filter(r => r.pass).length}/${should.length}, should-stay-quiet ${shouldnt.filter(r => r.pass).length}/${shouldnt.length}); ` +
+    `(should-fire ${should.filter(r => r.pass).length}/${should.length}, should-stay-quiet ${shouldnt.filter(r => r.pass).length}/${shouldnt.length})` +
+    `${errored ? `, ${errored} errored` : ""}; ` +
     `model ${model}, ${runs} runs each, cost $${result.costUsd?.toFixed(2)}`);
   return failed ? 1 : 0;
 }
