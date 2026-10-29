@@ -22,6 +22,10 @@ just never runs, or runs on the wrong task.
   under-triggers, so add "even if the request doesn't say X" and name adjacent phrasings.
   Skip capitals and "ALWAYS/MUST": the evaluation guidance finds reasons work better than
   shouting, and nothing here shows shouting helps triggering.
+- **Tell the model to load the skill first, in plain words.** Haiku answers from memory
+  unless the description says to load the skill before answering: a longer list of topics did
+  not change that, and a calm sentence ("Load it before answering or reading any file") did.
+  Sonnet fires without it, so test on both ([measurements](measurements.md)).
 - **Name the near misses.** End with "Not for …", naming the neighbouring skill or tool
   that owns each, so the two descriptions divide the territory between them.
 - **At most 1,024 characters** (the cross-surface limit, and pi's). Claude Code accepts
@@ -62,11 +66,15 @@ Work down the list; stop at the first cause you find.
    Skills row; `/skill-doctor` shows listing cost and use.
 3. **The prompt does not look like the description.** Compare the words. Add the user's
    phrasing and "even if …".
-4. **A neighbour is taking it.** Two descriptions that overlap split the prompts. Sharpen
+4. **A smaller model answers from memory.** It fires on Sonnet and not on Haiku. Check with
+   `npm run trigger-evals -- <skill> --model claude-haiku-5-5`, and add the plain instruction
+   to load the skill before answering (see Rules). Read a miss in `--keep` traces: if the
+   skill was never called, the body is not the problem.
+5. **A neighbour is taking it.** Two descriptions that overlap split the prompts. Sharpen
    both "Not for" clauses.
-5. **`paths:` excludes the files** Claude is working on (it only matches inside the working
+6. **`paths:` excludes the files** Claude is working on (it only matches inside the working
    directory, so not a sibling worktree).
-6. **It fired, but Claude did not follow it.** That is a body problem, not a description
+7. **It fired, but Claude did not follow it.** That is a body problem, not a description
    problem: see [maintenance](maintenance.md#claude-stops-following-a-skill).
 
 Then measure: add the failing prompt to `trigger-evals.json` and re-run, so the fix is
