@@ -19,7 +19,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-10-29: `pedagogical-writing`'s ADR query relabelled and its neighbours named
 - 2026-10-30: #25's misses read from traces, and the #17 errors
 - 2026-10-30: `pedagogical-writing`'s must-hold sections moved ahead of the catalogue (#85)
-- 2026-10-30: trigger evals score only clean runs (#94)
+- 2026-10-30: errored trigger-eval runs no longer score (#94)
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -94,8 +94,8 @@ one with-skill run hit the 300 s limit. Observations:
 
 ### Trigger evals (`scripts/run-trigger-evals.mjs`)
 
-Every trigger result above the 2026-10-30 section on clean runs (#94) counted errored runs in the
-score; they are not rescored.
+Every trigger result above the 2026-10-30 section on errored runs (#94) counted errored runs in
+the score; they are not rescored.
 
 | Skill | Description | Should fire | Should stay quiet | Cost |
 | --- | --- | --- | --- | --- |
@@ -334,17 +334,20 @@ all 15 after-runs and all 15 before-runs. Cost: before $1.42 (four cases) plus $
   `review` 03 failed in all three runs both times, and `plan` 01 failed in two of three before and
   three of three after. They were failing before this change and are not touched by it.
 
-### 2026-10-30: trigger evals score only clean runs (#94)
+### 2026-10-30: errored trigger-eval runs no longer score (#94)
 
-From this change on, `run-trigger-evals.mjs` scores a query on its clean runs: those without an
-error other than the turn cap. Errored runs are left out of `fired x/n` and counted beside it, and
-a query with fewer than half its runs clean is `ERROR`, which counts as not passed and makes the
-run exit 1 (`evals.md` has the rule). Before, an errored run counted as a pass for a
-should-stay-quiet query and as a miss for a should-fire one.
+From this change on, `run-trigger-evals.mjs` leaves out of the score every run that errored
+(other than at the turn cap) before calling the skill: such a run is not in `fired x/n` and is
+counted beside it. A run that called the skill and then errored is scored. A query whose left-out
+runs could tip the at-least-half rule either way (always when fewer than half its runs are scored)
+is `ERROR`, which counts as not passed and makes the run exit 1 (`evals.md` has the rule). Before,
+an errored run counted as a pass for a should-stay-quiet query and as a miss for a should-fire one.
 
 Results recorded above this section used the old rule and are not rescored. The known case it
 changes: #17 of `pedagogical-writing` errored in 3 of 3 runs in run 2 and in its re-run on
 2026-10-29, and passed both times. Under this rule it would have been `ERROR` both times, so it
 was measured that day only by run 1 (clean, 0 of 3). #18 also errored in those two runs; how many
-of its runs did was not recorded. A check after the change (Claude Code 2.1.310,
-`claude-sonnet-5-5`, #17 and #18, two runs each) passed both, with no errors, for $0.14.
+of its runs did was not recorded. Two checks after the change, before and after its review fixes
+(Claude Code 2.1.310, `claude-sonnet-5-5`, #17 and #18, two runs each), passed both queries with
+no errors, for $0.14 each. No real run has errored since, so the `ERROR` path is tested only
+against the fake `claude` in `tests/trigger-evals.test.mjs`.
