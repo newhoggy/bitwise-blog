@@ -88,6 +88,117 @@ ones are defects.
   asserted, or unknown. Check every "obviously" and "clearly": demonstrate it,
   or say where it stands.
 
+## In this repo
+
+CLAUDE.md and the templates are the house rules; where this skill differs, they
+win. Apply the moves (catalogued after Caveats) through the theme's components:
+
+- **TL;DR.** Keep the `.tldr` straight after the hero: it is required, and it is
+  slide 1 in Present mode. Its first bullet is the transferable takeaway. It may
+  state the result (spoil the what) but not the mechanism. The "common mistake"
+  bullet is the misconception the page corrects. The first `h2` then opens with
+  the need.
+- **Order.** The template's orientation → mental model → mechanism → hands-on →
+  details → edge cases is the outer shape; the core loop runs inside it. The
+  mental model is the toy example taken through need, naive attempt, crack and
+  fix; the mechanism steps up to the realistic case.
+- **One idea per `h2`.** Each `h2` is a slide, so the one-idea rule also keeps
+  slides presentable.
+- **Predictions** use `details.predict`, once or twice per page, at real
+  decision points. Its `summary` asks for a concrete answer ("seconds, minutes
+  or hours? Decide before you open this"); the body gives the answer, the
+  reasoning and the misconception behind each wrong option. Graduated hints can
+  be nested `details.disclosure` folds inside it; no page does this yet, so check
+  how it renders. Transfer checks and optional exercises are plain
+  prose or a `details.disclosure` titled as optional.
+- **Naive versions** carry their label: in the `h2` ("A first try: scan and
+  count"), the caption, and the `data-label` of a `<bh-versions>` figure.
+- **Promises.** Flag a simplification in the prose or a `.sidenote`, and link it
+  forward to the section `id` that pays it off.
+- **Depth** goes in `details.disclosure`, with the one-line upshot in the main
+  text *before* the fold. Asides go in `.sidenote`.
+- **Formulas and figures.** Point from formula terms and prose to diagram parts
+  with `data-ref`; walk a mechanism with `<bh-stepper>`; build an implementation
+  a clause at a time with `<bh-codewalk>` (about a dozen lines per step, in the
+  order the designer decided things); make the centrepiece a
+  `<bh-playground>` on the reader's own input where you can, whose default
+  state already makes the point. Compare states with `<bh-versions>`.
+- **Terms.** `docs/glossary.html` underlines the first use of every defined
+  term automatically. That is a reminder, not an introduction: still delay the
+  term until after the need, and reuse the glossary's name for it.
+
+## Drafting workflow
+
+Copy this checklist and work through it:
+
+```
+Draft progress:
+- [ ] 1. Reader, assumptions, and the one question the page answers
+- [ ] 2. Where existing explanations make too big a step, and what the reader likely believes wrongly
+- [ ] 3. Running example: clean, representative, keeps the hard part hard
+- [ ] 4. Ladder of steps, each with need → naive → crack → fix
+- [ ] 5. Name table: one name per thing, across prose, code, figures and glossary
+- [ ] 6. Promise list: every simplification, deferral and plant, with its payoff
+- [ ] 7. The checks: one or two predictions aimed at the key steps, each with its wrong options
+- [ ] 8. Draft the prose; then add each figure or interactive against a named failure of the prose
+- [ ] 9. Opening and TL;DR last
+- [ ] 10. Review it with references/review.md, including the cold read, and fix what it finds
+```
+
+Step 2 comes from reading two or three standard explanations of the topic and
+marking where you stalled: that step gets its own section. When drafting
+section N+1 makes an earlier section need rewriting, rewrite it rather than
+patching sentences.
+
+## Reviewing
+
+Read [references/review.md](references/review.md) first; it has the audits.
+For a page past ~3,000 words or part of a series, also read
+[references/long-pages-and-series.md](references/long-pages-and-series.md).
+Run `node <skill-dir>/scripts/page-stats.mjs <page>` (`<skill-dir>` is the
+directory holding this SKILL.md) for
+words per section, voice rates against the 3Blue1Brown medians, every promise
+phrase to match against its payoff, and the "obviously"s, document signposts
+and empty verbs to check. In short, check:
+
+1. Does the opening create a need before it names anything?
+2. For each section: what is the one new idea, and what makes it guessable?
+3. Is every term, formula and fix preceded by the need and the crack?
+4. Is every promise flagged where made and paid off by name?
+5. Do examples come before abstractions, clean numbers first, one running example?
+6. Do labels and captions carry meaning, including what not to read into a figure?
+7. Is the voice a companion's, and is reference material out of the narrative?
+8. Is the scope one concept, and does the headline state the takeaway?
+9. Do the sentences carry the reader: known before new, one name per thing, a
+   stated point in each paragraph?
+10. Does each interactive fix a named failure, teach in its default state, and
+    say what to do?
+11. Does a cold reader with no context stall anywhere? Smooth reading is not a
+    pass: is there a checkable question that would show the reader had not
+    understood?
+
+Lead with the biggest leap: the earliest point where the target reader most
+likely gives up (a reader who stops there never sees the later problems). Then
+the rest, ranked by impact. For each: where it is, what the reader needs that is missing,
+and a concrete fix. Say what already works, so it is preserved.
+
+## Caveats
+
+- The core is one author's tendencies, measured with simple text proxies. Treat
+  the numbers as direction, not law. The other sources are practitioners' stated
+  methods, patterns seen in their work, and experiments run mostly on novices
+  over short lessons; sources.md says which is which and how strong each is.
+- High-affect explanation is not detailed understanding. Grant Sanderson, as
+  Matuschak and Nielsen report, doubts that more than a small fraction of
+  viewers take away much detailed understanding. That is why the page needs
+  checks, not only the moves.
+- Do not imitate the voice mechanically. A reference page may legitimately be
+  terser; apply the ordering, promise and example rules even there.
+
+The rest of this file is the catalogue of moves, one section per stage of a
+page, from the opening to the ending. [references/moves.md](references/moves.md)
+has each with its verbatim example.
+
 ## Opening
 
 - **Open on something concrete**: a puzzle, a surprising number, a failure, a
@@ -339,110 +450,3 @@ ones are defects.
   pacing cues only from pieces of the same genre.
 - **Teach recognition, not only mechanism**: what in a problem should make the
   reader reach for this.
-
-## In this repo
-
-CLAUDE.md and the templates are the house rules; where this skill differs, they
-win. Apply the moves through the theme's components:
-
-- **TL;DR.** Keep the `.tldr` straight after the hero: it is required, and it is
-  slide 1 in Present mode. Its first bullet is the transferable takeaway. It may
-  state the result (spoil the what) but not the mechanism. The "common mistake"
-  bullet is the misconception the page corrects. The first `h2` then opens with
-  the need.
-- **Order.** The template's orientation → mental model → mechanism → hands-on →
-  details → edge cases is the outer shape; the core loop runs inside it. The
-  mental model is the toy example taken through need, naive attempt, crack and
-  fix; the mechanism steps up to the realistic case.
-- **One idea per `h2`.** Each `h2` is a slide, so the one-idea rule also keeps
-  slides presentable.
-- **Predictions** use `details.predict`, once or twice per page, at real
-  decision points. Its `summary` asks for a concrete answer ("seconds, minutes
-  or hours? Decide before you open this"); the body gives the answer, the
-  reasoning and the misconception behind each wrong option. Graduated hints can
-  be nested `details.disclosure` folds inside it; no page does this yet, so check
-  how it renders. Transfer checks and optional exercises are plain
-  prose or a `details.disclosure` titled as optional.
-- **Naive versions** carry their label: in the `h2` ("A first try: scan and
-  count"), the caption, and the `data-label` of a `<bh-versions>` figure.
-- **Promises.** Flag a simplification in the prose or a `.sidenote`, and link it
-  forward to the section `id` that pays it off.
-- **Depth** goes in `details.disclosure`, with the one-line upshot in the main
-  text *before* the fold. Asides go in `.sidenote`.
-- **Formulas and figures.** Point from formula terms and prose to diagram parts
-  with `data-ref`; walk a mechanism with `<bh-stepper>`; build an implementation
-  a clause at a time with `<bh-codewalk>` (about a dozen lines per step, in the
-  order the designer decided things); make the centrepiece a
-  `<bh-playground>` on the reader's own input where you can, whose default
-  state already makes the point. Compare states with `<bh-versions>`.
-- **Terms.** `docs/glossary.html` underlines the first use of every defined
-  term automatically. That is a reminder, not an introduction: still delay the
-  term until after the need, and reuse the glossary's name for it.
-
-## Drafting workflow
-
-Copy this checklist and work through it:
-
-```
-Draft progress:
-- [ ] 1. Reader, assumptions, and the one question the page answers
-- [ ] 2. Where existing explanations make too big a step, and what the reader likely believes wrongly
-- [ ] 3. Running example: clean, representative, keeps the hard part hard
-- [ ] 4. Ladder of steps, each with need → naive → crack → fix
-- [ ] 5. Name table: one name per thing, across prose, code, figures and glossary
-- [ ] 6. Promise list: every simplification, deferral and plant, with its payoff
-- [ ] 7. The checks: one or two predictions aimed at the key steps, each with its wrong options
-- [ ] 8. Draft the prose; then add each figure or interactive against a named failure of the prose
-- [ ] 9. Opening and TL;DR last
-- [ ] 10. Review it with references/review.md, including the cold read, and fix what it finds
-```
-
-Step 2 comes from reading two or three standard explanations of the topic and
-marking where you stalled: that step gets its own section. When drafting
-section N+1 makes an earlier section need rewriting, rewrite it rather than
-patching sentences.
-
-## Reviewing
-
-Read [references/review.md](references/review.md) first; it has the audits.
-For a page past ~3,000 words or part of a series, also read
-[references/long-pages-and-series.md](references/long-pages-and-series.md).
-Run `node <skill-dir>/scripts/page-stats.mjs <page>` (`<skill-dir>` is the
-directory holding this SKILL.md) for
-words per section, voice rates against the 3Blue1Brown medians, every promise
-phrase to match against its payoff, and the "obviously"s, document signposts
-and empty verbs to check. In short, check:
-
-1. Does the opening create a need before it names anything?
-2. For each section: what is the one new idea, and what makes it guessable?
-3. Is every term, formula and fix preceded by the need and the crack?
-4. Is every promise flagged where made and paid off by name?
-5. Do examples come before abstractions, clean numbers first, one running example?
-6. Do labels and captions carry meaning, including what not to read into a figure?
-7. Is the voice a companion's, and is reference material out of the narrative?
-8. Is the scope one concept, and does the headline state the takeaway?
-9. Do the sentences carry the reader: known before new, one name per thing, a
-   stated point in each paragraph?
-10. Does each interactive fix a named failure, teach in its default state, and
-    say what to do?
-11. Does a cold reader with no context stall anywhere? Smooth reading is not a
-    pass: is there a checkable question that would show the reader had not
-    understood?
-
-Lead with the biggest leap: the earliest point where the target reader most
-likely gives up (a reader who stops there never sees the later problems). Then
-the rest, ranked by impact. For each: where it is, what the reader needs that is missing,
-and a concrete fix. Say what already works, so it is preserved.
-
-## Caveats
-
-- The core is one author's tendencies, measured with simple text proxies. Treat
-  the numbers as direction, not law. The other sources are practitioners' stated
-  methods, patterns seen in their work, and experiments run mostly on novices
-  over short lessons; sources.md says which is which and how strong each is.
-- High-affect explanation is not detailed understanding. Grant Sanderson, as
-  Matuschak and Nielsen report, doubts that more than a small fraction of
-  viewers take away much detailed understanding. That is why the page needs
-  checks, not only the moves.
-- Do not imitate the voice mechanically. A reference page may legitimately be
-  terser; apply the ordering, promise and example rules even there.
