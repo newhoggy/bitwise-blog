@@ -297,7 +297,8 @@ shows it. The runner now prints the text under the query, so the next one will n
 
 Claude Code 2.1.310, agent `claude-sonnet-5-5`, judge `claude-haiku-5-5`, three runs per case,
 `--ablation none` (with-skill arm only), `-j 4`, comparing `WITH` scores as `evals.md` prescribes.
-"Before" is a `git archive` snapshot of `f9d2835`; "after" is `fd68146`. Both used
+"Before" is a `git archive` snapshot of `f9d2835`; "after" is `fd68146`, whose skill files are the same as at the commit that records this (it
+changes only this file). Both used
 `--scaffold --trust-plugin`, with the snapshot given a copy of `docs/how-deflate-works.html`.
 
 | Case | Before | After | Change |
@@ -317,11 +318,13 @@ all 15 after-runs and all 15 before-runs. Cost: before $1.42 (four cases) plus $
   skill, so the scaffold's `cp docs/how-deflate-works.html` failed. That is a setup error, not a
   score; the case was run again with the page in the snapshot, and only that re-run is in the table.
 - **What this does and does not show.** The evals never compact the conversation, so they show that
-  the new order costs nothing in an uncompacted run. They do not show that the move helps after a
+  the new order does not cost an uncompacted run more than the noise (three runs, one arm, steps of
+  a third per case, so a small loss would not show). They do not show that the move helps after a
   compaction, and no transcript has shown a skipped step from the cut (the issue says the same).
 - **Where the cut falls.** By byte offset the sections that govern every use (the core loop,
   Promises, In this repo, Drafting workflow, Reviewing, Caveats) now end at 12,364 bytes; the
-  20,000-byte mark falls in Examples and numbers instead of Voice. The 5,000-token limit and the
+  20,000-byte mark falls in Misconceptions and surprise instead of Voice (Opening, Ordering and
+  pacing, Examples and numbers, and Formulas, notation and names stay inside it). The 5,000-token limit and the
   4-bytes-per-token ratio are the issue's estimates, not measured here: no tokenizer was available.
 - The top-listed failing grader of three cases is the same before and after: `outline` 03 and
   `review` 03 failed in all three runs both times, and `plan` 01 failed in two of three before and

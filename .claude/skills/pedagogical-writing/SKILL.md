@@ -19,7 +19,7 @@ so they apply to written and interactive pages as much as to video.
 
 Read the reference file the task needs:
 
-- [references/moves.md](references/moves.md): every move below, with how it
+- [references/moves.md](references/moves.md): every move in the catalogue after Caveats, with how it
   looks on a page and a verbatim example. Read it when drafting or restructuring.
 - [references/sentences.md](references/sentences.md): how sentences and
   paragraphs carry the reader, with diagnostics. Read it when revising prose.
