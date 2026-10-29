@@ -405,6 +405,11 @@ held-out 9, so the held-out miss counts are of 9):
   that still miss on Haiku are #8 ("is it worth putting this in a forked subagent…", 0 of 3 in
   every run since v1) and, in some runs, #32, #25 and #6. #8 is a train query: the category it stands for
   (how much machinery a skill needs) went back in as v3 and made things worse, so it stays a known miss.
+- **Errored runs.** The candidate runs above used the runner before #94's clean-run rule, and
+  only their result lines were read, so an errored run in them counts as the old rule counted it
+  (a pass for a quiet query). The final description was run again after rebasing onto that rule:
+  31 of 34 (should-fire 16 of 19, train 23 of 25, held-out 8 of 9, should-stay-quiet 15 of 15),
+  with no errored run and no `ERROR` result. The Sonnet logs, read in full, show no errors.
 - **The held-out numbers are optimistic.** The six added queries were written after the failing
   shape had been seen in the output cases, three of them are held out, and the held-out score
   was read when choosing between candidates. They show that Haiku fires on prompts worded
