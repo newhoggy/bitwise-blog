@@ -529,8 +529,8 @@ to point a scaffold at another root.
 scaffolded the same case, which scored 1.00 in one run (`claude-haiku-5-5`, $0.02).
 
 **`skill-authoring`, before and after this change**, compared with that recipe: before is `d213e19`
-(`origin/main`), after is `1aa3c1d`, whose skill files are the same as at the commit that records
-this (it changes only this file). Agent `claude-sonnet-5-5`, judge `claude-haiku-5-5`, three runs,
+(`origin/main`), after is `1aa3c1d`. The later commits of #96 change only this file and the wording
+around the comparison recipe in `evals.md`, after review. Agent `claude-sonnet-5-5`, judge `claude-haiku-5-5`, three runs,
 `--ablation none --scaffold`, `-j 4`.
 
 | Case | Before | After | Change |
@@ -542,7 +542,8 @@ this (it changes only this file). Agent `claude-sonnet-5-5`, judge `claude-haiku
 | review-flawed-skill | 1.00, re-run 0.93 | 0.93, re-run 0.93 | −0.07, then 0.00 |
 | **Mean (first runs)** | **1.00** | **0.96** | **−0.04** |
 
-The skill fired in all 15 runs of each arm and no run errored. The two dips are in graders the edit
+The skill fired in every run, the 15 first runs of each version and the 9 re-runs, and no run
+errored. The two dips are in graders the edit
 does not touch (`lowest-rung` in `needs-a-script`; `finds-hardcoded-path`, `finds-reserved-name` and
 `ranks-and-fixes` in `review-flawed-skill`). Which grader fails changes from run to run, and the
 before snapshot failed two of the same graders (`finds-reserved-name`, `ranks-and-fixes`) when

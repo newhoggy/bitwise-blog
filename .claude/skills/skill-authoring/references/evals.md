@@ -230,14 +230,15 @@ claude plugin eval .claude/skills/<name> \
 
   ```bash
   jq -r '.cases[] | .name as $c | .arms[][] | select(.error) | "\($c): \(.error)"' \
-    evals/results/<timestamp>/aggregate-result.json
+    .claude/skills/<name>/evals/results/<timestamp>/aggregate-result.json
   ```
 
 ### Comparing with the previous version
 
 The with/without delta says the skill helps; it does not say that your edit helped. The
 only built-in baseline is no skill, so to compare two versions of the same skill run the
-suite twice with `--ablation none` and compare the `WITH` scores:
+suite twice with `--ablation none` and compare the `WITH` scores. Commit your edit, then,
+from the repo root, with `<ref>` the commit before it (`origin/main`, or `HEAD~1`):
 
 ```bash
 s=.claude/skills/<name>; snap=$(mktemp -d)
@@ -252,8 +253,10 @@ The snapshot is the whole repo, not the skill alone. A scaffold finds the files 
 from its own path (`"$(dirname "$0")"`), and `claude plugin eval` has no option to point
 it at another root (2.1.310), so a case that reads a repo file fails to scaffold in a
 skill-only snapshot. Only the skill comes from `<ref>`: the cases, graders and the files
-they read come from `HEAD`, so the two runs differ in the skill and nothing else. Commit
-your edit first, since the snapshot reads `HEAD` and the second run reads the working tree.
+they read come from `HEAD`, so the two runs differ in the skill and nothing else. That
+holds for committed files only: the snapshot has nothing untracked or git-ignored, so a
+case that reads such a file fails to scaffold in it. The results of this run are under
+`$snap/$s/evals/results/`; read them before `rm -rf "$snap"`.
 
 Then run the same command on `.claude/skills/<name>` and compare case by case, with the
 same noise rule as for Δ. Write down the cost and duration that each run reports too: a
