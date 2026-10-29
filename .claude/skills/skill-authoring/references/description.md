@@ -25,7 +25,10 @@ just never runs, or runs on the wrong task.
 - **Tell the model to load the skill first, in plain words.** Haiku answers from memory
   unless the description says to load the skill before answering: a longer list of topics did
   not change that, and a calm sentence ("Load it before answering or reading any file") did.
-  Sonnet fires without it, so test on both ([measurements](measurements.md)).
+  Sonnet fires without it, so test on both ([measurements](measurements.md)). This rests on one
+  skill and one model, with one or two queries of run-to-run movement, so treat it as a default
+  to test, not a rule for every skill: it forces a load on every matching prompt, which costs
+  context for a skill whose answers rarely need the body.
 - **Name the near misses.** End with "Not for …", naming the neighbouring skill or tool
   that owns each, so the two descriptions divide the territory between them.
 - **At most 1,024 characters** (the cross-surface limit, and pi's). Claude Code accepts

@@ -194,18 +194,16 @@ Each run starts in an empty temporary workspace with a temporary home. User sett
 
 ```bash
 claude plugin eval .claude/skills/<name> \
-  --scaffold --trust-plugin --allow-tools "Bash(node *)" \
+  --scaffold --trust-plugin \
   --model claude-sonnet-5-5 --judge-model claude-haiku-5-5 \
   -j 4 --max-cost-usd 15 --no-publish
 ```
 
 - Add `--case '<glob>'` or `--tag <tag>` to run part of the suite, `--runs N` to change the
   runs per arm, `--ablation none` to skip the baseline while tuning graders (halves cost),
-  `--keep-temp` to look at what a run left behind. Put the target before `--tag` and
+  `--keep-temp` to look at what a run left behind, `--allow-tools "Bash(node *)"` only for a case
+  that needs `Bash` (see the sandbox notes above). Put the target before `--tag` and
   `--allow-tools`.
-- **Leave `--allow-tools` off unless a case needs `Bash`.** On a machine whose `~/.aws` holds a
-  symlink, any `Bash` grant makes every run error before it starts (score 0.00, $0.00, "the Bash
-  sandbox cannot reliably exclude it"). The five `skill-authoring` cases use no `Bash`.
 - Results: a table with `WITH`, `W/OUT` and `Δ` per case, `evals/results/<timestamp>/
   aggregate-result.json` and `report.html` (or where `--output-dir` points).
 - **Reading Δ.**

@@ -366,10 +366,14 @@ just noise around zero. The review runs `Glob` and `Read` the fixture and answer
 knowledge; the script runs answer in one turn with no tool call. The three cases where Haiku scored
 well (add-evals, merge-overlapping-skills, fix-not-firing) loaded the skill in 9 of 9 runs.
 
-| Haiku, 5 cases, before the change | review-flawed-skill | needs-a-script | mean Δ of 5 |
+| Haiku, 5 cases, before the change (re-run 2026-10-30) | review-flawed-skill | needs-a-script | mean Δ of 5 |
 | --- | --- | --- | --- |
 | with / without (Δ) | 0.54 / 0.58 (−0.04) | 0.80 / 0.80 (0.00) | +0.39 |
 | runs that called `Skill` | 0 of 3 | 0 of 3 | |
+
+The 2026-10-22 table above gave the same two cases 0.62 / +0.21 and 0.80 / +0.07; the re-run's
+−0.04 and 0.00 are the same kind of number, with a load rate of 0 of 3 behind them (the 2026-10-22
+traces were not kept, so that run's load rate is not known).
 
 The trigger evals say the same. With Haiku as the agent (`--model claude-haiku-5-5`) the 28
 original queries gave should-fire 5 of 15 (train 13 of 22, held-out 5 of 6) and should-stay-quiet
@@ -401,6 +405,13 @@ held-out 9, so the held-out miss counts are of 9):
   that still miss on Haiku are #8 ("is it worth putting this in a forked subagent…", 0 of 3 in
   every run since v1) and, in some runs, #32, #25 and #6. #8 is a train query: the category it stands for
   (how much machinery a skill needs) went back in as v3 and made things worse, so it stays a known miss.
+- **The held-out numbers are optimistic.** The six added queries were written after the failing
+  shape had been seen in the output cases, three of them are held out, and the held-out score
+  was read when choosing between candidates. They show that Haiku fires on prompts worded
+  differently from the two cases, not a clean test of generalisation.
+- **`skill-creator` is not measured.** The old description said it adds the repo's rules on top of
+  `skill-creator`; the final one does not say it (the body still does), and the sandbox holds no
+  `skill-creator`, so a prompt it would take instead cannot be tested here.
 - Nothing was stolen: every should-stay-quiet query stayed at 0 triggers in every Haiku run
   and both Sonnet runs, and `pedagogical-writing`'s own trigger evals on Sonnet are unchanged
   (29 of 30: train 22 of 22, held-out 7 of 8, the miss still #25).
@@ -430,8 +441,8 @@ held-out 9, so the held-out miss counts are of 9):
   answer and a regex ("repo-relative" is not in `finds-hardcoded-path`'s pattern): grader noise,
   not a skipped step.
 - **Sonnet and Opus.** With-skill scores are within a notch of 2026-10-22 and 2026-10-28
-  (Sonnet 1.00 / 1.00 / 1.00 / 0.93 / 0.83 against 1.00 on every case; Opus 1.00 / 1.00 / 0.92 /
-  0.93 / 1.00 before and 1.00 / 0.93 / 1.00 / 1.00 / 0.92 now, in the table's case order). Sonnet
+  (in the table's case order, Sonnet 1.00 / 1.00 / 0.83 / 0.93 / 1.00 now against 1.00 on every case
+  before; Opus 1.00 / 1.00 / 0.92 / 0.93 / 1.00 before and 1.00 / 1.00 / 0.92 / 1.00 / 0.93 now). Sonnet
   called `Skill` in all 15 runs, so a firing change is not what moved it. Sonnet's
   review (0.83) and script (0.93) cases are the two that fall below the earlier 1.00, so they were
   re-run with the old description (a `git archive` of the commit before this change) against the new,
@@ -440,5 +451,7 @@ held-out 9, so the held-out miss counts are of 9):
   fails 3 votes to 0 in both versions), and different graders miss in different runs. This shows no
   drop larger than the noise; it does not show none.
 - **Cost.** About $31 in all: Haiku trigger runs about $7.50, Sonnet trigger runs $14.96
-  (this skill and `pedagogical-writing`), output evals about $6.90 (Haiku $0.57 over three passes, Sonnet $1.96, Opus $4.35), and the head-to-head $1.96.
+  (this skill, its six new queries before the change, and `pedagogical-writing`), output evals
+  about $6.90 (Haiku $0.57 over the before run and both passes, Sonnet $1.96, Opus $4.35), and the
+  head-to-head $1.96 (equal to Sonnet's pass by coincidence: $0.67 + $0.30 + $0.69 + $0.30).
   The description is 265 characters shorter (986 to 721), which also saves context in every session.
