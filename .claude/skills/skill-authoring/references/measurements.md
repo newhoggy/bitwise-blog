@@ -22,6 +22,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-10-30: errored trigger-eval runs no longer score (#94)
 - 2026-10-30: why Haiku got little from `skill-authoring`, and the description change (#86)
 - 2026-10-30: `anatomy` gets a "Not for" clause and trigger evals (#92)
+- 2026-10-30: three `pedagogical-writing` graders that passed in few or unstable runs (#97)
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -175,7 +176,7 @@ with-skill arm passes at least two more of five runs than the baseline, otherwis
 
 | Grader | With | Without | Result |
 | --- | --- | --- | --- |
-| plan 01: each page has a sentence saying what the reader will understand or be able to do | 2 of 5 | 0 of 5 | kept, at the threshold; no gap in the later suite run (below) |
+| plan 01: each page has a sentence saying what the reader will understand or be able to do | 2 of 5 | 0 of 5 | kept, at the threshold; no gap in the later suite run (below); deleted in #97 |
 | outline 04: for at least three steps the outline says why the next section follows | 5 of 5 | 0 of 5 | kept |
 
 The "one concept per page" and "exactly one new idea" halves are dropped, not reworded: I did
@@ -209,7 +210,7 @@ Not done here: two more graders now score 0 in both arms, and were neither read 
 `outline-bloom-filters` "the crack is located" (03) failed 0 of 6 in the first run today and 0 of 3
 in both arms of the full-suite run. `plan-rank-select-series` "prerequisites are named by title"
 (03) was 0 of 3 in both arms of the full-suite run. They are the next candidates for the same
-treatment.
+treatment. (#97 read them: see the 2026-10-30 section on those graders.)
 
 ### 2026-10-29: `pedagogical-writing`'s ADR query relabelled and its neighbours named (#84)
 
@@ -333,9 +334,13 @@ all 15 after-runs and all 15 before-runs. Cost: before $1.42 (four cases) plus $
   20,000-byte mark falls in Misconceptions and surprise instead of Voice (Opening, Ordering and
   pacing, Examples and numbers, and Formulas, notation and names stay inside it). The 5,000-token limit and the
   4-bytes-per-token ratio are the issue's estimates, not measured here: no tokenizer was available.
-- The top-listed failing grader of three cases is the same before and after: `outline` 03 and
-  `review` 03 failed in all three runs both times, and `plan` 01 failed in two of three before and
-  three of three after. They were failing before this change and are not touched by it.
+- Three graders pass in few or unstable runs, before and after alike. Passes out of 3 (counted
+  from the per-run output, not the summary line, as #97 did): `outline` 03 1 before and 1 after,
+  `review` 03 1 before and 2 after, `plan` 01 0 before and 0 after. They were weak before this
+  change and are not touched by it. (This bullet first said `outline` 03 and `review` 03 failed in
+  all three runs both times and `plan` 01 in two of three before; that was read off the summary
+  line and was wrong. The #85 runs were not kept, so the counts here are the ones #97 took from
+  them.) The three are dealt with in the #97 section below.
 
 ### 2026-10-30: errored trigger-eval runs no longer score (#94)
 
@@ -514,3 +519,55 @@ cases are figure-building prompts, not trigger queries.
   sandbox lacks (#9 names `docs/how-deflate-works.html`; #13 and #14 mean the gpu-deflate study and
   the deflate page); a quiet result on one could come from Claude looking for the file, though #9's
   prompt fires `pedagogical-writing` 3 of 3 in that skill's own file. Three runs per query step in thirds.
+
+### 2026-10-30: three `pedagogical-writing` graders that passed in few or unstable runs (#97)
+
+Claude Code 2.1.310, agent `claude-sonnet-5-5`, judge `claude-haiku-5-5`, **both arms**, five runs
+per arm per case, `-j 4`, `--keep-temp`. I read the final answers behind the verdicts
+(`aggregate-result.json` keeps them in each grader's `evidence`). `--case` takes one case per run,
+so each case was a separate run. Passes out of 5, with the skill / without:
+
+| Grader | Wording before this change | Old wording | Reworded | Result |
+| --- | --- | --- | --- | --- |
+| `plan` 01 | for each of the three pages the plan gives a sentence saying what the reader will understand or be able to do, and not only a list of topics | 1 / 3 | 4 / 4 | deleted |
+| `outline` 03 | the crack is located (which lookups go wrong and why), and the fix follows from it | 3 / 0 | 4 / 0 | reworded |
+| `review` 03 | each finding gives a location, the missing beat (need, naive attempt, crack or fix), and a concrete fix | 1 / 1 | 3 / 3 | deleted |
+
+The reworded text was written before the second run and not changed after it. The rule is #83's:
+keep a replacement only if the with-skill arm passes at least two more of five than the baseline.
+
+- **`plan` 01 measured a phrasing, not the skill.** Baseline plans carry a `Goal: the reader can …`
+  line per page (3 of 5 passed). With-skill plans describe each page by need, naive attempt, crack,
+  fix and teaser (the skill's own ladder) and state the outcome only through those, so the grader
+  passed 1 of 5. The reworded version accepts a goal, an outcome or a question, and both arms pass
+  it: it no longer penalises the skill, and it tells the arms apart no better. The skill does not ask
+  for a reader-outcome line (`SKILL.md` has none), so there is nothing here to teach the grader to
+  find. Deleted. This is the replacement that #83 had "kept, at the threshold".
+- **`review` 03 failed on the word "each".** Every answer in both arms ranks its main findings with
+  a location and a fix, then ends with a "smaller items" list or an unranked paragraph that has
+  neither, and the judge's votes on the same kind of answer ran from `FAIL FAIL FAIL` to `PASS PASS
+  PASS`. "At least three findings, closing minor list excluded" is decidable and was passed by 3 of
+  5 in each arm: the baseline review also gives a section, a fix and what is missing. The skill's
+  vocabulary (need, naive attempt, crack) does not change what a judge accepts. Deleted. The case's
+  other five graders are unchanged.
+- **`outline` 03 separated the arms before it was reworded** (3 of 5 against 0 of 5; it was 1 of 3
+  in the #95 runs and 0 of 6 in #83's, so it moves a lot). Its with-skill failures were not missing
+  cracks: two of the answers had a "Crack" line or section and named the property the fix needs,
+  and the judge still voted `FAIL FAIL FAIL` on "which lookups go wrong", which asks for more than
+  an outline gives. The baseline outlines describe the structure and never show a failure of a
+  naive attempt, so they fail on any wording. The reworded text asks for a specific failure and
+  what causes it, and what the fix must do about it; it passed 4 of 5 against 0 of 5.
+- **`plan` 03 ("prerequisites by title") stays.** It is not one of the three. Old and new runs
+  passed it 2 of 5 and 1 of 5 with the skill and 0 of 5 and 0 of 5 without, so 3 against 0 over ten
+  runs.
+- **Case scores** (with / without), old wording then new: `plan-rank-select-series` 0.60 / 0.51 then
+  0.71 / 0.43; `outline-bloom-filters` 0.72 / 0.33 then 0.75 / 0.40; `review-deflate-page` 0.87 /
+  0.77 then 0.77 / 0.83. The first two cases now separate the arms by about 0.3; the third has no
+  gap, and its Δ is inside the run-to-run noise either way (+0.10, −0.07). Dropping the grader
+  changes the case's score by construction (it has five graders now), so these are not a
+  measure of the skill.
+- **Not done here.** `review-deflate-page` has no reading-order or clarity grader that separates the
+  arms now; its remaining graders pass in both. Whether the case should be kept (its Δ has been
+  +0.10, −0.07, +0.17, +0.00 and +0.17 across runs) is the #83 question and is left open.
+- **Cost.** $6.64 for the old wording ($4.68 `review`, $1.10 `plan`, $0.86 `outline`), $6.29 for the
+  reworded ($4.32, $1.06, $0.91): $12.93 in all.
