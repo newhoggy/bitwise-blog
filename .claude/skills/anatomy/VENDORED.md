@@ -26,8 +26,19 @@ and needs Node 20.10+ and a local Chrome or Chromium for `capture.mjs`, `drive.m
 
 1. `SKILL.md`: removed the gallery-publishing text; added the blog pointers (description, the
    path list, the `embed.mjs` row of the scripts table, the `references/bitwise-blog.md` entry).
+   The description also has a "Not for" clause naming `pedagogical-writing` (teaching prose, page
+   structure, what a page should show) and `dataviz` (charts of data), added for #92 because
+   `anatomy` had no clause and its claim on "an explanatory diagram or figure for docs" overlapped
+   `pedagogical-writing`. To stay under 1,024 characters it drops "highly detailed", the "cabinet of
+   drawers" example, "title, hint and" from the card, "realistic" before WebGL, the "(TypeScript/JS
+   that writes SVG and HTML)" gloss, "(poster, drawing or handout)"; it says "Use when" for "Use
+   this whenever", "an interactive isometric explainer" for "an interactive explainer", and
+   "framework-free or in React/Next.js". It has 6 characters of headroom, so a new neighbour
+   means taking words out again. Re-apply all of this when updating.
 2. Added `references/bitwise-blog.md` and `scripts/embed.mjs`.
-3. Added this file.
+3. Added `evals/trigger-evals.json`: trigger queries for this repo's measurements (#92). Upstream's
+   `evals/evals.json` is still left out: its five cases are build prompts, not trigger queries.
+4. Added this file.
 
 Everything else is byte-identical to the upstream commit above.
 

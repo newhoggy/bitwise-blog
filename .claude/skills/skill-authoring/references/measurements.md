@@ -21,6 +21,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-10-30: `pedagogical-writing`'s must-hold sections moved ahead of the catalogue (#85)
 - 2026-10-30: errored trigger-eval runs no longer score (#94)
 - 2026-10-30: why Haiku got little from `skill-authoring`, and the description change (#86)
+- 2026-10-30: `anatomy` gets a "Not for" clause and trigger evals (#92)
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -460,3 +461,56 @@ held-out 9, so the held-out miss counts are of 9):
   about $6.90 (Haiku $0.57 over the before run and both passes, Sonnet $1.96, Opus $4.35), and the
   head-to-head $1.96 (equal to Sonnet's pass by coincidence: $0.67 + $0.30 + $0.69 + $0.30).
   The description is 265 characters shorter (986 to 721), which also saves context in every session.
+
+### 2026-10-30: `anatomy` gets a "Not for" clause and trigger evals (#92)
+
+Claude Code 2.1.310, agent `claude-sonnet-5-5`, three runs per query unless stated, all three repo
+skills present. `dataviz` and `review-adr` are user-level, so the sandbox holds neither: a chart
+query shows that `anatomy` stays quiet, not that `dataviz` takes it.
+
+**What changed.** `anatomy`'s description (1,018 of 1,024 characters) ends "Not for the teaching
+prose around a figure, page structure or what a page should show (pedagogical-writing), or charts of
+data (dataviz)", and `VENDORED.md` lists it with the words taken out to make room. The new
+`anatomy/evals/trigger-evals.json` has 26 queries (11 should-fire, 15 should-stay-quiet; train 16,
+held-out 10), split before the first run. Nine of the 15 should-stay-quiet queries are
+`pedagogical-writing`'s own should-fire prompts (the Elias-Fano intro, the deflate review, the
+playground, the predict question, the wavelet-tree plan, the select-section flow, the arithmetic-coding
+example, the monad-transformer order) or a reworded one (the "easier to understand" page); the other
+six are chart, dashboard, house-diagram and `check`-failure requests. Upstream's `evals/evals.json` was not vendored: its five
+cases are figure-building prompts, not trigger queries.
+
+| Run | Skill | Result | Cost |
+| --- | --- | --- | --- |
+| 1 | `anatomy` | 25 of 26 (train 15 of 16, held-out 10 of 10; should-fire 10 of 11, should-stay-quiet 15 of 15); miss #5 (1 of 3) | $6.37 |
+| 1b | `anatomy`, #5 as first worded, again | 2 of 3 (3 of 6 across both runs) | $0.22 |
+| 2 | `anatomy`, #5 reworded, 6 runs | 6 of 6 | $0.64 |
+| 3 | `pedagogical-writing`, all 30 queries | 29 of 30 (train 22 of 22, held-out 7 of 8); miss #25 (0 of 3), as on 2026-10-29 | $5.28 |
+| 4 | `pedagogical-writing` #7, 6 runs, new `anatomy` description | 6 of 6 | $0.44 |
+| 5 | `pedagogical-writing` #7, 6 runs, **old** `anatomy` description | 6 of 6 | $0.44 |
+
+- **Query #5 is a change to a query.** It named `figures/rank-select/gauge.html` and
+  `docs/rank-select.html`, which the empty sandbox lacks; the two missed runs read `Read`, `Grep`,
+  `Glob` errors and hit the turn cap, the shape described under "the working directory is empty" in
+  `evals.md`. It was reworded after failing to a question that carries no file ("how do I get an
+  isometric anatomy figure I built as its own HTML page into one of our blog pages…"). The measured
+  score of the first file is 25 of 26 with the first wording. The reworded #5 scored 6 of 6 alone
+  (run 2); the full file was not re-run with it, so no 26 of 26 was measured, and #5 is now a train
+  query tuned after a failure.
+- **Every should-stay-quiet query stayed at 0 triggers**, `pedagogical-writing`'s prompts and the
+  chart requests included. `anatomy` also did not steal anything from `pedagogical-writing`: its
+  29 of 30 matches 2026-10-29.
+- **The "Not for" clause did not fix #7, because #7 was not broken today.** The issue's acceptance
+  criterion (#7 in at least 3 of 6 with `anatomy` present) is met, 6 of 6, but 6 of 6 also holds with
+  the old `anatomy` description (run 5, made by putting the previous `SKILL.md` back for the run).
+  The 5 of 12 on 2026-10-29 did not reproduce with either version, so it was most likely run-to-run
+  variance (or the load rate of the whole skill list) and not `anatomy` taking the prompt. Nothing
+  here shows the clause helps or hurts #7. Whether `anatomy` ever loaded in those missed runs is
+  still unknown: their traces were not kept (#91). The clause is justified by the boundary it
+  draws and by the near-miss queries staying quiet, not by a measured gain on #7.
+- **Limits.** The `anatomy` should-fire half is mostly phrased with "isometric", which is the
+  skill's own word, so it shows the skill still fires, not that it fires on a vaguer request. The
+  held-out part has 3 should-fire and 7 should-stay-quiet queries, so "10 of 10" says little about
+  how the clause behaves on real anatomy requests. Three should-stay-quiet queries refer to material the
+  sandbox lacks (#9 names `docs/how-deflate-works.html`; #13 and #14 mean the gpu-deflate study and
+  the deflate page); a quiet result on one could come from Claude looking for the file, though #9's
+  prompt fires `pedagogical-writing` 3 of 3 in that skill's own file. Three runs per query step in thirds.
