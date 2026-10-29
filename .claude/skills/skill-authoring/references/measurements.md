@@ -18,6 +18,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-10-29: the two always-failing graders, and what limits `review-deflate-page` needs
 - 2026-10-29: `pedagogical-writing`'s ADR query relabelled and its neighbours named
 - 2026-10-30: #25's misses read from traces, and the #17 errors
+- 2026-10-30: `pedagogical-writing`'s must-hold sections moved ahead of the catalogue (#85)
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -291,3 +292,37 @@ tool call, in 9 to 13 seconds against a 300-second limit, so a timeout or the sa
 did not print it, and the result files were in its deleted temporary directory. **So the cause is
 not known.** A failure outside the query (the API, for example) fits what is left, but nothing
 shows it. The runner now prints the text under the query, so the next one will name its source.
+
+### 2026-10-30: `pedagogical-writing`'s must-hold sections moved ahead of the catalogue (#85)
+
+Claude Code 2.1.310, agent `claude-sonnet-5-5`, judge `claude-haiku-5-5`, three runs per case,
+`--ablation none` (with-skill arm only), `-j 4`, comparing `WITH` scores as `evals.md` prescribes.
+"Before" is a `git archive` snapshot of `f9d2835`; "after" is `fd68146`. Both used
+`--scaffold --trust-plugin`, with the snapshot given a copy of `docs/how-deflate-works.html`.
+
+| Case | Before | After | Change |
+| --- | --- | --- | --- |
+| design-rank-interactive | 0.96 | 0.92 | −0.04 |
+| outline-bloom-filters | 0.78 | 0.81 | +0.03 |
+| plan-rank-select-series | 0.71 | 0.63 | −0.08 |
+| review-deflate-page | 0.81 | 0.90 | +0.09 |
+| rewrite-token-bucket | 0.89 | 0.94 | +0.05 |
+| **Mean** | **0.83** | **0.84** | **+0.01** |
+
+Every change is inside the 0.2 that counts as noise, the signs are mixed, and the skill fired in
+all 15 after-runs and all 15 before-runs. Cost: before $1.42 (four cases) plus $1.77
+(`review-deflate-page`, run again, see below), after $2.37.
+
+- **The first before-run scored `review-deflate-page` 0.00 at $0.00.** The snapshot held only the
+  skill, so the scaffold's `cp docs/how-deflate-works.html` failed. That is a setup error, not a
+  score; the case was run again with the page in the snapshot, and only that re-run is in the table.
+- **What this does and does not show.** The evals never compact the conversation, so they show that
+  the new order costs nothing in an uncompacted run. They do not show that the move helps after a
+  compaction, and no transcript has shown a skipped step from the cut (the issue says the same).
+- **Where the cut falls.** By byte offset the sections that govern every use (the core loop,
+  Promises, In this repo, Drafting workflow, Reviewing, Caveats) now end at 12,364 bytes; the
+  20,000-byte mark falls in Examples and numbers instead of Voice. The 5,000-token limit and the
+  4-bytes-per-token ratio are the issue's estimates, not measured here: no tokenizer was available.
+- The top-listed failing grader of three cases is the same before and after: `outline` 03 and
+  `review` 03 failed in all three runs both times, and `plan` 01 failed in two of three before and
+  three of three after. They were failing before this change and are not touched by it.
