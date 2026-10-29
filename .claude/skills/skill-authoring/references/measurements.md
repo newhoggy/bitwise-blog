@@ -322,7 +322,7 @@ all 15 after-runs and all 15 before-runs. Cost: before $1.42 (four cases) plus $
   a third per case, so a small loss would not show). They do not show that the move helps after a
   compaction, and no transcript has shown a skipped step from the cut (the issue says the same).
 - **Where the cut falls.** By byte offset the sections that govern every use (the core loop,
-  Promises, In this repo, Drafting workflow, Reviewing, Caveats) now end at 12,364 bytes; the
+  Promises, In this repo, Drafting workflow, Reviewing, Caveats) now end at 12,389 bytes; the
   20,000-byte mark falls in Misconceptions and surprise instead of Voice (Opening, Ordering and
   pacing, Examples and numbers, and Formulas, notation and names stay inside it). The 5,000-token limit and the
   4-bytes-per-token ratio are the issue's estimates, not measured here: no tokenizer was available.
