@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: node run-trigger-evals.mjs <skill-name> [--runs N] [--model ID] [--max-cost USD] [--only 1,5,9] [--keep]
+// Usage: node run-trigger-evals.mjs <skill-name> [--runs N] [--model ID] [--max-cost USD] [--only 1,5,9] [--max-turns N] [--keep]
 //
 // Measures how often a skill loads on evals/trigger-evals.json. Run it from inside the repo.
 //
@@ -16,6 +16,12 @@
 // user settings, CLAUDE.md or user-level skills, so a prompt that only a user-level skill
 // would catch is not tested here. The query list is evals/trigger-evals.json
 // (skill-creator's format, so run_loop.py can still read it). No dependencies.
+//
+// Every error other than the turn cap is printed under its query: a should-stay-quiet query
+// "passes" on an errored run, so the text is the only sign of it. --keep keeps the temporary
+// plugin and copies each run's trace into its traces/ directory, and lists the tool calls of
+// every run that did not behave as labelled, or errored, so a miss can be read rather than guessed
+// from turn counts.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -25,12 +31,16 @@ const argv = process.argv.slice(2);
 const flag = (name, dflt) => { const i = argv.indexOf(name); return i < 0 ? dflt : argv[i + 1]; };
 const name = argv[0];
 if (!name || name.startsWith("--")) {
-  console.error("usage: node run-trigger-evals.mjs <skill-name> [--runs N] [--model ID] [--max-cost USD] [--only 1,5,9] [--keep]");
+  console.error("usage: node run-trigger-evals.mjs <skill-name> [--runs N] [--model ID] [--max-cost USD] [--only 1,5,9] [--max-turns N] [--keep]");
   process.exit(2);
 }
 const runs = Number(flag("--runs", 3));
 const model = flag("--model", "claude-sonnet-5-5");
 const maxCost = flag("--max-cost", "10");
+// 3 keeps a run cheap; a query that sends Claude looking around first may need more to reach a skill.
+const maxTurns = Number(flag("--max-turns", 3));
+if (!Number.isInteger(maxTurns) || maxTurns < 1) { console.error("--max-turns takes a whole number of turns, 1 or more"); process.exit(2); }
+const keep = argv.includes("--keep");
 
 const repo = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
 const skillsDir = path.join(repo, ".claude", "skills");
@@ -60,32 +70,80 @@ const pad = n => String(n + 1).padStart(3, "0");
 queries.forEach((q, i) => {
   const dir = path.join(plugin, "evals", `q${pad(i)}-${q.should_trigger ? "should" : "shouldnt"}`);
   fs.mkdirSync(path.join(dir, "graders"), { recursive: true });
-  fs.writeFileSync(path.join(dir, "prompt.md"), `---\nmax_turns: 3\nruns: ${runs}\nallowed_tools: [Read, Glob, Grep, Skill]\n---\n\n${q.query}\n`);
+  fs.writeFileSync(path.join(dir, "prompt.md"), `---\nmax_turns: ${maxTurns}\nruns: ${runs}\nallowed_tools: [Read, Glob, Grep, Skill]\n---\n\n${q.query}\n`);
   const bounds = q.should_trigger ? "min: 1" : "min: 0\nmax: 0\narm: both";
   fs.writeFileSync(path.join(dir, "graders", "skill-fired.md"),
     `---\ntype: tool_used\ntool: Skill\ninput_match: '"skill"\\s*:\\s*"(?:[\\w-]+:)?${name}"'\n${bounds}\n---\n`);
 });
 
+// The turn cap ends most runs with an error after the skill has been called (or not), which is fine:
+// the grader still saw the whole trace. Only other errors (API, timeout) make a run unreliable.
+const counted = r => r.error && !/maximum number of turns/i.test(String(r.error));
+const passed = r => r.graders?.[0]?.passed === true;
+
+// --keep-temp keeps each run's scratch directory (the trace is <dir>/out/trace.jsonl), read-only and
+// partly mode 000. The traces are copied into traces/ and the directories removed afterwards, or a
+// full suite leaves ~90 of them that a plain rm -rf cannot delete.
+function copyTrace(tracePath, dest) {
+  if (!tracePath || !fs.existsSync(tracePath)) return null;
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.copyFileSync(tracePath, dest);
+  return dest;
+}
+function removeScratch(tracePath) {
+  const scratch = path.dirname(path.dirname(tracePath));
+  if (path.basename(path.dirname(tracePath)) !== "out" || !/^e-/.test(path.basename(scratch)) || !fs.existsSync(scratch)) return;
+  const writable = dir => {
+    fs.chmodSync(dir, 0o700);
+    for (const d of fs.readdirSync(dir, { withFileTypes: true })) if (d.isDirectory()) writable(path.join(dir, d.name));
+  };
+  try { writable(scratch); fs.rmSync(scratch, { recursive: true, force: true }); }
+  catch (err) { console.error(`could not remove ${scratch}: ${err.message}`); }
+}
+
+// What a run did, from its trace: the tool calls in order (a failed or denied one marked), and how it ended.
+function toolCalls(trace) {
+  const calls = new Map();
+  let end = "no result";
+  for (const line of fs.readFileSync(trace, "utf8").split("\n")) {
+    let e;
+    try { e = JSON.parse(line); } catch { continue; }
+    for (const b of Array.isArray(e.message?.content) ? e.message.content : []) {
+      if (b.type === "tool_use") calls.set(b.id ?? `#${calls.size}`, b.name === "Skill" ? `Skill ${b.input?.skill}` : b.name);
+      else if (b.type === "tool_result" && b.is_error && calls.has(b.tool_use_id)) calls.set(b.tool_use_id, `${calls.get(b.tool_use_id)} (error)`);
+    }
+    if (e.type === "result") end = e.subtype === "error_max_turns" ? "turn cap" : e.subtype ?? "ended";
+  }
+  return `${[...calls.values()].join(", ") || "no tool calls"}; ${end}`;
+}
+
 function run() {
   const out = path.join(tmp, "result.json");
   const res = spawnSync("claude", ["plugin", "eval", plugin, "--trust-plugin", "--ablation", "none", "--model", model,
-    "--no-publish", "-j", "5", "--max-cost-usd", maxCost, "--json", out], { stdio: ["ignore", "ignore", "inherit"] });
+    "--no-publish", "-j", "5", "--max-cost-usd", maxCost, "--json", out, ...(keep ? ["--keep-temp"] : [])],
+    { stdio: ["ignore", "ignore", "inherit"] });
   if (!fs.existsSync(out)) throw new Error(`claude plugin eval wrote no result (exit ${res.status})`);
   const result = JSON.parse(fs.readFileSync(out, "utf8"));
+  try {
+    return report(result);
+  } finally {
+    if (keep) for (const c of result.cases ?? []) for (const r of c.arms?.with ?? []) if (r.tracePath) removeScratch(r.tracePath);
+  }
+}
 
+function report(result) {
   let failed = 0;
   const rows = [];
   for (const c of result.cases) {
     const i = Number(/^q(\d+)-/.exec(c.name)[1]) - 1;
     const arm = c.arms.with ?? [];
-    // The turn cap ends most runs with an error after the skill has been called (or not), which is fine:
-    // the grader still saw the whole trace. Only other errors (API, timeout) make a run unreliable.
-    const ok = arm.filter(r => r.graders[0]?.passed).length;
+    const ok = arm.filter(passed).length;
     const n = arm.length;
-    const errors = arm.filter(r => r.error && !/maximum number of turns/i.test(r.error)).length;
+    const errors = arm.filter(counted).length;
     const pass = n > 0 && ok / n >= 0.5;
     if (!pass) failed++;
-    rows.push({ i, pass, ok, n, errors, should: queries[i].should_trigger, heldout: queries[i].heldout === true, query: queries[i].query });
+    const traces = keep ? arm.map((r, k) => copyTrace(r.tracePath, path.join(tmp, "traces", `q${position[i]}-run${k + 1}.jsonl`))) : [];
+    rows.push({ i, pass, ok, n, errors, arm, traces, should: queries[i].should_trigger, heldout: queries[i].heldout === true, query: queries[i].query });
   }
   rows.sort((a, b) => a.i - b.i);
   // A case that failed to load is absent from the result, and would otherwise lower nothing.
@@ -94,6 +152,12 @@ function run() {
   for (const r of rows) {
     const fired = r.should ? r.ok : r.n - r.ok;
     console.log(`${r.pass ? "PASS" : "FAIL"} #${position[r.i]}${r.heldout ? " held-out" : ""} fired ${fired}/${r.n} expected=${r.should ? "fire" : "quiet"}${r.errors ? ` (${r.errors} errored)` : ""}  ${r.query.slice(0, 90)}`);
+    r.arm.forEach((run, k) => {
+      if (counted(run)) console.log(`    run ${k + 1} error: ${String(run.error).replace(/\s+/g, " ").slice(0, 300)}`);
+      const trace = r.traces[k];
+      // A run that did not behave as labelled, or errored, is the one worth reading; passing query or not.
+      if (trace && (!passed(run) || counted(run))) console.log(`    run ${k + 1} tools: ${toolCalls(trace)}  ${path.relative(tmp, trace)}`);
+    });
   }
   // Tune against the train part only; the held-out part says whether a rewrite generalises.
   const part = hs => { const p = rows.filter(r => r.heldout === hs); return p.length ? `${p.filter(r => r.pass).length}/${p.length}` : "none"; };
@@ -112,7 +176,8 @@ try {
   console.error(err.message);
   code = 2;
 } finally {
-  if (argv.includes("--keep")) console.log(`kept ${tmp}`);
+  // claude plugin eval printed a "kept /private/tmp/e-…" notice per run; run() removed those directories.
+  if (keep) console.log(`kept ${tmp} (each run's trace is in its traces/)`);
   else fs.rmSync(tmp, { recursive: true, force: true });
 }
 process.exit(code);

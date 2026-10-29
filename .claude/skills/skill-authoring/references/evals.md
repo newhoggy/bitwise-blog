@@ -70,11 +70,20 @@ skill versions, and the description rewriting step.
 Measure with the bundled script (`scripts/run-trigger-evals.mjs`), from the repo root:
 
 ```bash
-npm run trigger-evals -- <skill-name> [--runs N] [--only 1,5,9] [--keep]
+npm run trigger-evals -- <skill-name> [--runs N] [--only 1,5,9] [--max-turns N] [--keep]
 ```
 
 `--only` re-runs chosen queries (1-based positions in the file) after an edit; the output lists
 each query with its position. It exits 1 if any query fails or any case failed to load.
+
+Read a miss before you act on it. Any error other than the turn cap is printed under its query
+(`run 2 error: …`): a should-stay-quiet query passes on an errored run, so a quiet pass needs a
+clean run behind it. `--keep` keeps the temporary plugin, copies each run's trace into its
+`traces/` (`q<position>-run<k>.jsonl`) and, for each run that did not behave as labelled or
+errored, prints the tool calls in order and how the run ended
+(`run 1 tools: Grep, Glob, Grep (error); turn cap`), so you can see whether Claude went looking
+for something before it chose a skill. `--max-turns` (default 3) raises the cap for a query that
+needs more turns.
 
 It builds a temporary plugin holding **every** skill in `.claude/skills` (so near misses meet
 the neighbours that would answer them), one `claude plugin eval` case per query with
@@ -95,6 +104,13 @@ Limits of the script: the sandbox loads no user settings, `CLAUDE.md` or user-le
 prompt that only a user-level skill would catch is not tested. A temporary plugin needs a
 `plugin.json` for its `skills/` directory to load (a lone `SKILL.md` does not): without one,
 every query scores 0 because no skill is loaded. If every query fails, check that first.
+
+The working directory is empty. A query that points at a file the user has ("the arithmetic
+coding explainer", "my lecture notes") sends Claude looking for it; finding nothing, it answers
+or asks for the file, and the skill never loads, whatever the description says. Put the material
+in the prompt (quote the passage, give the numbers), or expect a miss that measures the sandbox.
+Not every query that names a missing page misses (#1 to #5 of `pedagogical-writing` name pages
+the sandbox lacks and fire 3 of 3), so read the trace before blaming the sandbox.
 
 To search for a better description, edit by hand against the failing queries, or let
 skill-creator's `run_loop.py` propose rewrites (it needs `PYTHONPATH` set to skill-creator's
