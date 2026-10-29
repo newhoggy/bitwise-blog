@@ -16,6 +16,7 @@ mean across cases, and the sign across cases, not any one number.
 - Trigger evals
 - Re-run on 2026-10-28, after the quoting and held-out edits
 - 2026-10-29: the two always-failing graders, and what limits `review-deflate-page` needs
+- 2026-10-29: `pedagogical-writing`'s ADR query relabelled and its neighbours named
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -200,3 +201,54 @@ Not done here: two more graders now score 0 in both arms, and were neither read 
 in both arms of the full-suite run. `plan-rank-select-series` "prerequisites are named by title"
 (03) was 0 of 3 in both arms of the full-suite run. They are the next candidates for the same
 treatment.
+
+### 2026-10-29: `pedagogical-writing`'s ADR query relabelled and its neighbours named (#84)
+
+Claude Code 2.1.310, agent `claude-sonnet-5-5`, three runs per query unless stated. These are the
+first trigger runs with `anatomy` in `.claude/skills`: the 2026-10-28 runs were made on a tree that
+held only `pedagogical-writing` and `skill-authoring`.
+
+**What changed, in order.**
+
+1. The ADR query ("is this ADR's context section clear enough for someone joining the team next
+   month…", #9, train) is now should-stay-quiet. It missed in every run since it was written with
+   the skill (2026-10-20), and no version of the description has claimed ADRs: the label was a hope,
+   not a scope. Most of the skill (need, naive attempt, crack, fix; predictions; a companion voice)
+   is wrong for a record whose Context section Nygard calls "value-neutral … simply describing
+   facts", and the skill that would take the prompt in practice, `review-adr`, is user-level, so
+   the sandbox cannot measure an overlap with it. It stays as a near miss. This is a change to a
+   label after seeing it fail, so the 28-query score below rises because of the label, not the
+   description.
+2. "Not for" names the neighbours: `review-adr`, `dataviz`, `anatomy`, `skill-authoring` and
+   `update-config`. `pedagogical-diagrams` (#80) is left to that skill's own change.
+3. Two should-stay-quiet held-out queries, written before any run: an isometric figure (#29,
+   `anatomy`) and a bar chart (#30, `dataviz`).
+4. After run 1, one edit against the train failure #7: "rewriting" and "or a passage of one" in
+   "Use when", the category #7 stands for (a passage-level rewrite), not its words. The description
+   is 1,009 characters, so a further neighbour needs words taken out elsewhere.
+
+| Run | Description | Result | Cost |
+| --- | --- | --- | --- |
+| 1 | steps 1 to 3 | 28 of 30 (train 21 of 22, held-out 7 of 8); misses #7 (1 of 3) and #25 (0 of 3) | $5.40 |
+| 2 | step 4 added | 29 of 30 (train 22 of 22, held-out 7 of 8); miss #25 (0 of 3); #7 2 of 3 | $5.39 |
+| 2, re-run | the five queries with errored runs (#17, #18, #28, #29, #30) | 5 of 5 quiet; #17 and #18 errored again (both clean at 0 of 3 in run 1) | $0.66 |
+
+Every should-stay-quiet query stayed at 0 triggers in every run, the ADR query and both new near
+misses included. Errors here are other than the turn cap (the runner does not count that one); a
+run that errors cannot fire, so a quiet pass on errored runs counts only with a clean run behind it.
+
+**Was the drop in #7 and #25 the new description?** No. Both queries re-run on their own:
+
+| Query | Old description, with `anatomy` | Step 1 to 3 description, with `anatomy` | Same, without `anatomy` | 2026-10-28, old, without `anatomy` |
+| --- | --- | --- | --- | --- |
+| #7, rewrite the Elias-Fano intro (train) | 0 of 6 | 5 of 12 | 5 of 6 | passed |
+| #25, a better running example (held-out) | 0 of 6 | 0 of 12 | 1 of 6 | 1 of 3, then 2 of 3 |
+
+`anatomy`'s presence is what lowered #7 (5 of 6 without it, 5 of 12 with it); the new description
+did no worse than the old with `anatomy` present. In the missed #7 runs Claude answered in one turn
+with no tool call: it rewrote the sentence itself. #25 was borderline before and is now a miss; its
+runs used four or five turns, one hitting the 3-turn cap, so Claude was most likely looking for the
+explainer (absent from the empty sandbox) before choosing a skill. The traces were not kept, so
+that is a reading of the turn counts, not of the transcripts. #25 is held-out and the description
+was not tuned against it. It is the open miss, and the next thing to try is the harness (a larger
+turn cap, or the page in a fixture), not the description.
