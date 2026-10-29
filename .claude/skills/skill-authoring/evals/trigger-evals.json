@@ -116,5 +116,32 @@
   "query": "the caption under my figure just restates the picture. how should it read to teach better?",
   "should_trigger": false,
   "heldout": true
+ },
+ {
+  "query": "before I commit this, tell me what is wrong with the top of my new skill: --- name: claude-helper / description: I help you summarise reports --- then 600 lines of steps. fix list please, worst first",
+  "should_trigger": true
+ },
+ {
+  "query": "I check by hand that every migration file has a matching down script. I want Claude to do that for me. should that be a skill, and what goes in it?",
+  "should_trigger": true
+ },
+ {
+  "query": "review this python function for bugs before I merge it: def total(xs): t = 0; for x in xs: t += x; return t / len(xs)",
+  "should_trigger": false
+ },
+ {
+  "query": "audit all the skills in our .claude/skills folder for problems before we ship: names, description lengths, anything pinned to a path",
+  "should_trigger": true,
+  "heldout": true
+ },
+ {
+  "query": "we run the same release checklist every Friday. is a skill the right home for it, or a script, or a hook?",
+  "should_trigger": true,
+  "heldout": true
+ },
+ {
+  "query": "I do the same npm release steps every Friday. write me a shell script that runs them in order",
+  "should_trigger": false,
+  "heldout": true
  }
 ]
