@@ -194,14 +194,15 @@ Each run starts in an empty temporary workspace with a temporary home. User sett
 
 ```bash
 claude plugin eval .claude/skills/<name> \
-  --scaffold --trust-plugin --allow-tools "Bash(node *)" \
+  --scaffold --trust-plugin \
   --model claude-sonnet-5-5 --judge-model claude-haiku-5-5 \
   -j 4 --max-cost-usd 15 --no-publish
 ```
 
 - Add `--case '<glob>'` or `--tag <tag>` to run part of the suite, `--runs N` to change the
   runs per arm, `--ablation none` to skip the baseline while tuning graders (halves cost),
-  `--keep-temp` to look at what a run left behind. Put the target before `--tag` and
+  `--keep-temp` to look at what a run left behind, `--allow-tools "Bash(node *)"` only for a case
+  that needs `Bash` (see the sandbox notes above). Put the target before `--tag` and
   `--allow-tools`.
 - Results: a table with `WITH`, `W/OUT` and `Δ` per case, `evals/results/<timestamp>/
   aggregate-result.json` and `report.html` (or where `--output-dir` points).
@@ -246,6 +247,12 @@ side-by-side read of two outputs, use skill-creator's comparison mode.
   mistaken for a regression. This repo uses `claude-sonnet-5-5` for the agent and
   `claude-haiku-5-5` for the judge. Re-run on the other models a skill will run under
   (Haiku needs more explicit guidance, Opus tolerates less over-explanation).
+- **Check that the skill loaded before reading a Haiku score.** The `skill-fired` grader is
+  `with-only, not scored`, so a with-skill arm in which Haiku never called `Skill` scores as the
+  baseline and shows a Δ near zero. Count the `Skill` calls in the traces (`--keep-temp`) first:
+  on 2026-10-29 that was why Haiku got +0.21 and +0.07 on two cases (0 of 3 runs loaded the skill),
+  and a body edit could not have changed either. Also run the trigger evals with
+  `--model claude-haiku-5-5`.
 - Cost: cases × runs × 2 arms agent runs, plus three judge calls per `llm` grader per run.
   A five-case, three-run suite with Sonnet costs on the order of one to two US dollars and
   a few minutes at `-j 4`. Always pass `--max-cost-usd`.

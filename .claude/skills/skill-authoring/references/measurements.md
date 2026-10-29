@@ -20,6 +20,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-10-30: #25's misses read from traces, and the #17 errors
 - 2026-10-30: `pedagogical-writing`'s must-hold sections moved ahead of the catalogue (#85)
 - 2026-10-30: errored trigger-eval runs no longer score (#94)
+- 2026-10-30: why Haiku got little from `skill-authoring`, and the description change (#86)
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -52,8 +53,9 @@ How to read it:
   weakest.
 - **Haiku gets less from the skill where the task is judgment.** The review case scores 0.62 with
   the skill (+0.21), and `needs-a-script` +0.07, against 1.00 for Sonnet. This is the gap the best-
-  practices guide warns of: a skill that is clear enough for Sonnet is thinner for Haiku. Not
-  fixed here.
+  practices guide warns of: a skill that is clear enough for Sonnet is thinner for Haiku. The
+  cause was not the body: Haiku did not load the skill on those cases (fixed on 2026-10-30, last
+  section).
 - **Opus loses most of the review gain** (+0.08): without the skill it already finds most of the
   flaws in the fixture. The unaided gaps are the description limit and missing `evals/`.
 - Earlier runs of the previous five-case suite on Sonnet gave a mean Δ of +0.26 and +0.30, which
@@ -351,3 +353,110 @@ of its runs did was not recorded. Two checks after the change, before and after 
 (Claude Code 2.1.310, `claude-sonnet-5-5`, #17 and #18, two runs each), passed both queries with
 no errors, for $0.14 each. No real run has errored since, so the `ERROR` path is tested only
 against the fake `claude` in `tests/trigger-evals.test.mjs`.
+
+### 2026-10-30: why Haiku got little from `skill-authoring`, and the description change (#86)
+
+Claude Code 2.1.310, judge `claude-haiku-5-5`, three runs per arm unless stated.
+
+**The issue's hypothesis was wrong.** It guessed that Haiku skips the ranking and "lowest rung"
+steps because the body states them as principles. The transcripts of the two weak cases show
+Haiku never read the body: in 3 of 3 with-skill runs of each case it did not call `Skill`. The
+`skill-fired` grader is `with-only, not scored`, so those runs scored as the baseline and the Δ was
+just noise around zero. The review runs `Glob` and `Read` the fixture and answer from general
+knowledge; the script runs answer in one turn with no tool call. The three cases where Haiku scored
+well (add-evals, merge-overlapping-skills, fix-not-firing) loaded the skill in 9 of 9 runs.
+
+| Haiku, 5 cases, before the change (re-run 2026-10-30) | review-flawed-skill | needs-a-script | mean Δ of 5 |
+| --- | --- | --- | --- |
+| with / without (Δ) | 0.54 / 0.58 (−0.04) | 0.80 / 0.80 (0.00) | +0.39 |
+| runs that called `Skill` | 0 of 3 | 0 of 3 | |
+
+The 2026-10-22 table above gave the same two cases 0.62 / +0.21 and 0.80 / +0.07; the re-run's
+−0.04 and 0.00 are the same kind of number, with a load rate of 0 of 3 behind them (the 2026-10-22
+traces were not kept, so that run's load rate is not known).
+
+The trigger evals say the same. With Haiku as the agent (`--model claude-haiku-5-5`) the 28
+original queries gave should-fire 5 of 15 (train 13 of 22, held-out 5 of 6) and should-stay-quiet
+13 of 13; Sonnet scores 28 of 28 on the file. Six queries added before tuning (two worded like the
+failing cases, with a held-out share and two near misses) gave Haiku 0 of 4 should-fire and Sonnet
+3 of 4 (the miss, #33, "is a skill the right home for this checklist, or a script, or a hook",
+passes 3 of 3 with the new description).
+
+**What moved Haiku.** Candidate descriptions, each run on all 34 queries with Haiku (train 25,
+held-out 9, so the held-out miss counts are of 9):
+
+| Description | Should-fire | Train / held-out passed | Should-stay-quiet |
+| --- | --- | --- | --- |
+| Old (986 characters; topics first, "Use when creating, reviewing…") | 5 of 15 on the original 28 | 13 of 22 / 5 of 6 | 13 of 13 |
+| v1: short "what", then "Use whenever the request is about a skill" and a long topic list | 2 of 19 | 13 of 25 / 4 of 9 | 15 of 15 |
+| Probe, not a candidate: "You MUST invoke this skill FIRST, before answering…" | 16 of 19 | 22 of 25 / 9 of 9 | 15 of 15 |
+| v2: v1's topics, shorter, plus "Load it before answering or reading any file" | 17 of 19 | 23 of 25 / 9 of 9 | 15 of 15 |
+| v3: v2 with the machinery list put back | 13 of 19 | 21 of 25 / 7 of 9 | 15 of 15 |
+| v2b: v2 reworded to "Use whenever…" for the lint (it still wanted a literal "use when") | 16 of 19 | 24 of 25 / 7 of 9 | 15 of 15 |
+| **Final**: "Use when the request is about a skill: … Load it before answering or reading any file." (721 characters) | 17 of 19, then 15 of 19 | 24 of 25 / 8 of 9, then 23 of 25 / 7 of 9 | 15 of 15, both runs |
+
+- A longer list of topics did not help (v1, v3). A plain instruction to load the skill before
+  answering did (v2, final). The repo's own rule says capitals and MUST do nothing for triggering;
+  the probe shows the instruction matters for Haiku, and v2 shows capitals are not needed. The
+  probe was run to learn whether the description could move Haiku at all, and was reverted.
+- Held-out: v2 scored 9 of 9 and the final description 8 of 9 and 7 of 9. That is a one or two
+  query difference between runs of one description (the final one, run twice), so the choice of
+  the final wording over v2 rests on the lint's "Use when" rule, not on a held-out gap. The queries
+  that still miss on Haiku are #8 ("is it worth putting this in a forked subagent…", 0 of 3 in
+  every run since v1) and, in some runs, #32, #25 and #6. #8 is a train query: the category it stands for
+  (how much machinery a skill needs) went back in as v3 and made things worse, so it stays a known miss.
+- **Errored runs.** The candidate runs above used the runner before #94's clean-run rule, and
+  only their result lines were read, so an errored run in them counts as the old rule counted it
+  (a pass for a quiet query). The final description was run again after rebasing onto that rule:
+  31 of 34 (should-fire 16 of 19, train 23 of 25, held-out 8 of 9, should-stay-quiet 15 of 15),
+  with no errored run and no `ERROR` result. The Sonnet logs, read in full, show no errors.
+- **The held-out numbers are optimistic.** The six added queries were written after the failing
+  shape had been seen in the output cases, three of them are held out, and the held-out score
+  was read when choosing between candidates. They show that Haiku fires on prompts worded
+  differently from the two cases, not a clean test of generalisation.
+- **`skill-creator` is not measured.** The old description said it adds the repo's rules on top of
+  `skill-creator`; the final one does not say it (the body still does), and the sandbox holds no
+  `skill-creator`, so a prompt it would take instead cannot be tested here.
+- Nothing was stolen: every should-stay-quiet query stayed at 0 triggers in every Haiku run
+  and both Sonnet runs, and `pedagogical-writing`'s own trigger evals on Sonnet are unchanged
+  (29 of 30: train 22 of 22, held-out 7 of 8, the miss still #25).
+
+**Output evals with the final description.** All five cases, three runs per arm, `-j 4`, no
+`--allow-tools` (see `evals.md`: a `Bash` grant makes every run error on this machine).
+
+| Case | Haiku, pass 1 | Haiku, pass 2 | Sonnet | Opus |
+| --- | --- | --- | --- | --- |
+| add-evals | 1.00 / 0.19 (+0.81) | 1.00 / 0.19 (+0.81) | 1.00 / 0.14 (+0.86) | 1.00 / 0.14 (+0.86) |
+| merge-overlapping-skills | 1.00 / 0.07 (+0.93) | 1.00 / 0.33 (+0.67) | 1.00 / 0.27 (+0.73) | 1.00 / 0.27 (+0.73) |
+| review-flawed-skill | 0.92 / 0.42 (+0.50) | 0.96 / 0.46 (+0.50) | 0.83 / 0.63 (+0.21) | 0.92 / 0.75 (+0.17) |
+| needs-a-script | 0.93 / 0.80 (+0.13) | 1.00 / 0.80 (+0.20) | 0.93 / 0.73 (+0.20) | 1.00 / 0.80 (+0.20) |
+| fix-not-firing | 0.93 / 0.73 (+0.20) | 0.93 / 0.80 (+0.13) | 1.00 / 0.73 (+0.27) | 0.93 / 0.87 (+0.07) |
+| **Mean Δ** | **+0.52** | **+0.46** | **+0.45** | **+0.40** |
+| Cost | $0.20 | $0.21 | $1.96 | $4.35 |
+
+- **Haiku**, over both passes (six runs per arm): review-flawed-skill with-skill 0.54 → 0.94
+  (Δ −0.04 → +0.50), needs-a-script 0.80 → 0.97 (Δ 0.00 → +0.17). Haiku called `Skill` in all 15
+  with-skill runs of pass 1. The review gain is well above the 0.2 noise. The script case's Δ
+  is capped near 0.2 because its baseline is 0.73 to 0.80, so its with-skill rise (0.80 to 0.97)
+  is the number to read, and its Δ stays inside the noise.
+- **Why no step was added to the body.** With the skill loaded, the with-skill Haiku answers
+  find the reserved name, the over-limit first-person description, the repo-root path, the nested
+  reference and the missing evals, point at the existing `lint-skills`, say to run the script, and
+  lead with what stops loading. The misses left are a judge voting FAIL three to none on a ranked
+  answer and a regex ("repo-relative" is not in `finds-hardcoded-path`'s pattern): grader noise,
+  not a skipped step.
+- **Sonnet and Opus.** With-skill scores are within a notch of 2026-10-22 and 2026-10-28
+  (in the table's case order, Sonnet 1.00 / 1.00 / 0.83 / 0.93 / 1.00 now against 1.00 on every case
+  before; Opus 1.00 / 1.00 / 0.92 / 0.93 / 1.00 before and 1.00 / 1.00 / 0.92 / 1.00 / 0.93 now). Sonnet
+  called `Skill` in all 15 runs, so a firing change is not what moved it. Sonnet's
+  review (0.83) and script (0.93) cases are the two that fall below the earlier 1.00, so they were
+  re-run with the old description (a `git archive` of the commit before this change) against the new,
+  six with-skill runs each, `--ablation none`: review 0.96 old, 0.94 new; script 0.97 old, 0.92
+  new. Differences of 0.02 and 0.05 are noise at this sample (the script case's `lowest-rung` judge
+  fails 3 votes to 0 in both versions), and different graders miss in different runs. This shows no
+  drop larger than the noise; it does not show none.
+- **Cost.** About $31 in all: Haiku trigger runs about $7.50, Sonnet trigger runs $14.96
+  (this skill, its six new queries before the change, and `pedagogical-writing`), output evals
+  about $6.90 (Haiku $0.57 over the before run and both passes, Sonnet $1.96, Opus $4.35), and the
+  head-to-head $1.96 (equal to Sonnet's pass by coincidence: $0.67 + $0.30 + $0.69 + $0.30).
+  The description is 265 characters shorter (986 to 721), which also saves context in every session.
