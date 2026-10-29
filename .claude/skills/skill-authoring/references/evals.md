@@ -222,6 +222,16 @@ claude plugin eval .claude/skills/<name> \
 - **Exit codes:** 0 pass; 1 a case below `--threshold` (default 1.0), a case that failed to
   load, or an API error; 2 the cost ceiling was hit. Cases that fail to load are listed at
   the top of the output: read it, because a skipped case does not lower the score.
+- **A `scaffold failed` row is a setup error, not a score.** The case never ran, yet it
+  shows `0.00` at `$0.00` in every run, with the reason only in `NOTES`, and it pulls the
+  mean down. It is not one of the exit-1 errors: it exits 1 only by falling below
+  `--threshold`, so `--threshold 0` exits 0. Before reading any table, list the runs
+  that errored, fix the setup and re-run those cases:
+
+  ```bash
+  jq -r '.cases[] | .name as $c | .arms[][] | select(.error) | "\($c): \(.error)"' \
+    evals/results/<timestamp>/aggregate-result.json
+  ```
 
 ### Comparing with the previous version
 
@@ -230,11 +240,20 @@ only built-in baseline is no skill, so to compare two versions of the same skill
 suite twice with `--ablation none` and compare the `WITH` scores:
 
 ```bash
-snap=$(mktemp -d)                                  # the version before your edit
-git archive <ref> .claude/skills/<name> | tar -x -C "$snap"
-claude plugin eval "$snap/.claude/skills/<name>" --scaffold --trust-plugin --ablation none \
+s=.claude/skills/<name>; snap=$(mktemp -d)
+git archive HEAD -- . ":(exclude)$s" | tar -x -C "$snap"                 # the repo the cases read
+git archive <ref> -- "$s" ":(exclude)$s/evals" | tar -x -C "$snap"       # the skill before your edit
+git archive HEAD -- "$s/evals" | tar -x -C "$snap"                       # today's cases and graders
+claude plugin eval "$snap/$s" --scaffold --trust-plugin --ablation none \
   --model claude-sonnet-5-5 --judge-model claude-haiku-5-5 -j 4 --max-cost-usd 15 --no-publish
 ```
+
+The snapshot is the whole repo, not the skill alone. A scaffold finds the files it copies
+from its own path (`"$(dirname "$0")"`), and `claude plugin eval` has no option to point
+it at another root (2.1.310), so a case that reads a repo file fails to scaffold in a
+skill-only snapshot. Only the skill comes from `<ref>`: the cases, graders and the files
+they read come from `HEAD`, so the two runs differ in the skill and nothing else. Commit
+your edit first, since the snapshot reads `HEAD` and the second run reads the working tree.
 
 Then run the same command on `.claude/skills/<name>` and compare case by case, with the
 same noise rule as for Δ. Write down the cost and duration that each run reports too: a
