@@ -104,6 +104,13 @@ prompt that only a user-level skill would catch is not tested. A temporary plugi
 `plugin.json` for its `skills/` directory to load (a lone `SKILL.md` does not): without one,
 every query scores 0 because no skill is loaded. If every query fails, check that first.
 
+The working directory is empty. A query that points at a file the user has ("the arithmetic
+coding explainer", "my lecture notes") sends Claude looking for it; finding nothing, it answers
+or asks for the file, and the skill never loads, whatever the description says. Put the material
+in the prompt (quote the passage, give the numbers), or expect a miss that measures the sandbox.
+Not every query that names a missing page misses (#1 to #5 of `pedagogical-writing` name pages
+the sandbox lacks and fire 3 of 3), so read the trace before blaming the sandbox.
+
 To search for a better description, edit by hand against the failing queries, or let
 skill-creator's `run_loop.py` propose rewrites (it needs `PYTHONPATH` set to skill-creator's
 directory, `--model`, and `--report none` to stop it opening a browser), then confirm any

@@ -17,6 +17,7 @@ mean across cases, and the sign across cases, not any one number.
 - Re-run on 2026-10-28, after the quoting and held-out edits
 - 2026-10-29: the two always-failing graders, and what limits `review-deflate-page` needs
 - 2026-10-29: `pedagogical-writing`'s ADR query relabelled and its neighbours named
+- 2026-10-30: #25's misses read from traces, and the #17 errors
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -251,4 +252,42 @@ runs used four or five turns, one hitting the 3-turn cap, so Claude was most lik
 explainer (absent from the empty sandbox) before choosing a skill. The traces were not kept, so
 that is a reading of the turn counts, not of the transcripts. #25 is held-out and the description
 was not tuned against it. It is the open miss, and the next thing to try is the harness (a larger
-turn cap, or the page in a fixture), not the description.
+turn cap, or the page in a fixture), not the description. The traces, read on 2026-10-30 (below), rule
+out the turn cap.
+
+### 2026-10-30: #25's misses read from traces, and the #17 errors (#91)
+
+Claude Code 2.1.310, agent `claude-sonnet-5-5`, the description and query file of 1132adc. The
+runner now keeps each run's trace with `--keep` and prints the text of every error it counts.
+
+| Run | Queries and runs | Result | Cost |
+| --- | --- | --- | --- |
+| 1 | #25, 6 runs | 0 of 6; every run ended on its own | $0.29 |
+| 2 | #25, 6 runs, `--max-turns 10` | 0 of 6; every run ended on its own | $0.29 |
+| 3 | #17 and #18, 3 runs | quiet, no errors | $0.21 |
+| 4 | the five queries that errored on 2026-10-29 (#17, #18, #28, #29, #30) | quiet, no errors | $0.79 |
+| 5 | all 30, 3 runs | 29 of 30 (train 22 of 22, held-out 7 of 8); miss #25 (0 of 3); no errors | $5.49 |
+| 6 | #17 and #18, 10 runs | quiet, no errors | $0.71 |
+
+**#25 misses because the sandbox is empty, not because of the turn cap.** Every trace has the
+same start: Grep for "arithmetic coding" and Glob for `*arithmetic*` in the working directory,
+then a wider Grep or Glob (in some runs one outside the working directory, which is denied, or a
+Bash call, which the case does not grant). All come back empty. Claude then says so and writes an
+example itself ("I couldn't find the explainer anywhere in the repo, so I don't know which numbers
+you picked. Here is a replacement example that works out exactly…"), or asks for the path. No run called a skill. At the 3-turn cap, 2 of 10
+runs (today's, including one run by hand) ended at the cap and 8 ended on their own; at 10 turns,
+all 10 (six above, four by hand) ended on their own in 4 to 6 turns. So more turns would not help.
+Putting the explainer in a fixture needs a `scaffold_script`, which `claude plugin eval` runs only
+with `--scaffold` (author bash, run as the user), and a per-query fixture does not fit
+`trigger-evals.json`; it is not done. #25 stays held-out and unchanged (rewording it now would make
+it a train query), and is a known miss of the harness: the held-out bar for `pedagogical-writing`
+is 7 of 8 with #25 the miss, and the rule for writing such queries is in `evals.md` ("The working
+directory is empty").
+
+**The #17 errors did not come back.** None of 19 runs of #17, or of 19 of #18, errored, including
+a full-suite run at the same concurrency (`-j 5`) as on 2026-10-29. #17 answers in one turn with no
+tool call, in 9 to 13 seconds against a 300-second limit, so a timeout or the sandbox does not fit;
+#18 takes 4 or 5 turns in 7 to 15 seconds. The 2026-10-29 error text cannot be recovered: the runner
+did not print it, and the result files were in its deleted temporary directory. **So the cause is
+not known.** A failure outside the query (the API, for example) fits what is left, but nothing
+shows it. The runner now prints the text under the query, so the next one will name its source.
