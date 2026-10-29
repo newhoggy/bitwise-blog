@@ -70,11 +70,19 @@ skill versions, and the description rewriting step.
 Measure with the bundled script (`scripts/run-trigger-evals.mjs`), from the repo root:
 
 ```bash
-npm run trigger-evals -- <skill-name> [--runs N] [--only 1,5,9] [--keep]
+npm run trigger-evals -- <skill-name> [--runs N] [--only 1,5,9] [--max-turns N] [--keep]
 ```
 
 `--only` re-runs chosen queries (1-based positions in the file) after an edit; the output lists
 each query with its position. It exits 1 if any query fails or any case failed to load.
+
+Read a miss before you act on it. Any error other than the turn cap is printed under its query
+(`run 2 error: …`): a should-stay-quiet query passes on an errored run, so a quiet pass needs a
+clean run behind it. `--keep` keeps the temporary plugin, copies each run's trace into its
+`traces/` (`q<position>-run<k>.jsonl`) and, for each failed or errored run, prints the tool
+calls in order and how the run ended (`run 1 tools: Grep, Glob, Grep (error); turn cap`), so
+you can see whether Claude went looking for something before it chose a skill. `--max-turns`
+(default 3) raises the cap for a query that needs more turns.
 
 It builds a temporary plugin holding **every** skill in `.claude/skills` (so near misses meet
 the neighbours that would answer them), one `claude plugin eval` case per query with
