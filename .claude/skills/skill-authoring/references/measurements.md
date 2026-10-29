@@ -492,9 +492,10 @@ cases are figure-building prompts, not trigger queries.
   `docs/rank-select.html`, which the empty sandbox lacks; the two missed runs read `Read`, `Grep`,
   `Glob` errors and hit the turn cap, the shape described under "the working directory is empty" in
   `evals.md`. It was reworded after failing to a question that carries no file ("how do I get an
-  isometric anatomy figure I built as its own HTML page into one of our blog pages…"), so run 1's
-  25 of 26 is the score with the first wording, and 26 of 26 holds only with the reworded query
-  (run 2, #5 alone; the other 25 were not re-run).
+  isometric anatomy figure I built as its own HTML page into one of our blog pages…"). The measured
+  score of the first file is 25 of 26 with the first wording. The reworded #5 scored 6 of 6 alone
+  (run 2); the full file was not re-run with it, so no 26 of 26 was measured, and #5 is now a train
+  query tuned after a failure.
 - **Every should-stay-quiet query stayed at 0 triggers**, `pedagogical-writing`'s prompts and the
   chart requests included. `anatomy` also did not steal anything from `pedagogical-writing`: its
   29 of 30 matches 2026-10-29.
@@ -507,5 +508,9 @@ cases are figure-building prompts, not trigger queries.
   still unknown: their traces were not kept (#91). The clause is justified by the boundary it
   draws and by the near-miss queries staying quiet, not by a measured gain on #7.
 - **Limits.** The `anatomy` should-fire half is mostly phrased with "isometric", which is the
-  skill's own word, so it shows the skill still fires, not that it fires on a vaguer request.
-  Three runs per query step in thirds.
+  skill's own word, so it shows the skill still fires, not that it fires on a vaguer request. The
+  held-out part has 3 should-fire and 7 should-stay-quiet queries, so "10 of 10" says little about
+  how the clause behaves on real anatomy requests. Three should-stay-quiet queries refer to material the
+  sandbox lacks (#9 names `docs/how-deflate-works.html`; #13 and #14 mean the gpu-deflate study and
+  the deflate page); a quiet result on one could come from Claude looking for the file, though #9's
+  prompt fires `pedagogical-writing` 3 of 3 in that skill's own file. Three runs per query step in thirds.
