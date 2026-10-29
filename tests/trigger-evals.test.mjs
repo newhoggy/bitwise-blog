@@ -96,7 +96,8 @@ test("prints the text of every counted error, but not of the turn cap", (t) => {
   t.after(() => remove(root));
   const res = run("--max-turns", "7");
   assert.equal(res.status, 0, res.stderr);
-  assert.match(res.stdout, /PASS #2 held-out fired 0\/3 expected=quiet \(1 errored\)/);
+  // The turn cap is a clean run; the counted error is left out of the score.
+  assert.match(res.stdout, /PASS #2 held-out fired 0\/2 expected=quiet \(1 errored\)/);
   assert.match(res.stdout, /^ {4}run 1 error: exit 1: API Error: 529 overloaded$/m);
   assert.doesNotMatch(res.stdout, /maximum number of turns/);
   // No --keep: no traces, no tool lines, and nothing left behind.
@@ -131,6 +132,40 @@ test("--keep copies every trace, removes the scratch directories and lists each 
   assert.match(res.stdout, /PASS #2 held-out fired 1\/3 expected=quiet/);
   assert.match(res.stdout, /^ {4}run 3 tools: Read, Skill repo-skills:demo; success  traces\/q2-run3\.jsonl$/m);
   assert.doesNotMatch(res.stdout, /q2-run[12]/);
+});
+
+test("a query whose errored runs could tip it is ERROR, not a pass, and fails the run", (t) => {
+  const err = { error: "exit 1: API Error: 529 overloaded" };
+  const { root, run } = setup({
+    // 1 of 2 scored runs fired: the errored run decides whether that is 2 of 3 or 1 of 3.
+    [SHOULD]: [err, { fire: true }, {}],
+    [QUIET]: [err, err, err],
+  });
+  t.after(() => remove(root));
+  const res = run();
+  assert.equal(res.status, 1, res.stderr);
+  assert.match(res.stdout, /^ERROR #1 fired 1\/2 expected=fire \(1 errored\)/m);
+  assert.match(res.stdout, /^ERROR #2 held-out fired 0\/0 expected=quiet \(3 errored\)/m);
+  assert.doesNotMatch(res.stdout, /^(PASS|FAIL) /m);
+  assert.match(res.stdout, /passed: train 0\/1 \(1 errored\), held-out 0\/1 \(1 errored\)/);
+  assert.match(res.stdout, /^0\/2 queries passed \(should-fire 0\/1 \(1 errored\), should-stay-quiet 0\/1 \(1 errored\)\), 2 errored;/m);
+});
+
+test("errored runs are left out of the score, unless they called the skill first", (t) => {
+  const { root, run } = setup({
+    // 2 of 2 scored runs fired, so the errored run cannot change the result.
+    [SHOULD]: [{ error: "exit 1: API Error: 500" }, { fire: true }, { fire: true }],
+    // Run 1 fired and then timed out: a misfire, scored like any other.
+    [QUIET]: [{ fire: true, error: "exit 1: timed out after 300s" }, { fire: true }, {}],
+  });
+  t.after(() => remove(root));
+  const res = run();
+  assert.equal(res.status, 1, res.stderr);
+  assert.match(res.stdout, /^PASS #1 fired 2\/2 expected=fire \(1 errored\)/m);
+  assert.match(res.stdout, /^ {4}run 1 error: exit 1: API Error: 500$/m);
+  assert.match(res.stdout, /^FAIL #2 held-out fired 2\/3 expected=quiet {2}/m);
+  assert.match(res.stdout, /^ {4}run 1 error: exit 1: timed out after 300s$/m);
+  assert.match(res.stdout, /^1\/2 queries passed \(should-fire 1\/1, should-stay-quiet 0\/1\);/m);
 });
 
 test("--max-turns must be a whole number", (t) => {

@@ -74,22 +74,31 @@ npm run trigger-evals -- <skill-name> [--runs N] [--only 1,5,9] [--max-turns N] 
 ```
 
 `--only` re-runs chosen queries (1-based positions in the file) after an edit; the output lists
-each query with its position. It exits 1 if any query fails or any case failed to load.
+each query with its position and its result: `PASS`, `FAIL` or `ERROR`. It exits 1 if any query
+is not `PASS` or any case failed to load.
+
+**Errored runs count neither way.** A run that errors (an API error or a timeout, say) before it
+calls the skill would pass a should-stay-quiet query and fail a should-fire one while measuring
+nothing, so it is left out of `fired x/n` and counted beside it (`fired 0/2 … (1 errored)`). A run
+that called the skill and then errored did fire, and is scored. A query is `ERROR` when the
+left-out runs could tip it either way: always when fewer than half its runs are scored, and with
+three runs also when one errored and the other two split. `ERROR` is not a pass, whichever way the
+query is labelled. Re-run it (`--only`); don't read it as a result. The turn cap is not an error:
+a run that hits it has been graded on everything it did.
 
 Read a miss before you act on it. Any error other than the turn cap is printed under its query
-(`run 2 error: …`): a should-stay-quiet query passes on an errored run, so a quiet pass needs a
-clean run behind it. `--keep` keeps the temporary plugin, copies each run's trace into its
-`traces/` (`q<position>-run<k>.jsonl`) and, for each run that did not behave as labelled or
-errored, prints the tool calls in order and how the run ended
+(`run 2 error: …`), so an `ERROR` names its cause. `--keep` keeps the temporary plugin, copies
+each run's trace into its `traces/` (`q<position>-run<k>.jsonl`) and, for each run that did not
+behave as labelled or errored, prints the tool calls in order and how the run ended
 (`run 1 tools: Grep, Glob, Grep (error); turn cap`), so you can see whether Claude went looking
 for something before it chose a skill. `--max-turns` (default 3) raises the cap for a query that
 needs more turns.
 
-It builds a temporary plugin holding **every** skill in `.claude/skills` (so near misses meet
-the neighbours that would answer them), one `claude plugin eval` case per query with
-`tool_used: Skill` (`min: 0, max: 0` for should-not), three runs each, `--ablation none`. A
-query passes when at least half its runs behave as labelled. Cost: about $4 to $8 per skill
-with Sonnet.
+It builds a temporary plugin holding **every** skill in `.claude/skills` (so near misses meet the
+neighbours that would answer them), one `claude plugin eval` case per query with
+`tool_used: Skill` (`min: 0, max: 0` for should-not), three runs each, `--ablation none`. A query
+passes when at least half its runs behave as labelled, the errored runs settling nothing. Cost:
+about $4 to $8 per skill with Sonnet.
 
 Why not skill-creator's `run_eval.py`? On this repo's first trial it scored 0 of 12
 should-trigger queries, for three reasons, any of which makes a measurement worthless:
