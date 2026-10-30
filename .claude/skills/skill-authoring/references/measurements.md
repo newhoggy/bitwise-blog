@@ -22,6 +22,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-10-30: errored trigger-eval runs no longer score (#94)
 - 2026-10-30: why Haiku got little from `skill-authoring`, and the description change (#86)
 - 2026-10-30: `anatomy` gets a "Not for" clause and trigger evals (#92)
+- 2026-10-30: the comparison snapshot holds the whole repo (#96)
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -514,3 +515,37 @@ cases are figure-building prompts, not trigger queries.
   sandbox lacks (#9 names `docs/how-deflate-works.html`; #13 and #14 mean the gpu-deflate study and
   the deflate page); a quiet result on one could come from Claude looking for the file, though #9's
   prompt fires `pedagogical-writing` 3 of 3 in that skill's own file. Three runs per query step in thirds.
+
+### 2026-10-30: the comparison snapshot holds the whole repo (#96)
+
+Claude Code 2.1.310. **The old recipe, reproduced.** A snapshot of `.claude/skills/pedagogical-writing`
+alone, run with `--case review-deflate-page --scaffold`, printed `score 0.00  $0.00` with
+`scaffold failed (exit 1): cp: …/docs/how-deflate-works.html: No such file or directory` only in
+`NOTES` (and in `.cases[].arms.with[].error` in `aggregate-result.json`). It exited 1 at the default
+`--threshold` and 0 at `--threshold 0`, so the exit code does not catch it. `--help` lists no option
+to point a scaffold at another root.
+
+**The new recipe** (the repo at `HEAD`, the skill's own files from `f9d2835`, `evals/` from `HEAD`)
+scaffolded the same case, which scored 1.00 in one run (`claude-haiku-5-5`, $0.02).
+
+**`skill-authoring`, before and after this change**, compared with that recipe: before is `d213e19`
+(`origin/main`), after is `1aa3c1d`. The later commits of #96 change only this file and the wording
+around the comparison recipe in `evals.md`, after review. Agent `claude-sonnet-5-5`, judge `claude-haiku-5-5`, three runs,
+`--ablation none --scaffold`, `-j 4`.
+
+| Case | Before | After | Change |
+| --- | --- | --- | --- |
+| add-evals | 1.00 | 1.00 | 0.00 |
+| fix-not-firing | 1.00 | 1.00 | 0.00 |
+| merge-overlapping-skills | 1.00 | 1.00 | 0.00 |
+| needs-a-script | 1.00 | 0.89, re-run 1.00 | −0.11, then 0.00 |
+| review-flawed-skill | 1.00, re-run 0.93 | 0.93, re-run 0.93 | −0.07, then 0.00 |
+| **Mean (first runs)** | **1.00** | **0.96** | **−0.04** |
+
+The skill fired in every run, the 15 first runs of each version and the 9 re-runs, and no run
+errored. The two dips are in graders the edit
+does not touch (`lowest-rung` in `needs-a-script`; `finds-hardcoded-path`, `finds-reserved-name` and
+`ranks-and-fixes` in `review-flawed-skill`). Which grader fails changes from run to run, and the
+before snapshot failed two of the same graders (`finds-reserved-name`, `ranks-and-fixes`) when
+re-run. They are noise on long answers, inside the 0.2 rule,
+and not a result of the change. Cost: before $1.26 (133 s) plus $0.33, after $1.25 (101 s) plus $0.49.

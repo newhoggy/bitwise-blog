@@ -53,6 +53,9 @@ the trigger for each is easy to miss until it has cost a run.
   `scripts/run-trigger-evals.mjs`.
 - **Eval sandboxes are empty and have no `Bash`.** A case that needs a repo file scaffolds
   it in; a bundled script cannot be run by a case ([evals](references/evals.md#fixtures-the-sandbox-is-empty)).
+- **A `scaffold failed` row scores 0.00 at $0.00.** It is a setup error, not a result: a
+  snapshot of the skill alone failed this way. Snapshot the whole repo
+  ([evals](references/evals.md#comparing-with-the-previous-version)).
 - **Regex graders take `flags: i`, never `(?i)`.** JavaScript has no inline flags and the
   grader throws.
 - **Rewording a query after it fails is not a result.** Record it as a change to the query
