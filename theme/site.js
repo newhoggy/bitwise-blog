@@ -123,6 +123,16 @@ window.BH_SITE = {
    "description": "How a token bucket admits bursts but enforces an average rate — with a live simulation, implementations, and the mistakes that bite in production.",
    "supersedes": "",
    "supersededBy": ""
+  },
+  {
+   "href": "docs/voice-notes-on-trial.html",
+   "title": "Voice notes on trial: a verdict can't settle a clash of norms",
+   "kind": "explainer",
+   "status": "draft",
+   "date": "2026-11-03",
+   "description": "A Guardian column asks readers whether a partner's long voice notes are guilty. With Duncan Sabien's ideas, a better question appears: what does each message mean to each person?",
+   "supersedes": "",
+   "supersededBy": ""
   }
  ],
  "backlinks": {
