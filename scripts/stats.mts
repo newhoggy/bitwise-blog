@@ -20,12 +20,40 @@ const OP_VAULT = process.env.BH_OP_VAULT || "Private";
 export const OP_TOKEN_ITEM = "beautiful-html goatcounter token";
 const SUPPORTED_EXPORT_VERSIONS = new Set(["1", "2"]);
 
+/** One pageview (or event) row of a GoatCounter export. */
+export interface Hit { path: string; title: string; event: boolean; bot: boolean; session: string; date: string }
+
+/** What `countViews` keeps per path. */
+export interface PathViews { views: number; sessions: Set<string>; title: string }
+
+/** `countViews`' result: views per path, and what was left out. */
+export interface ViewCounts { byPath: Map<string, PathViews>; bots: number; events: number; from: string; to: string }
+
+/** What the repo knows about a published page. `sealed` pages carry no title (it is encrypted). */
+export interface CataloguePage { href: string; title: string; kind: string; tags: string[]; notes: string[]; sealed?: boolean }
+
+/** One line of the report. */
+export interface ViewRow extends CataloguePage { views: number; visitors: number }
+
+/** `joinViews`' result. */
+export interface JoinedViews { rows: ViewRow[]; unmatched: ViewRow[]; sealedOmitted: number }
+
+/** The environment variables stats reads. */
+export type Env = Record<string, string | undefined>;
+
+/** The two output streams `main` writes to (the console, or a test's sink). */
+export interface Output { log: (...args: any[]) => void; error: (...args: any[]) => void }
+
+/** The part of a fetch Response that the export code uses, so tests can stub it. */
+export interface ResponseLike { ok: boolean; status: number; json(): Promise<any>; arrayBuffer(): Promise<ArrayBuffer> }
+export type FetchLike = (url: string, init?: RequestInit) => Promise<ResponseLike>;
+
 // ---- CSV ----------------------------------------------------------------------------
 
 /** RFC 4180 rows: quoted fields, "" for a quote, newlines inside quotes, \n or \r\n, blank lines skipped. */
-export function parseCsv(text) {
-  const rows = [];
-  let row = [], field = "", quoted = false, started = false;
+export function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [], field = "", quoted = false, started = false;
   const endField = () => { row.push(field); field = ""; started = false; };
   const endRow = () => { endField(); if (row.length > 1 || row[0] !== "") rows.push(row); row = []; };
   for (let i = 0; i < text.length; i++) {
@@ -44,18 +72,18 @@ export function parseCsv(text) {
 }
 
 /** The hits of an export as { version, hits: [{ path, title, event, bot, session, date }] }. Columns are found by header name. */
-export function parseHits(text) {
+export function parseHits(text: string): { version: string; hits: Hit[] } {
   const rows = parseCsv(text.replace(/^﻿/, ""));
   if (!rows.length) throw new Error("the export is empty (no header line)");
-  const header = rows[0].map((h) => h.trim());
-  const first = /^(\d+)(\D.*)$/.exec(header[0]);
+  const header = rows[0]!.map((h) => h.trim());
+  const first = /^(\d+)(\D.*)$/.exec(header[0]!);
   if (!first) throw new Error(`unrecognised export header "${header[0]}": expected the export version before "Path" (for example "2Path")`);
-  const [, version, firstName] = first;
+  const version = first[1]!, firstName = first[2]!;
   if (!SUPPORTED_EXPORT_VERSIONS.has(version)) {
     throw new Error(`GoatCounter export version ${version} is not supported (this script reads versions ${[...SUPPORTED_EXPORT_VERSIONS].join(" and ")}): check https://www.goatcounter.com/help/export`);
   }
   header[0] = firstName;
-  const col = (name) => {
+  const col = (name: string) => {
     const i = header.findIndex((h) => h.toLowerCase() === name.toLowerCase());
     if (i < 0) throw new Error(`the export has no "${name}" column`);
     return i;
@@ -73,18 +101,18 @@ export function parseHits(text) {
   return { version, hits };
 }
 
-const oneLine = (s) => String(s).replace(/\s+/g, " ").trim();
+const oneLine = (s: unknown) => String(s).replace(/\s+/g, " ").trim();
 
 // ---- Counting and joining ------------------------------------------------------------
 
 /** Views per path, ignoring events and bots. Visitors are distinct sessions. */
-export function countViews(hits) {
-  const byPath = new Map();
+export function countViews(hits: Hit[]): ViewCounts {
+  const byPath = new Map<string, PathViews>();
   let bots = 0, events = 0, from = "", to = "";
   for (const h of hits) {
     if (h.event) { events++; continue; }
     if (h.bot) { bots++; continue; }
-    const entry = byPath.get(h.path) || { views: 0, sessions: new Set(), title: oneLine(h.title) };
+    const entry: PathViews = byPath.get(h.path) || { views: 0, sessions: new Set(), title: oneLine(h.title) };
     entry.views++;
     if (h.session) entry.sessions.add(h.session);
     byPath.set(h.path, entry);
@@ -98,20 +126,20 @@ export function countViews(hits) {
 }
 
 /** The site's own sub-path ("/" for a root site, "/beautiful-html/" for a project page), from `homepage` or BH_SITE_URL. */
-export function sitePath(root = ROOT, env = process.env) {
-  let url = env.BH_SITE_URL;
+export function sitePath(root: string = ROOT, env: Env = process.env): string {
+  let url: string | undefined = env.BH_SITE_URL;
   if (!url) {
     try { url = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).homepage; } catch { /* no package.json */ }
   }
   try {
-    const p = new URL(url).pathname;
+    const p = new URL(url!).pathname;
     return p.endsWith("/") ? p : p + "/";
   } catch { return "/"; }
 }
 
 /** A GoatCounter path as a repo-relative href ("docs/x.html", "index.html"), or the path as it came if it is outside the site. */
-export function toHref(goatPath, base = "/") {
-  let p = String(goatPath).split(/[?#]/)[0];
+export function toHref(goatPath: string, base = "/"): string {
+  let p = String(goatPath).split(/[?#]/)[0]!;
   if (!p.startsWith("/")) p = "/" + p;
   if (base !== "/" && (p.startsWith(base) || p === base.slice(0, -1))) p = "/" + p.slice(base.length);
   p = p.replace(/^\/+/, "");
@@ -121,15 +149,15 @@ export function toHref(goatPath, base = "/") {
   return p;
 }
 
-const meta = (head, name) => (head.match(new RegExp(`<meta\\s+name="${name.replace(":", "\\:")}"\\s+content="([^"]*)"`, "i")) || [])[1]?.trim() ?? "";
-const unescape = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+const meta = (head: string, name: string) => (head.match(new RegExp(`<meta\\s+name="${name.replace(":", "\\:")}"\\s+content="([^"]*)"`, "i")) || [])[1]?.trim() ?? "";
+const unescape = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
 
 /**
  * Every published page in docs/ by href, with what the repo knows about it. Sealed pages carry no title
  * (it is inside the ciphertext), and plaintext private sources are skipped: they are not published.
  */
-export function readCatalogue(root = ROOT) {
-  const pages = new Map([["index.html", { href: "index.html", title: "Home page", kind: "", tags: [], notes: [] }]]);
+export function readCatalogue(root: string = ROOT): Map<string, CataloguePage> {
+  const pages = new Map<string, CataloguePage>([["index.html", { href: "index.html", title: "Home page", kind: "", tags: [], notes: [] }]]);
   const dir = path.join(root, "docs");
   if (!fs.existsSync(dir)) return pages;
   for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".html") && !f.endsWith(".private.html")).sort()) {
@@ -140,7 +168,7 @@ export function readCatalogue(root = ROOT) {
       pages.set(href, { href, title: `(private page) ${href}`, kind: "", tags: [], notes: ["private"], sealed: true });
       continue;
     }
-    const notes = [];
+    const notes: string[] = [];
     if (meta(head, "bh:unlisted") === "true") notes.push("unlisted");
     if (meta(head, "bh:example") === "true") notes.push("example");
     pages.set(href, {
@@ -155,43 +183,43 @@ export function readCatalogue(root = ROOT) {
 }
 
 /** Rows for the report: one per repo page (0 views if unseen), then one per path that matches no page. Sorted by views. */
-export function joinViews(counts, catalogue, base = "/") {
-  const merged = new Map(); // href -> { views, sessions, paths, title }
+export function joinViews(counts: ViewCounts, catalogue: Map<string, CataloguePage>, base = "/"): JoinedViews {
+  const merged = new Map<string, { views: number; sessions: Set<string>; paths: string[]; title: string }>();
   for (const [goatPath, entry] of counts.byPath) {
     const href = toHref(goatPath, base);
-    const m = merged.get(href) || { views: 0, sessions: new Set(), paths: [], title: "" };
+    const m = merged.get(href) || { views: 0, sessions: new Set<string>(), paths: [], title: "" };
     m.views += entry.views;
     for (const s of entry.sessions) m.sessions.add(s);
     m.paths.push(goatPath);
     m.title ||= entry.title;
     merged.set(href, m);
   }
-  const rows = [];
+  const rows: ViewRow[] = [];
   let sealedOmitted = 0;
   for (const page of catalogue.values()) {
     const m = merged.get(page.href);
     if (page.sealed && !m) { sealedOmitted++; continue; } // sealed pages carry no tag, so "0 views" would only mislead
     rows.push({ ...page, views: m?.views ?? 0, visitors: m?.sessions.size ?? 0 });
   }
-  const unmatched = [];
+  const unmatched: ViewRow[] = [];
   for (const [href, m] of merged) {
     if (catalogue.has(href)) continue;
-    unmatched.push({ href, title: m.title ? `${m.paths[0]}  ${m.title}` : m.paths[0], kind: "", tags: [], notes: ["not in the repo"], views: m.views, visitors: m.sessions.size });
+    unmatched.push({ href, title: m.title ? `${m.paths[0]}  ${m.title}` : m.paths[0]!, kind: "", tags: [], notes: ["not in the repo"], views: m.views, visitors: m.sessions.size });
   }
-  const order = (a, b) => b.views - a.views || a.title.localeCompare(b.title);
+  const order = (a: ViewRow, b: ViewRow) => b.views - a.views || a.title.localeCompare(b.title);
   return { rows: rows.sort(order), unmatched: unmatched.sort(order), sealedOmitted };
 }
 
 // ---- Report --------------------------------------------------------------------------
 
-const day = (iso) => (Number.isNaN(Date.parse(iso)) ? "" : new Date(iso).toISOString().slice(0, 10));
+const day = (iso: string) => (Number.isNaN(Date.parse(iso)) ? "" : new Date(iso).toISOString().slice(0, 10));
 
-export function formatReport({ rows, unmatched, sealedOmitted = 0 }, counts) {
+export function formatReport({ rows, unmatched, sealedOmitted = 0 }: JoinedViews, counts: ViewCounts): string {
   const all = [...rows, ...unmatched];
   const cells = all.map((r) => [String(r.views), String(r.visitors), r.kind, r.title, r.tags.join(", "), r.notes.join(", ")]);
   const head = ["Views", "Visitors", "Kind", "Title", "Tags", "Notes"];
-  const width = head.map((h, i) => Math.max(h.length, ...cells.map((r) => r[i].length)));
-  const line = (r) => r.map((v, i) => (i < 2 ? v.padStart(width[i]) : v.padEnd(width[i]))).join("  ").trimEnd();
+  const width = head.map((h, i) => Math.max(h.length, ...cells.map((r) => r[i]!.length)));
+  const line = (r: string[]) => r.map((v, i) => (i < 2 ? v.padStart(width[i]!) : v.padEnd(width[i]!))).join("  ").trimEnd();
   const total = all.reduce((n, r) => n + r.views, 0);
   const range = counts.from ? `${day(counts.from)} to ${day(counts.to)}` : "no pageviews";
   return [
@@ -207,13 +235,13 @@ export function formatReport({ rows, unmatched, sealedOmitted = 0 }, counts) {
 
 // ---- Token ---------------------------------------------------------------------------
 
-const noToken = (why) => `No GoatCounter API token found.${why ? ` (${why})` : ""}
+const noToken = (why: string) => `No GoatCounter API token found.${why ? ` (${why})` : ""}
 Set it in the environment:        export GOATCOUNTER_TOKEN=<token>
 or store it in 1Password as a Password item titled "${OP_TOKEN_ITEM}" in the vault "${OP_VAULT}" (BH_OP_VAULT changes the vault).
 Create a token in GoatCounter under Username → API, with the "export" permission. Never commit it.`;
 
 /** GOATCOUNTER_TOKEN, else the 1Password item. Returns { token } or { error } in words. `readItem` is injectable for tests. */
-export function resolveToken({ env = process.env, readItem = readOpItem } = {}) {
+export function resolveToken({ env = process.env, readItem = readOpItem }: { env?: Env; readItem?: (title: string, vault: string) => string } = {}): { token: string; error?: undefined } | { error: string; token?: undefined } {
   const fromEnv = (env.GOATCOUNTER_TOKEN || "").trim();
   if (fromEnv) return { token: fromEnv };
   let why = "";
@@ -221,14 +249,15 @@ export function resolveToken({ env = process.env, readItem = readOpItem } = {}) 
     const fromOp = (readItem(OP_TOKEN_ITEM, env.BH_OP_VAULT || OP_VAULT) || "").trim();
     if (fromOp) return { token: fromOp };
     why = "the 1Password item is empty";
-  } catch (e) {
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException & { stderr?: string };
     if (e.code !== "ENOENT" && !/isn't an item/i.test(String(e.stderr || e.message))) why = `1Password: ${String(e.stderr || e.message).trim().split("\n")[0]}`;
   }
   return { error: noToken(why) };
 }
 
 /** The password field of a 1Password item. The secret travels on stdout only. */
-function readOpItem(title, vault) {
+function readOpItem(title: string, vault: string): string {
   return execFileSync("op", ["item", "get", title, "--vault", vault, "--fields", "label=password", "--reveal"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 60_000 });
 }
 
@@ -238,7 +267,7 @@ const REQUEST_TIMEOUT_MS = 30_000;
 const hint = "CSV exports need “Individual pageviews” turned on in the GoatCounter site settings, and a token with the export permission.";
 
 /** Why a response failed, in words: GoatCounter reports `error` or `errors` in the JSON body. */
-async function failure(res, what) {
+async function failure(res: ResponseLike, what: string): Promise<Error> {
   let detail = "";
   try {
     const body = await res.json();
@@ -250,19 +279,22 @@ async function failure(res, what) {
 }
 
 /** An export's bytes as text: GoatCounter serves (and the dashboard saves) it gzipped; a plain CSV is fine too. */
-export const csvText = (bytes) => (bytes[0] === 0x1f && bytes[1] === 0x8b ? zlib.gunzipSync(bytes) : bytes).toString("utf8");
+export const csvText = (bytes: Buffer): string => (bytes[0] === 0x1f && bytes[1] === 0x8b ? zlib.gunzipSync(bytes) : bytes).toString("utf8");
 
 /**
  * Run an export and return its CSV text. GoatCounter allows one new export per hour, so `onStart(id)`
  * reports the id as soon as it exists and a failure afterwards names it: `exportId` resumes that
  * export (no POST) instead of starting another. `fetch` and `sleep` are injectable for tests.
  */
-export async function fetchExport({ code, token, exportId, onStart = () => {}, fetch: rawFetch = globalThis.fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), intervalMs = 1000, maxPolls = 120 }) {
+export async function fetchExport({ code, token, exportId, onStart = () => {}, fetch: rawFetch = globalThis.fetch as FetchLike, sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)), intervalMs = 1000, maxPolls = 120 }: {
+  code: string; token: string; exportId?: string | number | null; onStart?: (id: string | number) => void; fetch?: FetchLike;
+  sleep?: (ms: number) => Promise<unknown>; intervalMs?: number; maxPolls?: number;
+}): Promise<string> {
   if (!CODE_RE.test(code || "")) throw new Error("GOATCOUNTER_CODE must contain only lowercase letters, digits and hyphens (a-z, 0-9, -)");
-  const fetch = (url, init = {}) => rawFetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  const fetch = (url: string, init: RequestInit = {}) => rawFetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   const api = `https://${code}.goatcounter.com/api/v0`;
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-  let id = exportId;
+  let id: string | number | null | undefined = exportId;
   if (id == null) {
     const res = await fetch(`${api}/export`, { method: "POST", headers, body: "{}" });
     if (!res.ok) throw await failure(res, "start an export");
@@ -285,7 +317,7 @@ export async function fetchExport({ code, token, exportId, onStart = () => {}, f
     return csvText(Buffer.from(await res.arrayBuffer()));
   } catch (e) {
     // The hour's export is spent; say how to pick it up again rather than start a new one.
-    e.message += ` Export ${id} was started: rerun with --export-id ${id} to continue it without starting another.`;
+    (e as Error).message += ` Export ${id} was started: rerun with --export-id ${id} to continue it without starting another.`;
     throw e;
   }
 }
@@ -300,26 +332,27 @@ Prints views per post (from GoatCounter's CSV export) with each page's title, ki
   --file <csv|csv.gz>  read an export you already have (plain or gzipped) instead of calling GoatCounter
   --export-id <id>   continue an export that was already started (GoatCounter allows one new export per hour)`;
 
-export async function main(argv = process.argv.slice(2), env = process.env, out = console, root = ROOT) {
-  let file = "", exportId;
+export async function main(argv: string[] = process.argv.slice(2), env: Env = process.env, out: Output = console, root: string = ROOT): Promise<number> {
+  let file = "", exportId: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--help" || argv[i] === "-h") { out.log(USAGE); return 0; }
     else if (argv[i] === "--file") { file = argv[++i] || ""; if (!file) { out.error("--file needs a path"); return 2; } }
     else if (argv[i] === "--export-id") { exportId = argv[++i] || ""; if (!/^\d+$/.test(exportId)) { out.error("--export-id needs the number printed when the export started"); return 2; } }
     else { out.error(`unknown argument "${argv[i]}"\n${USAGE}`); return 2; }
   }
-  let csv;
+  let csv: string;
   if (file) {
-    try { csv = csvText(fs.readFileSync(file)); } catch (e) { out.error(`stats: can't read ${file}: ${e.message}`); return 1; }
+    try { csv = csvText(fs.readFileSync(file)); } catch (e) { out.error(`stats: can't read ${file}: ${(e as Error).message}`); return 1; }
   } else {
-    const { token, error } = resolveToken({ env });
-    if (error) { out.error(error); return 1; }
+    const resolved = resolveToken({ env });
+    if (resolved.error !== undefined) { out.error(resolved.error); return 1; }
+    const token = resolved.token;
     const code = (env.GOATCOUNTER_CODE || "").trim();
     if (!code) { out.error("GOATCOUNTER_CODE is not set: export it as your GoatCounter site code (the part before .goatcounter.com)."); return 1; }
-    try { csv = await fetchExport({ code, token, exportId, onStart: (id) => { if (exportId == null) out.error(`Started GoatCounter export ${id}. If this run fails, continue it with: npm run stats -- --export-id ${id}`); } }); } catch (e) { out.error(`stats: ${e.message}`); return 1; }
+    try { csv = await fetchExport({ code, token, exportId, onStart: (id) => { if (exportId == null) out.error(`Started GoatCounter export ${id}. If this run fails, continue it with: npm run stats -- --export-id ${id}`); } }); } catch (e) { out.error(`stats: ${(e as Error).message}`); return 1; }
   }
-  let counts;
-  try { counts = countViews(parseHits(csv).hits); } catch (e) { out.error(`stats: ${e.message}`); return 1; }
+  let counts: ViewCounts;
+  try { counts = countViews(parseHits(csv).hits); } catch (e) { out.error(`stats: ${(e as Error).message}`); return 1; }
   out.log(formatReport(joinViews(counts, readCatalogue(root), sitePath(root, env)), counts));
   return 0;
 }

@@ -20,12 +20,21 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import { launchChrome, serveStatic, sleep } from "./chrome.mts";
+import { launchChrome, serveStatic, sleep, type ChromeHandle } from "./chrome.mts";
 import { fileURLToPath } from "node:url";
+import type { AddressInfo } from "node:net";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, ".visual", process.argv.includes("--system-fonts") ? "system-fonts" : "");
-const PAGES = [
+type Variant = { name: string; width: number; height: number; scheme: string; mobile: boolean };
+/** A tab-bound DevTools call (protocol payloads, so `any`). */
+type TabSend = (method: string, params?: object) => Promise<any>;
+/** A decoded PNG: `data` is RGBA, 4 bytes per pixel. */
+type Image = { width: number; height: number; data: Buffer };
+/** One page in one layout, and what became of it. */
+type Result = { name: string; file: string; v: Variant; status: string; error?: string; changed?: number; ratio?: number; sizeChanged?: boolean };
+
+const PAGES: [string, string][] = [
   ["index", "index.html"],
   ["gallery", "docs/component-gallery.html"],
   ["token-bucket", "docs/token-bucket-rate-limiting.html"],
@@ -35,7 +44,7 @@ const PAGES = [
   ["deflate", "docs/how-deflate-compresses.html"],
   ["deflate-code", "docs/how-deflate-sends-its-code.html"],
 ];
-const VARIANTS = [
+const VARIANTS: Variant[] = [
   { name: "light", width: 1280, height: 900, scheme: "light", mobile: false },
   { name: "dark", width: 1280, height: 900, scheme: "dark", mobile: false },
   { name: "phone", width: 390, height: 844, scheme: "light", mobile: true },
@@ -54,7 +63,7 @@ const args = process.argv.slice(2);
 const update = args.includes("--update");
 const webFonts = !args.includes("--system-fonts");
 const only = args.includes("--only") ? args[args.indexOf("--only") + 1] : null;
-const c = { red: (s) => `\x1b[31m${s}\x1b[0m`, green: (s) => `\x1b[32m${s}\x1b[0m`, yellow: (s) => `\x1b[33m${s}\x1b[0m`, dim: (s) => `\x1b[2m${s}\x1b[0m` };
+const c = { red: (s: string) => `\x1b[31m${s}\x1b[0m`, green: (s: string) => `\x1b[32m${s}\x1b[0m`, yellow: (s: string) => `\x1b[33m${s}\x1b[0m`, dim: (s: string) => `\x1b[2m${s}\x1b[0m` };
 
 // ---- PNG (8-bit RGB/RGBA, non-interlaced) -------------------------------------------------
 
@@ -63,35 +72,35 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
   return c >>> 0;
 });
-function crc32(buf) {
+function crc32(buf: Buffer): number {
   let c = 0xffffffff;
-  for (const b of buf) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+  for (const b of buf) c = CRC_TABLE[(c ^ b) & 0xff]! ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
 
-function decodePng(buf) {
+function decodePng(buf: Buffer): Image {
   if (buf.readUInt32BE(0) !== 0x89504e47) throw new Error("not a PNG");
   let p = 8, width = 0, height = 0, depth = 0, type = 0;
-  const idat = [];
+  const idat: Buffer[] = [];
   while (p < buf.length) {
     const len = buf.readUInt32BE(p), kind = buf.toString("ascii", p + 4, p + 8), data = buf.subarray(p + 8, p + 8 + len);
     if (kind === "IHDR") {
-      width = data.readUInt32BE(0); height = data.readUInt32BE(4); depth = data[8]; type = data[9];
+      width = data.readUInt32BE(0); height = data.readUInt32BE(4); depth = data[8]!; type = data[9]!;
       if (data[12] !== 0) throw new Error("interlaced PNG not supported");
     } else if (kind === "IDAT") idat.push(data);
     else if (kind === "IEND") break;
     p += 12 + len;
   }
-  const channels = { 0: 1, 2: 3, 4: 2, 6: 4 }[type];
+  const channels = ({ 0: 1, 2: 3, 4: 2, 6: 4 } as Record<number, number>)[type];
   if (depth !== 8 || !channels) throw new Error(`unsupported PNG: depth ${depth}, colour type ${type}`);
   const raw = zlib.inflateSync(Buffer.concat(idat));
   const stride = width * channels, out = Buffer.alloc(width * height * 4);
   let prev = Buffer.alloc(stride), cur = Buffer.alloc(stride);
   for (let y = 0; y < height; y++) {
-    const f = raw[y * (stride + 1)], line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
+    const f = raw[y * (stride + 1)]!, line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
     for (let i = 0; i < stride; i++) {
-      const a = i >= channels ? cur[i - channels] : 0, b = prev[i], cc = i >= channels ? prev[i - channels] : 0;
-      let v = line[i];
+      const a = i >= channels ? cur[i - channels]! : 0, b = prev[i]!, cc = i >= channels ? prev[i - channels]! : 0;
+      let v = line[i]!;
       if (f === 1) v += a;
       else if (f === 2) v += b;
       else if (f === 3) v += (a + b) >> 1;
@@ -100,19 +109,19 @@ function decodePng(buf) {
     }
     for (let x = 0; x < width; x++) {
       const o = (y * width + x) * 4, s = x * channels;
-      if (channels >= 3) { out[o] = cur[s]; out[o + 1] = cur[s + 1]; out[o + 2] = cur[s + 2]; }
-      else { out[o] = out[o + 1] = out[o + 2] = cur[s]; }
-      out[o + 3] = channels === 4 ? cur[s + 3] : channels === 2 ? cur[s + 1] : 255;
+      if (channels >= 3) { out[o] = cur[s]!; out[o + 1] = cur[s + 1]!; out[o + 2] = cur[s + 2]!; }
+      else { out[o] = out[o + 1] = out[o + 2] = cur[s]!; }
+      out[o + 3] = channels === 4 ? cur[s + 3]! : channels === 2 ? cur[s + 1]! : 255;
     }
     [prev, cur] = [cur, prev];
   }
   return { width, height, data: out };
 }
 
-function encodePng(width, height, rgba) {
+function encodePng(width: number, height: number, rgba: Buffer): Buffer {
   const raw = Buffer.alloc((width * 4 + 1) * height);
   for (let y = 0; y < height; y++) rgba.copy(raw, y * (width * 4 + 1) + 1, y * width * 4, (y + 1) * width * 4);
-  const chunk = (kind, data) => {
+  const chunk = (kind: string, data: Buffer) => {
     const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
     const body = Buffer.concat([Buffer.from(kind, "ascii"), data]);
     const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body));
@@ -124,14 +133,14 @@ function encodePng(width, height, rgba) {
 }
 
 /** Pixel diff: changed pixels in red over a faded copy of the baseline. */
-function diffImages(a, b) {
+function diffImages(a: Image, b: Image): { sizeChanged: true; changed: number; ratio: number; image?: undefined } | { sizeChanged?: undefined; changed: number; ratio: number; image: Buffer } {
   if (a.width !== b.width || a.height !== b.height) return { sizeChanged: true, changed: Infinity, ratio: 1 };
   const out = Buffer.alloc(a.data.length);
   let changed = 0;
   for (let i = 0; i < a.data.length; i += 4) {
-    const d = Math.max(Math.abs(a.data[i] - b.data[i]), Math.abs(a.data[i + 1] - b.data[i + 1]), Math.abs(a.data[i + 2] - b.data[i + 2]));
+    const d = Math.max(Math.abs(a.data[i]! - b.data[i]!), Math.abs(a.data[i + 1]! - b.data[i + 1]!), Math.abs(a.data[i + 2]! - b.data[i + 2]!));
     if (d > CHANNEL_TOLERANCE) { changed++; out[i] = 230; out[i + 1] = 30; out[i + 2] = 40; out[i + 3] = 255; }
-    else { const g = 255 - (255 - (a.data[i] + a.data[i + 1] + a.data[i + 2]) / 3) * 0.25; out[i] = out[i + 1] = out[i + 2] = g; out[i + 3] = 255; }
+    else { const g = 255 - (255 - (a.data[i]! + a.data[i + 1]! + a.data[i + 2]!) / 3) * 0.25; out[i] = out[i + 1] = out[i + 2] = g; out[i + 3] = 255; }
   }
   return { changed, ratio: changed / (a.width * a.height), image: encodePng(a.width, a.height, out) };
 }
@@ -145,7 +154,7 @@ function diffImages(a, b) {
  * got accepted as a baseline that way. Each tile is what is really on screen. Sticky
  * chrome (top bar, contents) is hidden after the first tile so it isn't repeated.
  */
-async function captureTiled(s, v) {
+async function captureTiled(s: TabSend, v: Variant): Promise<Buffer> {
   const frames = "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))";
   // Freeze scroll-driven state, which would otherwise change from tile to tile: code
   // walkthroughs stay on step 1 with their code unpinned (so it appears once, not in every
@@ -185,10 +194,10 @@ async function captureTiled(s, v) {
   return encodePng(v.width, total, out);
 }
 
-async function capture(send, url, v) {
+async function capture(send: ChromeHandle["send"], url: string, v: Variant): Promise<Buffer> {
   const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
-  const s = (m, p) => send(m, p, sessionId);
+  const s: TabSend = (m, p) => send(m, p, sessionId);
   try {
     await s("Page.enable");
     // A new tab may not be the foreground one; background tabs can be captured from a stale
@@ -214,7 +223,7 @@ async function capture(send, url, v) {
     // come from the Google Fonts stylesheet bh.css imports, so first wait (≤ 8s) for every
     // family to be declared. Offline, this times out and the run is consistently fallback.
     if (webFonts) await s("Runtime.evaluate", { expression: `(async () => {
-      const families = ${JSON.stringify([...new Set(FONT_FACES.map((f) => f.match(/"([^"]+)"/)[1]))])};
+      const families = ${JSON.stringify([...new Set(FONT_FACES.map((f) => f.match(/"([^"]+)"/)![1]))])};
       const t0 = Date.now();
       while (Date.now() - t0 < 8000 && !families.every((fam) => [...document.fonts].some((f) => f.family.replace(/["']/g, "") === fam))) await new Promise((r) => setTimeout(r, 50));
     })()`, awaitPromise: true });
@@ -237,18 +246,19 @@ const cases = PAGES.flatMap(([page, file]) => VARIANTS.map((v) => ({ name: `${pa
 for (const d of ["baseline", "current", "diff"]) fs.mkdirSync(path.join(OUT, d), { recursive: true });
 
 const server = await serveStatic(ROOT);
-const base = `http://127.0.0.1:${server.address().port}/`;
-let chrome;
-const results = [];
+const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+let chrome: ChromeHandle | undefined;
+const results: Result[] = [];
 const started = Date.now();
 try {
   chrome = await launchChrome();
   for (const k of cases) {
-    let png;
+    let png: Buffer;
     try { png = await capture(chrome.send, base + k.file + "?examples", k.v); }  // examples are hidden by default
     catch (e) {
-      results.push({ ...k, status: "changed", error: e.message });
-      console.log(c.red("✗ ") + k.name + c.dim(` ${e.message}`));
+      const message = e instanceof Error ? e.message : String(e);
+      results.push({ ...k, status: "changed", error: message });
+      console.log(c.red("✗ ") + k.name + c.dim(` ${message}`));
       continue;
     }
     const cur = path.join(OUT, "current", `${k.name}.png`), basePng = path.join(OUT, "baseline", `${k.name}.png`), diffPng = path.join(OUT, "diff", `${k.name}.png`);
@@ -269,11 +279,12 @@ try {
   }
 } finally {
   try { await chrome?.close(); }
-  finally { await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
+  finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
 }
 
 // Report: side-by-side images for every case that changed.
-const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
+const esc = (s: unknown) => String(s).replace(/[&<>"]/g, (ch) => ESC[ch]!);
 const rows = results.map((r) => `<section class="${r.status}"><h2>${esc(r.name)} <small>${esc(r.status)}${r.changed && isFinite(r.changed) ? ` · ${r.changed} px` : ""}</small></h2>${
   r.error ? `<p>${esc(r.error)}</p>` : r.status === "changed" ? `<div class="row"><figure><img src="baseline/${r.name}.png"><figcaption>baseline</figcaption></figure><figure><img src="current/${r.name}.png"><figcaption>current</figcaption></figure>${fs.existsSync(path.join(OUT, "diff", `${r.name}.png`)) ? `<figure><img src="diff/${r.name}.png"><figcaption>diff</figcaption></figure>` : ""}</div>` : ""}</section>`).join("\n");
 fs.writeFileSync(path.join(OUT, "report.html"), `<!doctype html><meta charset="utf-8"><title>Visual regression report</title>

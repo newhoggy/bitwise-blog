@@ -22,6 +22,7 @@ import {
   KIND_LABELS, escapeHtml, CARD_FILE, KEY_RE, GROUP_RE, cardFromDoc, tryDecryptCard, buildBlob,
   renderCardsFile, parseCardsFile, validateCardsFile, mergeEntries, docCardHtml,
 } from "./private-cards.mts";
+import type { Doc, SocialMeta, Visual, CardJob, GlossaryEntry, TreeNode, PathSeg, NodeRect, Box, Pt, ReviewComment, ReviewFile, ReviewRecord, OpItem } from "./types.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = path.join(ROOT, "docs");
@@ -49,48 +50,48 @@ const PRIVATE_EXT = ".private.html";
 const OP_VAULT = process.env.BH_OP_VAULT || "Private";
 
 const c = {
-  red: (s) => `\x1b[31m${s}\x1b[0m`,
-  yellow: (s) => `\x1b[33m${s}\x1b[0m`,
-  green: (s) => `\x1b[32m${s}\x1b[0m`,
-  dim: (s) => `\x1b[2m${s}\x1b[0m`,
+  red: (s: string) => `\x1b[31m${s}\x1b[0m`,
+  yellow: (s: string) => `\x1b[33m${s}\x1b[0m`,
+  green: (s: string) => `\x1b[32m${s}\x1b[0m`,
+  dim: (s: string) => `\x1b[2m${s}\x1b[0m`,
 };
 
 // ---- HTML helpers (regex-based; fine for the files we author) ------------------
 
-function getMeta(html, name) {
+function getMeta(html: string, name: string): string {
   const re = new RegExp(`<meta\\s+name="${name.replace(":", "\\:")}"\\s+content="([^"]*)"`, "i");
   return (html.match(re) || [])[1]?.trim() ?? "";
 }
 
-function getTitle(html) {
+function getTitle(html: string): string {
   return (html.match(/<title>([^<]*)<\/title>/i) || [])[1]?.trim() ?? "";
 }
 
-function stripComments(html) {
+function stripComments(html: string): string {
   return html.replace(/<!--[\s\S]*?-->/g, "");
 }
 
-function allDocFiles() {
+function allDocFiles(): string[] {
   if (!fs.existsSync(DOCS)) return [];
   return fs.readdirSync(DOCS).filter((f) => f.endsWith(".html")).sort().map((f) => path.join(DOCS, f));
 }
 
-const isPrivateSource = (file) => file.endsWith(PRIVATE_EXT);
-const isSealed = (file) => !isPrivateSource(file) && /<meta\s+name="bh:sealed"/i.test(fs.readFileSync(file, "utf8"));
+const isPrivateSource = (file: string) => file.endsWith(PRIVATE_EXT);
+const isSealed = (file: string) => !isPrivateSource(file) && /<meta\s+name="bh:sealed"/i.test(fs.readFileSync(file, "utf8"));
 
 /** Public documents only: every page that is published, unlisted ones included. */
-function docFiles() {
+function docFiles(): string[] {
   return allDocFiles().filter((f) => !isPrivateSource(f) && !isSealed(f));
 }
 /** Public documents the site surfaces: what the catalogue, search, backlinks and `bundle --all` see.
     An unlisted page is published and checked like any other but is not in this list. */
-function listedDocFiles() {
+function listedDocFiles(): string[] {
   return docFiles().filter((f) => !readDoc(f).unlisted);
 }
 const privateSources = () => allDocFiles().filter(isPrivateSource);
 const sealedFiles = () => allDocFiles().filter(isSealed);
 
-function readDoc(file) {
+function readDoc(file: string): Doc {
   const html = stripComments(fs.readFileSync(file, "utf8")); // example <meta> in comments must not count
   return {
     file,
@@ -115,13 +116,13 @@ function readDoc(file) {
 }
 
 /** The page's topics, lowercase. An example page is also under "examples". */
-function docTopics(d) {
+function docTopics(d: Doc): string[] {
   const tags = (d.tags || "").split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
   return d.example && !tags.includes("examples") ? ["examples", ...tags] : tags;
 }
 
 /** A doc-relative link from a meta tag as a root-relative path ("docs/x.html"), or "". */
-function resolveDocLink(file, value) {
+function resolveDocLink(file: string, value: string): string {
   if (!value) return "";
   return path.relative(ROOT, path.resolve(path.dirname(file), value)).split(path.sep).join("/");
 }
@@ -150,22 +151,22 @@ const ROBOTS_NOINDEX = '<meta name="robots" content="noindex, nofollow">';
 const SOCIAL_RE = /[ \t]*<!-- bh:social:start\b[\s\S]*?<!-- bh:social:end -->/;
 const DESCRIPTION_MAX = 200; // chat apps and crawlers truncate beyond about this
 
-const sha256 = (data) => crypto.createHash("sha256").update(data).digest("hex");
-const attr = (s) => String(s).replace(/"/g, "&quot;");
+const sha256 = (data: string | Buffer) => crypto.createHash("sha256").update(data).digest("hex");
+const attr = (s: unknown) => String(s).replace(/"/g, "&quot;");
 
 /** HTML text → plain text, for drawing a title on a card. One pass, so "&amp;#65;" stays "&#65;". */
-function decodeHtml(s) {
-  const named = { amp: "&", lt: "<", gt: ">", quot: '"', nbsp: " ", mdash: "—", ndash: "–", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", times: "×", middot: "·" };
+function decodeHtml(s: string): string {
+  const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', nbsp: " ", mdash: "—", ndash: "–", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", times: "×", middot: "·" };
   return s.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (m, dec, hex, name) =>
-    dec ? String.fromCodePoint(+dec) : hex ? String.fromCodePoint(parseInt(hex, 16)) : named[name] ?? m);
+    dec ? String.fromCodePoint(+dec) : hex ? String.fromCodePoint(parseInt(hex, 16)) : named[name!] ?? m);
 }
 
 /**
  * The block of social tags for `m`: { type, title, description, url, image, alt, published?, authors?, tags? }.
  * title, description, alt, authors and tags are HTML text as written in the page; urls and the site name are plain.
  */
-function socialBlock(m) {
-  const tag = (k, v, a = "property") => `  <meta ${a}="${k}" content="${attr(v)}">`;
+function socialBlock(m: SocialMeta): string {
+  const tag = (k: string, v: string, a = "property") => `  <meta ${a}="${k}" content="${attr(v)}">`;
   return [
     `  ${SOCIAL_START}`,
     `  <link rel="canonical" href="${escapeHtml(m.url)}">`,
@@ -189,19 +190,19 @@ function socialBlock(m) {
   ].join("\n");
 }
 
-const pageUrl = (href) => SITE_URL + href;
-const cardPath = (file) => path.join(CARD_DIR, path.basename(file, ".html") + ".png");
-const cardHref = (file) => path.relative(ROOT, cardPath(file)).split(path.sep).join("/");
+const pageUrl = (href: string) => SITE_URL + href;
+const cardPath = (file: string) => path.join(CARD_DIR, path.basename(file, ".html") + ".png");
+const cardHref = (file: string) => path.relative(ROOT, cardPath(file)).split(path.sep).join("/");
 
 /** The block a public page (or index.html) must carry. */
-function expectedSocial(file) {
+function expectedSocial(file: string): string {
   if (file === INDEX) {
     const html = stripComments(fs.readFileSync(INDEX, "utf8"));
     return socialBlock({ type: "website", title: getTitle(html), description: getMeta(html, "description"), url: SITE_URL, image: SITE_URL + SHARED_CARD, alt: SHARED_CARD_ALT });
   }
   const d = readDoc(file);
   const sel = chooseVisual(file);
-  const list = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
+  const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
   return socialBlock({
     type: "article", title: d.title, description: d.description, url: pageUrl(d.href), image: SITE_URL + cardHref(file),
     alt: escapeHtml(sel.label ? `${decodeHtml(d.title)}: ${sel.label}` : `${decodeHtml(d.title)} (${KIND_LABELS[d.kind] || d.kind}, ${SITE_NAME})`),
@@ -210,7 +211,7 @@ function expectedSocial(file) {
 }
 
 /** `raw` with its social block replaced, or inserted (before the theme script) when it has none. */
-function withSocial(raw, block) {
+function withSocial(raw: string, block: string): string {
   if (SOCIAL_RE.test(raw)) return raw.replace(SOCIAL_RE, () => block);
   // First time: tags written by hand move into the block.
   const stripped = raw
@@ -234,8 +235,8 @@ function withSocial(raw, block) {
  * or { tier, image } (a file), plus `label` (its aria-label/alt), `source` and `files`
  * (what the card's staleness key hashes) and `problem` when an override can't be resolved.
  */
-const visuals = new Map();
-function chooseVisual(file) {
+const visuals = new Map<string, { raw: string; result: Visual }>();
+function chooseVisual(file: string): Visual {
   const raw = fs.readFileSync(file, "utf8");
   const hit = visuals.get(file);
   if (hit?.raw === raw) return hit.result; // `index` and `check` ask twice per page
@@ -244,21 +245,21 @@ function chooseVisual(file) {
   return result;
 }
 
-function pickVisual(file, raw) {
+function pickVisual(file: string, raw: string): Visual {
   const { root, src } = parseTree(raw);
   const dir = path.dirname(file);
   const article = findNode(root, (n) => hasClass(n, "bh-article"));
-  const inner = (n) => (VOID_TAGS.has(n.tag) ? "" : src.slice(n.start, n.end));
-  const markup = (n) => `<${n.tag}${n.attrs}>${inner(n)}`;
+  const inner = (n: TreeNode) => (VOID_TAGS.has(n.tag) ? "" : src.slice(n.start, n.end));
+  const markup = (n: TreeNode) => `<${n.tag}${n.attrs}>${inner(n)}`;
   const VIS = /<(svg|img|bh-sequence|bh-chart)\b/;
-  const label = (n) => {
+  const label = (n: TreeNode) => {
     const t = markup(n);
     return decodeHtml((t.match(/aria-label="([^"]+)"/) || t.match(/\balt="([^"]+)"/) || [])[1] || "");
   };
-  const files = (n) => [...markup(n).matchAll(/<img\b[^>]*\ssrc="([^"]+)"/g)].map((m) => m[1])
+  const files = (n: TreeNode) => [...markup(n).matchAll(/<img\b[^>]*\ssrc="([^"]+)"/g)].map((m) => m[1])
     .filter((u) => !/^(https?:|data:|\/\/)/.test(u)).map((u) => path.resolve(dir, decodeURI(u.split(/[?#]/)[0])));
-  const element = (n, tier, css, index) => ({ tier, css, index, label: label(n), source: markup(n), files: files(n) });
-  const byId = (id) => `[id="${id}"]`;
+  const element = (n: TreeNode, tier: Visual["tier"], css: string, index: number): Visual => ({ tier, css, index, label: label(n), source: markup(n), files: files(n) });
+  const byId = (id: string) => `[id="${id}"]`;
 
   const override = getMeta(stripComments(raw), "bh:image");
   if (override.startsWith("#")) {
@@ -272,7 +273,7 @@ function pickVisual(file, raw) {
     return { tier: "override", image, label: "", source: "", files: [image], problem };
   }
   if (article) {
-    let figures = -1, hit = null;
+    let figures = -1, hit = null as { n: TreeNode; index: number } | null;
     walkTree(article, (n) => { if (n.tag === "figure") { figures++; if (!hit && VIS.test(markup(n))) hit = { n, index: figures }; } });
     if (hit) {
       const id = nodeAttr(hit.n, "id");
@@ -287,8 +288,8 @@ function pickVisual(file, raw) {
 }
 
 /** Hash of the shared files every card is drawn from: the card layout, the logo, the theme CSS and bh.js (which adds a diagram's arrowhead markers). */
-let sharedCardInputs = null;
-const cardInputsHash = (withModules) => {
+let sharedCardInputs: string | null = null;
+const cardInputsHash = (withModules: boolean): string => {
   sharedCardInputs ??= sha256(["scripts/cards.mts", "theme/logo/mark.svg", "theme/bh.js", ...["tokens", "base", "layout", "components", "diagrams"].map((f) => `theme/${f}.css`)]
     .map((f) => fs.readFileSync(path.join(ROOT, f))).join("\0"));
   if (!withModules) return sharedCardInputs;
@@ -298,12 +299,12 @@ const cardInputsHash = (withModules) => {
 };
 
 /** Everything that decides how a page's card looks. Any change here makes the card stale. */
-function cardJob(file) {
+function cardJob(file: string): CardJob {
   const d = readDoc(file);
   const sel = chooseVisual(file);
   const styles = [...stripComments(fs.readFileSync(file, "utf8")).matchAll(/<style\b[\s\S]*?<\/style>/g)].map((m) => m[0]).join("\n");
   const kind = KIND_LABELS[d.kind] || d.kind;
-  const bytes = (f) => (fs.existsSync(f) ? sha256(fs.readFileSync(f)) : "missing");
+  const bytes = (f: string) => (fs.existsSync(f) ? sha256(fs.readFileSync(f)) : "missing");
   const key = sha256(JSON.stringify([
     cardInputsHash(/<bh-/.test(sel.source)), d.title, kind, d.date, SITE_NAME, sel.tier, sel.css, sel.index, sel.source, styles, sel.files.map(bytes),
   ]));
@@ -314,7 +315,7 @@ function cardJob(file) {
 }
 
 /** { width, height, card } of a PNG: its size and the `bh-card` key recorded in it (or null). */
-function readPng(file) {
+function readPng(file: string): { width: number; height: number; card: string | null } | null {
   const b = fs.readFileSync(file);
   if (b.length < 33 || b.readUInt32BE(0) !== 0x89504e47) return null;
   let card = null;
@@ -330,17 +331,17 @@ function readPng(file) {
   return { width: b.readUInt32BE(16), height: b.readUInt32BE(20), card };
 }
 
-function orphanCards() {
+function orphanCards(): string[] {
   const slugs = new Set(docFiles().map((f) => path.basename(f, ".html")));
   return fs.existsSync(CARD_DIR) ? fs.readdirSync(CARD_DIR).filter((f) => f.endsWith(".png") && !slugs.has(f.slice(0, -4))) : [];
 }
 
 /** Problems with the site base: it has to be an absolute http(s) URL, since crawlers need that. */
-function siteUrlProblems() {
+function siteUrlProblems(): string[] {
   return /^https?:\/\/[^/\s]+\/(\S*\/)?$/.test(SITE_URL) ? [] : [`site base "${SITE_URL}" must be an absolute http(s) URL: set "homepage" in package.json (or BH_SITE_URL)`];
 }
 
-async function cmdCards(argv) {
+async function cmdCards(argv: string[]): Promise<void> {
   const force = argv.includes("--force");
   for (const f of orphanCards()) {
     fs.rmSync(path.join(CARD_DIR, f));
@@ -358,7 +359,7 @@ async function cmdCards(argv) {
 
 // ---- new --------------------------------------------------------------------------
 
-function cmdNew(argv) {
+function cmdNew(argv: string[]): void {
   const isPrivate = argv.includes("--private");
   const isExample = argv.includes("--example");
   const isUnlisted = argv.includes("--unlisted");
@@ -391,7 +392,7 @@ function cmdNew(argv) {
   }
   let author = "";
   try { author = execSync("git config user.name", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); } catch {}
-  const vars = {
+  const vars: Record<string, string> = {
     title: escapeHtml(title),
     description: escapeHtml(description || "One sentence: what the reader will understand by the end."),
     date: new Date().toISOString().slice(0, 10),
@@ -429,17 +430,17 @@ function cmdNew(argv) {
 // theme/glossary.js, which bh.js loads on every page (works from file://, unlike fetch).
 // Relative links in definitions are rebased to the site root.
 
-function decodeEntities(s) {
-  return s.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (m, e) => ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " })[e]);
+function decodeEntities(s: string): string {
+  return s.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (m, e) => ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " } as Record<string, string>)[e]);
 }
 
-function attrOf(attrs, name) {
+function attrOf(attrs: string, name: string): string | undefined {
   return (attrs.match(new RegExp(`\\s${name}="([^"]*)"`)) || [])[1];
 }
 
 /** Entries from every <dl class="glossary"> in an HTML string (comments stripped). */
-function parseGlossary(html) {
-  const entries = [];
+function parseGlossary(html: string): GlossaryEntry[] {
+  const entries: GlossaryEntry[] = [];
   for (const dl of stripComments(html).matchAll(/<dl\b[^>]*\sclass="[^"]*\bglossary\b[^"]*"[^>]*>([\s\S]*?)<\/dl>/g)) {
     for (const m of dl[1].matchAll(/<dt\b([^>]*)>([\s\S]*?)<\/dt>\s*<dd\b[^>]*>([\s\S]*?)<\/dd>/g)) {
       entries.push({
@@ -453,10 +454,10 @@ function parseGlossary(html) {
   return entries;
 }
 
-function compileGlossary() {
+function compileGlossary(): { entries: (GlossaryEntry & { href: string })[]; js: string } {
   const header = "/* GENERATED by `npm run index` from docs/glossary.html. Edit that page, not this file. */\n";
   if (!fs.existsSync(GLOSSARY_SRC)) return { entries: [], js: header + "window.BH_GLOSSARY = [];\n" };
-  const rebase = (html) => html.replace(/(\s(?:href|src)=")([^"]+)(")/g, (m, a, url, b) => {
+  const rebase = (html: string) => html.replace(/(\s(?:href|src)=")([^"]+)(")/g, (m, a, url, b) => {
     if (/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(url)) return m;
     if (url.startsWith("#")) return a + "docs/glossary.html" + url + b;
     return a + path.posix.normalize(path.posix.join("docs", url)) + b;
@@ -467,8 +468,8 @@ function compileGlossary() {
 }
 
 /** Problems in a list of glossary entries: missing ids, duplicate ids/names. */
-function glossaryProblems(entries) {
-  const out = [], ids = new Set(), names = new Map();
+function glossaryProblems(entries: GlossaryEntry[]): string[] {
+  const out: string[] = [], ids = new Set<string>(), names = new Map<string, string>();
   for (const e of entries) {
     if (!e.id) { out.push(`glossary term "${e.term}" has no id`); continue; }
     if (ids.has(e.id)) out.push(`duplicate glossary id "${e.id}"`);
@@ -493,7 +494,7 @@ const SECTION_TEXT_MAX = 4000;
 
 /** The article split at h2/h3 ids: [{ id, heading, html, text }]. The part before the
     first heading (hero, TL;DR) has id "". */
-function extractSections(html) {
+function extractSections(html: string): { id: string; heading: string; html: string; text: string }[] {
   const art = stripComments(html).match(/<article\b[^>]*class="[^"]*\bbh-article\b[^"]*"[^>]*>([\s\S]*)<\/article>/);
   if (!art) return [];
   const body = art[1]
@@ -509,21 +510,23 @@ function extractSections(html) {
 
 /** The card markup for one page of the home list (the markup lives in scripts/private-cards.mts). `titles` maps hrefs to titles for "Replaced by".
     theme/modules/unlisted-cards.js and private-cards.js build the same card in the browser (tests compare them). */
-const cardHtml = (d, titles, tags = docTopics(d)) => docCardHtml(d, tags, titles);
+const cardHtml = (d: Doc, titles: Map<string, string>, tags = docTopics(d)) => docCardHtml(d, tags, titles);
 
-const byDateThenTitle = (a, b) => (b.date || "").localeCompare(a.date || "") || a.title.localeCompare(b.title);
+const byDateThenTitle = (a: { date: string; title: string }, b: { date: string; title: string }) => (b.date || "").localeCompare(a.date || "") || a.title.localeCompare(b.title);
+
+interface SearchEntry { href: string; title: string; kind: string; example?: boolean; sections: { id: string; heading: string; text: string }[] }
 
 function buildSiteData() {
   const docs = docFiles().map((f) => ({ ...readDoc(f), html: fs.readFileSync(f, "utf8") }));
   const known = new Set(docs.map((d) => d.href));
   const hidden = new Set(docs.filter((d) => d.unlisted).map((d) => d.href)); // unlisted pages
   const titles = new Map(docs.map((d) => [d.href, d.title]));
-  const pageOf = ({ href, title, kind, status, date, description, supersedes, supersededBy, example }) => ({ href, title, kind, status, date, description, supersedes, supersededBy, ...(example ? { example: true } : {}) });
+  const pageOf = ({ href, title, kind, status, date, description, supersedes, supersededBy, example }: Doc) => ({ href, title, kind, status, date, description, supersedes, supersededBy, ...(example ? { example: true } : {}) });
   const pages = docs.filter((d) => !hidden.has(d.href)).map(pageOf);
   // What the site leaves out unless the reader opts in: unlisted pages, their search text, and any
   // backlink that starts or ends at one. Kept apart so the default page load never fetches them.
-  const backlinks = {}, unlistedBacklinks = {};
-  const search = [], unlistedSearch = [];
+  const backlinks: Record<string, { href: string; title: string; section: string }[]> = {}, unlistedBacklinks: typeof backlinks = {};
+  const search: SearchEntry[] = [], unlistedSearch: SearchEntry[] = [];
   for (const d of docs) {
     const sections = extractSections(d.html);
     const entry = { href: d.href, title: d.title, kind: d.kind, ...(d.example ? { example: true } : {}), sections: sections.map(({ id, heading, text }) => ({ id, heading, text })).filter((x) => x.text || x.heading) };
@@ -544,7 +547,7 @@ function buildSiteData() {
     search.push({ href: e.href, title: e.term, kind: "glossary", sections: [{ id: "", heading: e.aliases.join(", "), text: decodeEntities(e.html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim() }] });
   }
   const header = "/* GENERATED by `npm run index` from docs/. Do not edit. */\n";
-  const reviews = {}; // threads per document, so pages load review only when needed
+  const reviews: Record<string, { threads: number; open: number }> = {}; // threads per document, so pages load review only when needed
   for (const [href, summary] of Object.entries(compileReviews().summary)) if (!hidden.has(href)) reviews[href] = summary;
   const unlisted = docs.filter((d) => hidden.has(d.href)).sort(byDateThenTitle).map((d) => ({
     slug: path.posix.basename(d.href, ".html"), ...pageOf(d), kindLabel: KIND_LABELS[d.kind] || d.kind, tags: docTopics(d), unlisted: true,
@@ -571,23 +574,23 @@ const FEED_FILE = "feed.xml";
 const FEED_NON_POST_KINDS = new Set(["reference"]);
 const FEED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** A real calendar date: "2026-13-45" has the shape but would make an invalid Atom timestamp. */
-const validFeedDate = (d) => FEED_DATE.test(d) && !Number.isNaN(Date.parse(d)) && new Date(d).toISOString().startsWith(d);
+const validFeedDate = (d: string) => FEED_DATE.test(d) && !Number.isNaN(Date.parse(d)) && new Date(d).toISOString().startsWith(d);
 
 /** The pages that belong in the feed, newest first. */
-function feedPosts() {
+function feedPosts(): Doc[] {
   return listedDocFiles().map(readDoc)
     .filter((d) => !d.example && !FEED_NON_POST_KINDS.has(d.kind) && validFeedDate(d.date))
     .sort(byDateThenTitle);
 }
 
-const xmlEscape = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const xmlEscape = (s: unknown) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 /** HTML text as written in a page → text safe inside XML. */
-const xmlText = (html) => xmlEscape(decodeHtml(html));
-const atomDate = (d) => `${d}T00:00:00Z`;
+const xmlText = (html: string) => xmlEscape(decodeHtml(html));
+const atomDate = (d: string) => `${d}T00:00:00Z`;
 
-function buildFeed(posts = feedPosts()) {
+function buildFeed(posts: Doc[] = feedPosts()): string {
   const home = stripComments(fs.readFileSync(INDEX, "utf8"));
-  const list = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
+  const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
   const entries = posts.map((d) => [
     "  <entry>",
     `    <id>${xmlEscape(pageUrl(d.href))}</id>`,
@@ -619,25 +622,25 @@ function buildFeed(posts = feedPosts()) {
 }
 
 /** The autodiscovery tag a page must carry; `prefix` is the path from the page to the site root. */
-const feedLinkTag = (prefix) => `<link rel="alternate" type="application/atom+xml" title="${attr(escapeHtml(SITE_NAME))}" href="${prefix}${FEED_FILE}">`;
+const feedLinkTag = (prefix: string) => `<link rel="alternate" type="application/atom+xml" title="${attr(escapeHtml(SITE_NAME))}" href="${prefix}${FEED_FILE}">`;
 /** The footer link that makes the feed visible to readers. */
-const feedFooterLink = (prefix) => `<a href="${prefix}${FEED_FILE}">Subscribe</a>`;
+const feedFooterLink = (prefix: string) => `<a href="${prefix}${FEED_FILE}">Subscribe</a>`;
 const FEED_LINK_RE = /^[ \t]*<link\b(?=[^>]*\brel="alternate")(?=[^>]*\btype="application\/atom\+xml")[^>]*>\n?/gm;
-const feedPrefix = (file) => (file === INDEX ? "" : "../");
+const feedPrefix = (file: string) => (file === INDEX ? "" : "../");
 
 /** The attribution every footer carries: absolute links back to the blog and its repo, so it still works in a bundle or a copy. */
 const attributionSpan = () => `<span data-attribution>From <a href="${attr(SITE_URL)}">${escapeHtml(SITE_NAME)}</a> · <a href="${attr(REPO_URL)}">source</a></span>`;
 const ATTRIBUTION_RE = /^([ \t]*)<span data-attribution>[\s\S]*?<\/span>\n?/m;
 
 /** `raw` with its footer attribution written: replaced if present, else added after the Subscribe link. */
-function withAttribution(raw) {
+function withAttribution(raw: string): string {
   const span = attributionSpan();
   if (ATTRIBUTION_RE.test(raw)) return raw.replace(ATTRIBUTION_RE, (m, indent) => `${indent}${span}\n`);
   return raw.replace(/^([ \t]*)(<span><a href="(?:\.\.\/)?feed\.xml">Subscribe<\/a><\/span>)\n/m, (m, indent, sub) => `${indent}${sub}\n${indent}${span}\n`);
 }
 
 /** `raw` with its autodiscovery link written (replacing any other feed link, after the icon links). */
-function withFeedLink(raw, file) {
+function withFeedLink(raw: string, file: string): string {
   const tag = `  ${feedLinkTag(feedPrefix(file))}\n`;
   const end = raw.search(/<\/head>/i);
   if (end < 0) return raw;
@@ -648,13 +651,13 @@ function withFeedLink(raw, file) {
 }
 
 /** Problems in feed text: not well-formed, or an entry that should not be there. `eligible` is the set of page URLs allowed in. */
-function feedTextProblems(text, eligible) {
-  const out = [];
+function feedTextProblems(text: string, eligible: Set<string>): string[] {
+  const out: string[] = [];
   const body = text.replace(/^<\?xml[^>]*\?>/, "");
-  const stack = [];
+  const stack: string[] = [];
   let last = 0;
   const TOKEN = /<!--[\s\S]*?-->|<(\/?)([A-Za-z][\w:.-]*)((?:\s+[\w:.-]+="[^"<]*")*)\s*(\/?)>/g;
-  const text_ = (chunk) => {
+  const text_ = (chunk: string) => {
     if (/[<>]/.test(chunk)) out.push("contains a stray < or >");
     if (/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/.test(chunk)) out.push("contains an unescaped &");
   };
@@ -683,8 +686,8 @@ function feedTextProblems(text, eligible) {
 }
 
 /** Everything `check` says about the feed and the links that advertise it. */
-function feedProblems(posts = feedPosts()) {
-  const problems = [];
+function feedProblems(posts: Doc[] = feedPosts()): string[] {
+  const problems: string[] = [];
   const expected = buildFeed(posts);
   const rel = path.relative(ROOT, FEED_OUT);
   const current = fs.existsSync(FEED_OUT) ? fs.readFileSync(FEED_OUT, "utf8") : null;
@@ -698,7 +701,7 @@ function feedProblems(posts = feedPosts()) {
 
 // ---- index ------------------------------------------------------------------------
 
-function cmdIndex() {
+function cmdIndex(): void {
   const docs = docFiles().map(readDoc).filter((d) => !d.unlisted).sort(byDateThenTitle);
   const titles = new Map(docs.map((d) => [d.href, d.title]));
   const cards = docs.map((d) => cardHtml(d, titles)).join("\n");
@@ -761,21 +764,21 @@ function cmdIndex() {
 const ARROW_LEN = 10;      // head length in user units (must match bh.js markers)
 const TIP_GAP_MAX = 2;     // tip may stop up to this far outside a node's outline
 
-function parsePath(d) {
+function parsePath(d: string): PathSeg[] {
   const tokens = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/g) || [];
-  const arity = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7, Z: 0 };
-  const segs = [];
-  let i = 0, cmd = null, x = 0, y = 0, sx = 0, sy = 0;
+  const arity: Record<string, number> = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7, Z: 0 };
+  const segs: PathSeg[] = [];
+  let i = 0, cmd: string | null = null, x = 0, y = 0, sx = 0, sy = 0;
   while (i < tokens.length) {
     if (/[a-zA-Z]/.test(tokens[i])) cmd = tokens[i++];
     if (!cmd) break;
-    const up = cmd.toUpperCase(), rel = cmd !== up, n = arity[up];
+    const up = cmd.toUpperCase(), rel: boolean = cmd !== up, n = arity[up];
     if (n === undefined) throw new Error(`unsupported path command "${cmd}"`);
     const a = tokens.slice(i, i + n).map(Number);
     i += n;
-    const from = [x, y];
-    const pt = (px, py) => (rel ? [x + px, y + py] : [px, py]);
-    let to, ctrl = null;
+    const from: Pt = [x, y];
+    const pt = (px: number, py: number): Pt => (rel ? [x + px, y + py] : [px, py]);
+    let to!: Pt, ctrl: Pt[] | null = null;
     switch (up) {
       case "M": to = pt(a[0], a[1]); sx = to[0]; sy = to[1]; cmd = rel ? "l" : "L"; break;
       case "L": case "T": to = pt(a[0], a[1]); break;
@@ -794,7 +797,7 @@ function parsePath(d) {
 }
 
 /** Unit direction the path travels at one end ("end" or "start", pointing outward). */
-function endDirection(segs, end) {
+function endDirection(segs: PathSeg[], end: "end" | "start"): { point: Pt; dir: Pt } | null {
   const ordered = end === "end" ? segs : [...segs].reverse().map((s) => ({
     ...s, from: s.to, to: s.from, ctrl: s.ctrl && [...s.ctrl].reverse(),
   }));
@@ -811,27 +814,27 @@ function endDirection(segs, end) {
 }
 
 /** Node rectangles in an <svg> block (first rect inside each <g class="node …">). */
-function nodeRects(svg) {
-  const rects = [];
+function nodeRects(svg: string): NodeRect[] {
+  const rects: NodeRect[] = [];
   for (const g of svg.matchAll(/<g\b[^>]*\sclass="[^"]*\bnode\b[^"]*"[^>]*>([\s\S]*?)<\/g>/g)) {
     const id = (g[0].match(/\sdata-id="([^"]*)"/) || [])[1] || "?";
     const r = g[1].match(/<rect\b[^>]*>/);
     if (!r) continue;
-    const num = (name) => +((r[0].match(new RegExp(`\\s${name}="([-\\d.]+)"`)) || [])[1] ?? 0);
+    const num = (name: string) => +((r[0].match(new RegExp(`\\s${name}="([-\\d.]+)"`)) || [])[1] ?? 0);
     rects.push({ id, x: num("x"), y: num("y"), w: num("width"), h: num("height") });
   }
   return rects;
 }
 
 /** Signed distance from a point to a rect outline: > 0 outside, < 0 inside (penetration). */
-function rectDistance([px, py], r) {
+function rectDistance([px, py]: Pt, r: NodeRect): number {
   const dx = Math.max(r.x - px, 0, px - (r.x + r.w)), dy = Math.max(r.y - py, 0, py - (r.y + r.h));
   if (dx || dy) return Math.hypot(dx, dy);
   return -Math.min(px - r.x, r.x + r.w - px, py - r.y, r.y + r.h - py);
 }
 
 /** Distance along a ray (origin o, unit dir d) to where it enters rect r, or Infinity. */
-function rayToRect(o, d, r) {
+function rayToRect(o: Pt, d: Pt, r: NodeRect): number {
   let t0 = -Infinity, t1 = Infinity;
   for (const [oi, di, lo, hi] of [[o[0], d[0], r.x, r.x + r.w], [o[1], d[1], r.y, r.y + r.h]]) {
     if (Math.abs(di) < 1e-9) { if (oi < lo || oi > hi) return Infinity; continue; }
@@ -843,10 +846,10 @@ function rayToRect(o, d, r) {
 }
 
 /** Problems with where an arrowhead's tip lands: on the outline of the node it points at. */
-function tipProblems(segs, end, rects) {
+function tipProblems(segs: PathSeg[], end: "end" | "start", rects: NodeRect[]): string[] {
   const e = endDirection(segs, end);
   if (!e) return [`has no direction at its ${end}`];
-  const tip = [e.point[0] + e.dir[0] * ARROW_LEN, e.point[1] + e.dir[1] * ARROW_LEN];
+  const tip: Pt = [e.point[0] + e.dir[0] * ARROW_LEN, e.point[1] + e.dir[1] * ARROW_LEN];
   const at = `${tip[0].toFixed(1)},${tip[1].toFixed(1)}`;
   const fix = `end the path ${ARROW_LEN} + 1 before the outline`;
   for (const r of rects) {
@@ -864,36 +867,36 @@ function tipProblems(segs, end, rects) {
 // ---- HTML element tree (tolerant; enough for nesting-aware lint rules) -------------
 
 const VOID_TAGS = new Set("area base br col embed hr img input link meta source track wbr".split(" "));
-const AUTO_CLOSE = { p: ["p"], li: ["li"], dt: ["dt", "dd"], dd: ["dt", "dd"], tr: ["tr", "td", "th"], td: ["td", "th"], th: ["td", "th"], option: ["option"] };
+const AUTO_CLOSE: Record<string, string[]> = { p: ["p"], li: ["li"], dt: ["dt", "dd"], dd: ["dt", "dd"], tr: ["tr", "td", "th"], td: ["td", "th"], th: ["td", "th"], option: ["option"] };
 // A start tag whose quoted attribute values may contain ">" (e.g. data-bind expressions).
 const TAG_RE = /<(\/?)([a-zA-Z][\w-]*)((?:\s+[^\s=>/]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?)*)\s*(\/?)>/g;
 
-function parseTree(html) {
+function parseTree(html: string): { root: TreeNode; src: string } {
   const src = stripComments(html).replace(/<(script|style)\b([^>]*)>[\s\S]*?<\/\1>/gi, "<$1$2></$1>");
-  const root = { tag: "#root", attrs: "", children: [], parent: null, start: 0, end: src.length };
+  const root: TreeNode = { tag: "#root", attrs: "", children: [], parent: null, start: 0, end: src.length };
   let cur = root;
   for (const m of src.matchAll(TAG_RE)) {
     const [, closing, name, attrs, selfClosing] = m;
     const tag = name.toLowerCase();
     if (closing) {
       let n = cur;
-      while (n !== root && n.tag !== tag) n = n.parent;
-      if (n !== root) { n.end = m.index; cur = n.parent; }
+      while (n !== root && n.tag !== tag) n = n.parent!;
+      if (n !== root) { n.end = m.index; cur = n.parent!; }
       continue;
     }
-    if (AUTO_CLOSE[tag]) while (cur !== root && AUTO_CLOSE[tag].includes(cur.tag)) { cur.end = m.index; cur = cur.parent; }
-    const node = { tag, attrs, children: [], parent: cur, start: m.index + m[0].length, end: src.length };
+    if (AUTO_CLOSE[tag]) while (cur !== root && AUTO_CLOSE[tag].includes(cur.tag)) { cur.end = m.index; cur = cur.parent!; }
+    const node: TreeNode = { tag, attrs, children: [], parent: cur, start: m.index + m[0].length, end: src.length };
     cur.children.push(node);
     if (!selfClosing && !VOID_TAGS.has(tag)) cur = node;
   }
   return { root, src };
 }
 
-const nodeAttr = (n, name) => (n.attrs.match(new RegExp(`\\s${name}\\s*=\\s*"([^"]*)"`)) || [])[1];
-const hasClass = (n, c) => (nodeAttr(n, "class") || "").split(/\s+/).includes(c);
-function walkTree(n, fn) { for (const c of n.children) { fn(c); walkTree(c, fn); } }
-function findNode(n, pred) { let hit = null; walkTree(n, (c) => { if (!hit && pred(c)) hit = c; }); return hit; }
-const nodeText = (src, n) => src.slice(n.start, n.end).replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+const nodeAttr = (n: TreeNode, name: string): string | undefined => (n.attrs.match(new RegExp(`\\s${name}\\s*=\\s*"([^"]*)"`)) || [])[1];
+const hasClass = (n: TreeNode, c: string) => (nodeAttr(n, "class") || "").split(/\s+/).includes(c);
+function walkTree(n: TreeNode, fn: (n: TreeNode) => void): void { for (const c of n.children) { fn(c); walkTree(c, fn); } }
+function findNode(n: TreeNode, pred: (n: TreeNode) => boolean): TreeNode | null { let hit = null as TreeNode | null; walkTree(n, (c) => { if (!hit && pred(c)) hit = c; }); return hit; }
+const nodeText = (src: string, n: TreeNode) => src.slice(n.start, n.end).replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -902,17 +905,17 @@ const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  * (h2–h4 directly in the article), every figure, every glossary entry, and any
  * [data-linkable] block. Auto-generated ids would change whenever the text changes.
  */
-function linkTargetProblems(html) {
+function linkTargetProblems(html: string): string[] {
   const { root, src } = parseTree(html);
   const article = findNode(root, (n) => hasClass(n, "bh-article"));
   if (!article) return [];
-  const out = [];
-  const require = (n, what) => {
+  const out: string[] = [];
+  const require = (n: TreeNode, what: string) => {
     const id = nodeAttr(n, "id");
     if (!id) out.push(`${what} has no id, so it can't be linked to; add a stable kebab-case id`);
     else if (!KEBAB.test(id)) out.push(`${what} id="${id}" must be kebab-case (a-z, 0-9, hyphens)`);
   };
-  const short = (t) => (t.length > 50 ? t.slice(0, 47) + "…" : t);
+  const short = (t: string) => (t.length > 50 ? t.slice(0, 47) + "…" : t);
   for (const c of article.children) {
     if (/^h[2-4]$/.test(c.tag)) require(c, `<${c.tag}> "${short(nodeText(src, c))}"`);
   }
@@ -921,7 +924,7 @@ function linkTargetProblems(html) {
       const cap = findNode(n, (x) => x.tag === "figcaption");
       require(n, `<figure>${cap ? ` "${short(nodeText(src, cap))}"` : ""}`);
     }
-    if (n.tag === "dt" && n.parent.tag === "dl" && hasClass(n.parent, "glossary")) require(n, `glossary entry "${short(nodeText(src, n))}"`);
+    if (n.tag === "dt" && n.parent!.tag === "dl" && hasClass(n.parent!, "glossary")) require(n, `glossary entry "${short(nodeText(src, n))}"`);
     if (/\sdata-linkable\b/.test(n.attrs)) require(n, `<${n.tag} data-linkable>`);
     if (n.tag === "bh-versions") {
       const figs = n.children.filter((c) => c.tag === "figure");
@@ -936,7 +939,7 @@ function linkTargetProblems(html) {
       const actors = new Set(n.children.filter((c) => c.tag === "bh-actor").map((c) => nodeAttr(c, "data-id")));
       if (!actors.size) out.push("<bh-sequence> has no <bh-actor data-id=…>");
       if (actors.has(undefined)) out.push("every <bh-actor> needs a data-id");
-      if (n.parent.tag !== "figure") out.push("<bh-sequence> must sit inside a <figure class=\"diagram\" id=…> so it can be linked and captioned");
+      if (n.parent!.tag !== "figure") out.push("<bh-sequence> must sit inside a <figure class=\"diagram\" id=…> so it can be linked and captioned");
       for (const c of n.children) {
         const refs = c.tag === "bh-msg" ? [nodeAttr(c, "from"), nodeAttr(c, "to")] : c.tag === "bh-note" ? (nodeAttr(c, "over") || "").split(/[\s,]+/) : [];
         for (const a of refs) if (!actors.has(a)) out.push(`<${c.tag}> refers to unknown actor "${a}"`);
@@ -960,7 +963,7 @@ function linkTargetProblems(html) {
       require(n, "<bh-matrix>");
       const table = findNode(n, (x) => x.tag === "table");
       const headRow = table && findNode(table, (x) => x.tag === "thead");
-      const heads = headRow ? findNode(headRow, (x) => x.tag === "tr").children.filter((c) => c.tag === "th" || c.tag === "td") : [];
+      const heads = headRow ? findNode(headRow, (x) => x.tag === "tr")!.children.filter((c) => c.tag === "th" || c.tag === "td") : [];
       const options = heads.length - 2;
       if (options < 2) out.push("<bh-matrix> header needs: Criterion, Weight, then at least two options");
       const body = table && findNode(table, (x) => x.tag === "tbody");
@@ -977,10 +980,10 @@ function linkTargetProblems(html) {
     if (n.tag === "bh-chart") {
       const type = nodeAttr(n, "type") || "line";
       if (!["line", "bar"].includes(type)) out.push(`<bh-chart type="${type}"> must be line or bar`);
-      if (n.parent.tag !== "figure") out.push("<bh-chart> must sit inside a <figure id=…> so it can be linked and captioned");
+      if (n.parent!.tag !== "figure") out.push("<bh-chart> must sit inside a <figure id=…> so it can be linked and captioned");
       const table = findNode(n, (x) => x.tag === "table");
       const thead = table && findNode(table, (x) => x.tag === "thead");
-      const heads = thead ? findNode(thead, (x) => x.tag === "tr").children.filter((c) => c.tag === "th" || c.tag === "td").map((c) => nodeText(src, c)) : [];
+      const heads = thead ? findNode(thead, (x) => x.tag === "tr")!.children.filter((c) => c.tag === "th" || c.tag === "td").map((c) => nodeText(src, c)) : [];
       const seriesCount = heads.length - 1;
       if (seriesCount < 1) out.push("<bh-chart> table needs a header row: x label, then one column per series");
       if (seriesCount > 6) out.push(`<bh-chart> has ${seriesCount} series; past 6, fold the tail into "Other" or use small multiples`);
@@ -1004,9 +1007,9 @@ function linkTargetProblems(html) {
 
 /** @import must come before every rule except @charset and @layer statements placed before
     the first import; anything else in between makes later imports silently ignored. */
-function cssImportProblems(file) {
+function cssImportProblems(file: string): string[] {
   const css = fs.readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  const out = [];
+  const out: string[] = [];
   let phase = 0; // 0 = before imports, 1 = in imports, 2 = after
   for (const m of css.matchAll(/@(charset|import|layer)\b[^;{]*(;|\{)|[^\s@][^{]*\{/g)) {
     const kind = m[1], statement = m[2] === ";";
@@ -1025,7 +1028,7 @@ function cssImportProblems(file) {
 }
 
 /** WCAG contrast for every text/background token pair, in both themes (from light-dark()). */
-const CONTRAST_PAIRS = [
+const CONTRAST_PAIRS: [string, string[], number][] = [
   // [foreground, [backgrounds], minimum ratio]
   ["text", ["bg", "surface", "surface-2", "code-bg"], 4.5],
   ["text-muted", ["bg", "surface", "surface-2", "code-bg"], 4.5],
@@ -1042,17 +1045,17 @@ const CONTRAST_PAIRS = [
   ["c4", ["code-bg", "surface"], 4.5], ["c5", ["code-bg", "surface"], 4.5], ["c6", ["surface"], 3],
 ];
 
-function contrastProblems() {
+function contrastProblems(): string[] {
   const css = fs.readFileSync(path.join(ROOT, "theme", "tokens.css"), "utf8");
-  const tok = {};
+  const tok: Record<string, { light: string; dark: string }> = {};
   for (const m of css.matchAll(/--([\w-]+):\s*light-dark\((#[0-9a-f]{6}),\s*(#[0-9a-f]{6})\)/gi)) tok[m[1]] = { light: m[2], dark: m[3] };
-  const lum = (hex) => {
+  const lum = (hex: string) => {
     const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
     return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
   };
-  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-  const out = [];
-  for (const [fg, bgs, min] of CONTRAST_PAIRS) for (const bg of bgs) for (const mode of ["light", "dark"]) {
+  const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const out: string[] = [];
+  for (const [fg, bgs, min] of CONTRAST_PAIRS) for (const bg of bgs) for (const mode of ["light", "dark"] as const) {
     if (!tok[fg] || !tok[bg]) { out.push(`tokens.css: --${fg} or --${bg} is not a light-dark() hex pair`); continue; }
     const r = ratio(tok[fg][mode], tok[bg][mode]);
     if (r < min) out.push(`tokens.css: --${fg} on --${bg} is ${r.toFixed(2)}:1 in ${mode} mode (needs ${min}:1)`);
@@ -1069,12 +1072,12 @@ function contrastProblems() {
 
 const CHAR_W = 0.58;
 
-function labelBox(n, src, inNode) {
+function labelBox(n: TreeNode, src: string, inNode: boolean): Box & { text: string } {
   const cls = (nodeAttr(n, "class") || "").split(/\s+/);
   const size = cls.includes("zone-label") ? 11 : cls.includes("label") || cls.includes("sub") || cls.includes("mono") ? 12 : 14;
   const text = nodeText(src, n);
   const w = text.length * size * CHAR_W;
-  const x = +nodeAttr(n, "x") || 0, y = +nodeAttr(n, "y") || 0;
+  const x = Number(nodeAttr(n, "x")) || 0, y = Number(nodeAttr(n, "y")) || 0;
   const anchor = nodeAttr(n, "text-anchor") || (inNode ? "middle" : "start");
   const left = anchor === "middle" ? x - w / 2 : anchor === "end" ? x - w : x;
   // Zone labels hang from y (top); everything else is vertically centred on y.
@@ -1082,8 +1085,8 @@ function labelBox(n, src, inNode) {
   return { text, left, right: left + w, top, bottom: top + size };
 }
 
-function samplePath(segs) {
-  const pts = [];
+function samplePath(segs: PathSeg[]): number[][] {
+  const pts: number[][] = [];
   for (const s of segs) {
     if (s.type === "C" && s.ctrl && s.ctrl.length === 2) {
       const [p0, p1, p2, p3] = [s.from, s.ctrl[0], s.ctrl[1], s.to];
@@ -1098,42 +1101,42 @@ function samplePath(segs) {
   return pts;
 }
 
-function arrowPoints(segs, end) {
+function arrowPoints(segs: PathSeg[], end: "end" | "start"): number[][] {
   const e = endDirection(segs, end);
   if (!e) return [];
   const [px, py] = e.point, [dx, dy] = e.dir, [nx, ny] = [-dy, dx];
   const tip = [px + dx * ARROW_LEN, py + dy * ARROW_LEN], a = [px + nx * 5, py + ny * 5], b = [px - nx * 5, py - ny * 5];
-  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  const mid = (p: number[], q: number[]) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
   return [tip, a, b, mid(tip, a), mid(tip, b), [(tip[0] + a[0] + b[0]) / 3, (tip[1] + a[1] + b[1]) / 3]];
 }
 
-const inside = (p, box, pad) => p[0] >= box.left - pad && p[0] <= box.right + pad && p[1] >= box.top - pad && p[1] <= box.bottom + pad;
-const boxesOverlap = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+const inside = (p: number[], box: Box, pad: number) => p[0] >= box.left - pad && p[0] <= box.right + pad && p[1] >= box.top - pad && p[1] <= box.bottom + pad;
+const boxesOverlap = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 
-function diagramLabelProblems(html) {
-  const out = [];
+function diagramLabelProblems(html: string): string[] {
+  const out: string[] = [];
   for (const m of stripComments(html).matchAll(/<svg\b[\s\S]*?<\/svg>/g)) {
     if (/\stransform=/.test(m[0])) continue; // estimates don't follow transforms
     const { root: tree, src } = parseTree(m[0]);
-    const labels = [], nodes = [], edges = [];
+    const labels: (Box & { text: string })[] = [], nodes: (Box & { id: string })[] = [], edges: { id: string | undefined; line: number[][]; arrows: number[][] }[] = [];
     walkTree(tree, (n) => {
-      const nodeG = n.parent && (function up(p) { return p && p.tag !== "#root" ? (p.tag === "g" && hasClass(p, "node") ? p : up(p.parent)) : null; })(n.parent);
+      const nodeG = n.parent && (function up(p: TreeNode | null): TreeNode | null { return p && p.tag !== "#root" ? (p.tag === "g" && hasClass(p, "node") ? p : up(p.parent)) : null; })(n.parent);
       if (n.tag === "text") {
         const box = labelBox(n, src, !!nodeG);
         if (nodeG) {
           const r = findNode(nodeG, (x) => x.tag === "rect");
           if (r && !/\sdata-overlap-ok\b/.test(n.attrs)) {
-            const w = +nodeAttr(r, "width");
+            const w = Number(nodeAttr(r, "width"));
             if (box.right - box.left > w - 8) out.push(`node text "${box.text}" (~${Math.round(box.right - box.left)}px) doesn't fit its ${w}px box`);
           }
         } else if (!/\sdata-overlap-ok\b/.test(n.attrs)) labels.push(box);
       }
       if (n.tag === "rect" && nodeG && nodeG.children.find((c) => c.tag === "rect") === n) {
-        const x = +nodeAttr(n, "x") || 0, y = +nodeAttr(n, "y") || 0;
-        nodes.push({ left: x, top: y, right: x + (+nodeAttr(n, "width") || 0), bottom: y + (+nodeAttr(n, "height") || 0), id: nodeAttr(nodeG, "data-id") || "?" });
+        const x = Number(nodeAttr(n, "x")) || 0, y = Number(nodeAttr(n, "y")) || 0;
+        nodes.push({ left: x, top: y, right: x + (Number(nodeAttr(n, "width")) || 0), bottom: y + (Number(nodeAttr(n, "height")) || 0), id: nodeAttr(nodeG, "data-id") || "?" });
       }
       if (n.tag === "path" && hasClass(n, "edge")) {
-        let segs;
+        let segs: PathSeg[];
         try { segs = parsePath(nodeAttr(n, "d") || ""); } catch { return; }
         const arrows = hasClass(n, "no-arrow") ? [] : [...arrowPoints(segs, "end"), ...(hasClass(n, "both") ? arrowPoints(segs, "start") : [])];
         edges.push({ id: nodeAttr(n, "data-id") || nodeAttr(n, "d"), line: samplePath(segs), arrows });
@@ -1153,7 +1156,7 @@ function diagramLabelProblems(html) {
 
 // ---- review files ---------------------------------------------------------------------
 
-function reviewFiles(dir = path.join(ROOT, "reviews")) {
+function reviewFiles(dir = path.join(ROOT, "reviews")): string[] {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(dir, e.name);
@@ -1162,14 +1165,14 @@ function reviewFiles(dir = path.join(ROOT, "reviews")) {
 }
 
 /** Read a review file (plain or gzipped JSON). */
-function readReview(file) {
+function readReview(file: string): ReviewFile {
   const buf = fs.readFileSync(file);
   return JSON.parse((file.endsWith(".gz") ? zlib.gunzipSync(buf) : buf).toString("utf8"));
 }
 
 /** A review's `document` as a clean site-root path ("docs/x.html"), so "./docs/x.html" and "/docs/x.html" key the same thread list. */
-function canonicalDocument(document) {
-  return typeof document === "string" ? path.posix.normalize(document.replace(/\\/g, "/")).replace(/^\/+/, "") : document;
+function canonicalDocument(document: string | undefined): string {
+  return typeof document === "string" ? path.posix.normalize(document.replace(/\\/g, "/")).replace(/^\/+/, "") : document!; // untrusted JSON: not necessarily a string (only `undefined` is typed here)
 }
 
 /**
@@ -1178,7 +1181,7 @@ function canonicalDocument(document) {
  * (docs/<slug>.html carrying bh:sealed). Both repo and Pages site are public, so
  * nothing about such a page, quotes and comment bodies included, may be published.
  */
-function isPrivateDocument(document) {
+function isPrivateDocument(document: unknown): boolean {
   if (typeof document !== "string") return false;
   const rel = path.posix.normalize(document.replace(/\\/g, "/"));
   if (rel.endsWith(PRIVATE_EXT)) return true;
@@ -1187,21 +1190,21 @@ function isPrivateDocument(document) {
 }
 
 /** Export-time location status is not part of a message; attribution is. */
-function reviewRecord(cm, review) {
+function reviewRecord(cm: ReviewComment, review: ReviewFile): ReviewRecord {
   const { outdated, ...keep } = cm;
   void outdated;
   return { ...keep, author: cm.author || review.reviewer || null };
 }
 
-function sameReviewMessage(a, b) {
+function sameReviewMessage(a: { document: string; record: ReviewRecord }, b: { document: string; record: ReviewRecord }): boolean {
   return a.document === b.document && isDeepStrictEqual(a.record, b.record);
 }
 
 /** Every merged comment and reply, grouped by document, oldest first → theme/reviews.js. */
 function compileReviews() {
-  const byDoc = {}, ids = new Map();
+  const byDoc: Record<string, (ReviewRecord & { file: string })[]> = {}, ids = new Map<string, { document: string; record: ReviewRecord }>();
   for (const file of reviewFiles().sort()) {
-    let r;
+    let r: ReviewFile;
     try { r = readReview(file); } catch { continue; } // reported by reviewProblems()
     if (r.format !== "bh-review/1" || !Array.isArray(r.comments)) continue;
     if (isPrivateDocument(r.document)) continue; // reported by reviewProblems(); never published
@@ -1209,16 +1212,16 @@ function compileReviews() {
     for (const cm of r.comments) {
       const record = reviewRecord(cm, r);
       const message = { document: docKey, record };
-      if (cm.id && ids.has(cm.id) && sameReviewMessage(ids.get(cm.id), message)) continue;
+      if (cm.id && ids.has(cm.id) && sameReviewMessage(ids.get(cm.id)!, message)) continue;
       if (cm.id && !ids.has(cm.id)) ids.set(cm.id, message);
       (byDoc[docKey] = byDoc[docKey] || []).push({ ...record, file: path.relative(ROOT, file).split(path.sep).join("/") });
     }
   }
   for (const list of Object.values(byDoc)) list.sort((a, b) => String(a.created).localeCompare(String(b.created)));
-  const summary = {};
+  const summary: Record<string, { threads: number; open: number }> = {};
   for (const [docPath, list] of Object.entries(byDoc)) {
     const byId = new Map(list.map((m) => [m.id, m]));
-    const rootOf = (m) => { let r = m, guard = 0; while (r.inReplyTo && byId.has(r.inReplyTo) && guard++ < 50) r = byId.get(r.inReplyTo); return r; };
+    const rootOf = (m: (typeof list)[number]) => { let r = m, guard = 0; while (r.inReplyTo && byId.has(r.inReplyTo) && guard++ < 50) r = byId.get(r.inReplyTo)!; return r; };
     const roots = list.filter((m) => !m.inReplyTo);
     const resolved = roots.filter((rt) => {
       const replies = list.filter((m) => m.inReplyTo && typeof m.resolves === "boolean" && rootOf(m).id === rt.id);
@@ -1228,7 +1231,7 @@ function compileReviews() {
   }
   const header = "/* GENERATED by `npm run index` from reviews/. Do not edit. */\n";
   const hidden = new Set(docFiles().map(readDoc).filter((d) => d.unlisted).map((d) => d.href));
-  const split = (keep) => Object.fromEntries(Object.entries(byDoc).filter(([href]) => hidden.has(href) === keep));
+  const split = (keep: boolean) => Object.fromEntries(Object.entries(byDoc).filter(([href]) => hidden.has(href) === keep));
   return {
     byDoc, summary,
     js: header + "window.BH_REVIEWS = " + JSON.stringify(split(false), null, 1) + ";\n",
@@ -1236,13 +1239,13 @@ function compileReviews() {
   };
 }
 
-function reviewProblems() {
-  const out = [];
-  const ids = new Map(), replies = [];
+function reviewProblems(): string[] {
+  const out: string[] = [];
+  const ids = new Map<string, { rel: string; document: string; record: ReviewRecord }>(), replies: [string, string, string][] = [];
   for (const file of reviewFiles().sort()) {
     const rel = path.relative(ROOT, file);
-    let r;
-    try { r = readReview(file); } catch (e) { out.push(`${rel}: not readable JSON (${e.message})`); continue; }
+    let r: ReviewFile;
+    try { r = readReview(file); } catch (e) { out.push(`${rel}: not readable JSON (${(e as Error).message})`); continue; }
     if (r.format !== "bh-review/1") { out.push(`${rel}: format must be "bh-review/1"`); continue; }
     if (isPrivateDocument(r.document)) {
       out.push(`${rel}: reviews "${r.document}", a private page. The repo and the published site are public, so keep this review file out of the repo (send it to the author privately)`);
@@ -1255,13 +1258,13 @@ function reviewProblems() {
       const where = `${rel}: comment ${i + 1}`;
       if (!cm.id || !cm.body) out.push(`${where} needs id and body`);
       else if (!cm.inReplyTo && !cm.target) out.push(`${where} needs a target (or inReplyTo for a reply)`);
-      else if (!["comment", "suggestion", "question", "blocker"].includes(cm.kind)) out.push(`${where}: kind "${cm.kind}" is unknown`);
+      else if (!(["comment", "suggestion", "question", "blocker"] as (string | undefined)[]).includes(cm.kind)) out.push(`${where}: kind "${cm.kind}" is unknown`);
       else if (cm.target && cm.target.quote && typeof cm.target.quote.exact !== "string") out.push(`${where}: target.quote.exact must be text`);
       if (typeof cm.created !== "string" || Number.isNaN(Date.parse(cm.created))) out.push(`${where}: created must be an ISO date-time`);
       if (cm.id) {
         const message = { rel, document: canonicalDocument(r.document), record: reviewRecord(cm, r) };
         if (ids.has(cm.id)) {
-          if (!sameReviewMessage(ids.get(cm.id), message)) out.push(`${where}: id "${cm.id}" is also used in ${ids.get(cm.id).rel} with different content or document`);
+          if (!sameReviewMessage(ids.get(cm.id)!, message)) out.push(`${where}: id "${cm.id}" is also used in ${ids.get(cm.id)!.rel} with different content or document`);
         } else ids.set(cm.id, message);
       }
       if (cm.inReplyTo) replies.push([where, cm.inReplyTo, canonicalDocument(r.document)]);
@@ -1269,7 +1272,7 @@ function reviewProblems() {
   }
   for (const [where, parent, document] of replies) {
     if (!ids.has(parent)) out.push(`${where}: replies to "${parent}", which isn't in any review file`);
-    else if (ids.get(parent).document !== document) out.push(`${where}: replies to "${parent}", which is a comment on ${ids.get(parent).document}, not ${document}`);
+    else if (ids.get(parent)!.document !== document) out.push(`${where}: replies to "${parent}", which is a comment on ${ids.get(parent)!.document}, not ${document}`);
   }
   return out;
 }
@@ -1281,14 +1284,14 @@ function reviewProblems() {
 const LOGO_DIR = path.join(ROOT, "theme", "logo");
 
 /** theme/logo/mark.svg is the source of truth for the mark's geometry; bh.js inlines the same paths. */
-function logoProblems() {
-  const problems = [];
-  const read = (f) => (fs.existsSync(f) ? fs.readFileSync(f, "utf8") : null);
+function logoProblems(): string[] {
+  const problems: string[] = [];
+  const read = (f: string) => (fs.existsSync(f) ? fs.readFileSync(f, "utf8") : null);
   const mark = read(path.join(LOGO_DIR, "mark.svg")), js = read(path.join(ROOT, "theme", "bh.js"));
   if (!mark) return ["theme/logo/mark.svg is missing"];
   const paths = [...mark.matchAll(/<path\b[^>]*\sd="([^"]+)"/g)].map((m) => m[1]);
   if (!paths.length) problems.push("theme/logo/mark.svg has no <path> to compare");
-  for (const d of paths) if (!js.includes(`d="${d}"`)) problems.push("theme/bh.js LOGO_SVG has drifted from theme/logo/mark.svg: copy the paths across");
+  for (const d of paths) if (!js!.includes(`d="${d}"`)) problems.push("theme/bh.js LOGO_SVG has drifted from theme/logo/mark.svg: copy the paths across");
   const tokens = read(path.join(ROOT, "theme", "tokens.css")) || "";
   const accent = tokens.match(/--accent:\s*light-dark\((#[0-9a-f]{6}),\s*(#[0-9a-f]{6})\)/i);
   for (const f of ["mark.svg", "mark-tile.svg", "lockup.svg", "og-card.svg"]) {
@@ -1300,7 +1303,7 @@ function logoProblems() {
     if (/<(image|text)\b|font-family|@import|url\(\s*["']?https?:/.test(t)) problems.push(`theme/logo/${f} must be self-contained: no raster, <text>, fonts or remote references`);
   }
   // The PNGs are renders: check their size (IHDR width/height), which og:image:width/height in index.html declare.
-  for (const [f, w, h] of [["apple-touch-icon.png", 180, 180], ["og.png", 1200, 630]]) {
+  for (const [f, w, h] of [["apple-touch-icon.png", 180, 180], ["og.png", 1200, 630]] as [string, number, number][]) {
     const file = path.join(LOGO_DIR, f);
     if (!fs.existsSync(file)) { problems.push(`theme/logo/${f} is missing`); continue; }
     const b = fs.readFileSync(file);
@@ -1310,9 +1313,9 @@ function logoProblems() {
 }
 
 /** Whether a secret name shows in ciphertext. Names shorter than 8 characters can't be told from chance in base64, so they are not searched for. */
-const nameLeaks = (name, haystack) => name.length >= 8 && haystack.includes(name);
+const nameLeaks = (name: string, haystack: string) => name.length >= 8 && haystack.includes(name);
 
-function cmdCheck() {
+function cmdCheck(): void {
   let errors = 0, warnings = 0;
   const templates = fs.readdirSync(TEMPLATES).filter((f) => f.endsWith(".html")).sort().map((f) => path.join(TEMPLATES, f));
   const files = [INDEX, ...docFiles(), ...privateSources(), ...templates];
@@ -1360,7 +1363,8 @@ function cmdCheck() {
     for (const d of all) {
       if (d.status.toLowerCase() === "superseded" && !d.supersededBy) problems.push(`${d.href}: status "superseded" needs <meta name="bh:superseded-by">`);
       if (d.supersededBy && d.status.toLowerCase() !== "superseded") problems.push(`${d.href}: has bh:superseded-by, so bh:status must be "superseded"`);
-      for (const [rel, back, target] of [["bh:superseded-by", "supersedes", d.supersededBy], ["bh:supersedes", "supersededBy", d.supersedes]]) {
+      const chain: [string, "supersedes" | "supersededBy", string][] = [["bh:superseded-by", "supersedes", d.supersededBy], ["bh:supersedes", "supersededBy", d.supersedes]];
+      for (const [rel, back, target] of chain) {
         if (!target) continue;
         const t = byHref.get(target);
         if (t && t.unlisted !== d.unlisted && rel === "bh:superseded-by") problems.push(`${d.href}: ${rel} → ${target}, but one is unlisted and the other is not: a decision chain must be all listed or all unlisted`);
@@ -1383,7 +1387,7 @@ function cmdCheck() {
   // Private pages: every plaintext is sealed and current; sealed shells are well-formed.
   const privateSlugs = new Set([...privateSources().map((f) => path.basename(f, PRIVATE_EXT)), ...sealedFiles().map((f) => path.basename(f, ".html"))]);
   {
-    const problems = [];
+    const problems: string[] = [];
     for (const shell of sealedFiles()) {
       const slug = path.basename(shell, ".html"), text = fs.readFileSync(shell, "utf8");
       if (!/id="sealed-payload">\s*[A-Za-z0-9+/=\s]{40,}<\/script>/.test(text)) problems.push(`docs/${slug}.html: sealed payload is missing or malformed`);
@@ -1413,7 +1417,7 @@ function cmdCheck() {
     }
     // The encrypted cards for the home page: structure everywhere, content where the keys are.
     const cardsFile = path.join(ROOT, CARD_FILE);
-    let cardsText = null;
+    let cardsText: string | null = null;
     if (!fs.existsSync(cardsFile)) problems.push(`${CARD_FILE} is missing: run \`npm run seal\``);
     else {
       cardsText = fs.readFileSync(cardsFile, "utf8");
@@ -1426,8 +1430,8 @@ function cmdCheck() {
       const group = getMeta(stripComments(fs.readFileSync(src, "utf8")), "bh:group");
       if (group && !GROUP_RE.test(group)) problems.push(`docs/${slug}${PRIVATE_EXT}: bh:group "${group}" must be kebab-case`);
       if (group && nameLeaks(group, cardEntries.map((e) => e.blob).join("\n"))) problems.push(`${CARD_FILE} leaks the group name of ${slug}`);
-      let keyText = null;
-      try { keyText = readKey(slug); } catch (e) { problems.push(`can't read the key for ${slug} from 1Password: ${e.message}`); continue; }
+      let keyText: string | null = null;
+      try { keyText = readKey(slug); } catch (e) { problems.push(`can't read the key for ${slug} from 1Password: ${(e as Error).message}`); continue; }
       if (!keyText && readItem(opTitle(slug))) { problems.push(`can't read the key for ${slug}: ${missingKeyReason(slug)}`); continue; }
       if (!keyText || !fs.existsSync(out)) { problems.push(`docs/${slug}${PRIVATE_EXT} has never been sealed: run \`npm run seal\``); continue; }
       const digest = sealDigest(Buffer.from(keyText, "base64url"), fs.readFileSync(src));
@@ -1448,9 +1452,9 @@ function cmdCheck() {
     const html = stripComments(raw);
     const isTemplate = file.startsWith(TEMPLATES + path.sep);
     const isDoc = file !== INDEX;
-    const problems = [];
-    const err = (m) => { problems.push(c.red("  error  ") + m); errors++; };
-    const warn = (m) => { problems.push(c.yellow("  warn   ") + m); warnings++; };
+    const problems: string[] = [];
+    const err = (m: string) => { problems.push(c.red("  error  ") + m); errors++; };
+    const warn = (m: string) => { problems.push(c.yellow("  warn   ") + m); warnings++; };
 
     if (!getTitle(html)) err("missing <title>");
     if (!getMeta(html, "description")) err('missing <meta name="description">');
@@ -1638,9 +1642,9 @@ function cmdCheck() {
       const d = (m[0].match(/\sd="([^"]*)"/) || [])[1];
       const name = (m[0].match(/\sdata-id="([^"]*)"/) || [])[1] || d;
       if (!d) { err(`edge "${name}" has no d attribute`); continue; }
-      let segs;
-      try { segs = parsePath(d); } catch (e) { err(`edge "${name}": ${e.message}`); continue; }
-      const ends = classes.includes("both") ? ["end", "start"] : ["end"];
+      let segs: PathSeg[];
+      try { segs = parsePath(d); } catch (e) { err(`edge "${name}": ${(e as Error).message}`); continue; }
+      const ends: ("end" | "start")[] = classes.includes("both") ? ["end", "start"] : ["end"];
       for (const end of ends) for (const p of tipProblems(segs, end, rects)) err(`edge "${name}" ${p}`);
     }
     }
@@ -1678,7 +1682,7 @@ function cmdCheck() {
 
 // ---- bundle -----------------------------------------------------------------------
 
-function inlineCss(file, remote, seen = new Set()) {
+function inlineCss(file: string, remote: Set<string>, seen = new Set<string>()): string {
   if (seen.has(file)) return "";
   seen.add(file);
   const css = fs.readFileSync(file, "utf8");
@@ -1689,16 +1693,16 @@ function inlineCss(file, remote, seen = new Set()) {
   });
 }
 
-const MIME = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp", ".avif": "image/avif" };
+const MIME: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp", ".avif": "image/avif" };
 
-function bundleOne(file) {
+function bundleOne(file: string): void {
   const dir = path.dirname(file);
   let html = fs.readFileSync(file, "utf8");
-  const scripts = [];
+  const scripts: string[] = [];
 
   html = html.replace(/<link\s+rel="stylesheet"\s+href="([^"]+)"\s*\/?>/g, (m, href) => {
     if (/^https?:/.test(href)) return m;
-    const remote = new Set();
+    const remote = new Set<string>();
     const css = inlineCss(path.resolve(dir, href), remote);
     return `<style>\n${[...remote].join("\n")}\n${css}\n</style>`;
   });
@@ -1765,7 +1769,7 @@ function bundleOne(file) {
   console.log(c.green(`Bundled ${path.relative(ROOT, file)} → ${path.relative(ROOT, out)}`) + c.dim(` (${(Buffer.byteLength(html) / 1024).toFixed(1)} KB)`));
 }
 
-function cmdBundle([target]) {
+function cmdBundle([target]: string[]): void {
   if (!target) {
     console.error("Usage: bh bundle <docs/page.html | --all>");
     process.exit(2);
@@ -1787,42 +1791,43 @@ function cmdBundle([target]) {
 // The fragment is never sent to the server. Without the key the shell shows only a notice.
 // The sealed file is the copy of record: `unseal` recreates the plaintext from it.
 
-const opTitle = (slug) => `beautiful-html private page: ${slug}`;
-const opGroupTitle = (name) => `beautiful-html private group: ${name}`;
-const itemCache = new Map();
+const opTitle = (slug: string) => `beautiful-html private page: ${slug}`;
+const opGroupTitle = (name: string) => `beautiful-html private group: ${name}`;
+const itemCache = new Map<string, OpItem | null>();
 
 /** Run the 1Password CLI. Secrets only ever travel on stdin/stdout, never in argv. */
-function op(args, input) {
+function op(args: string[], input?: string | null): string {
   try {
     if (input == null) return execFileSync("op", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
     // Node's stdin "pipe" is a socket, which op doesn't treat as piped input (it then creates an
     // empty item). `cat |` hands op a real pipe; the secret still never appears in argv.
     return execFileSync("/bin/sh", ["-c", 'cat | op "$@"', "sh", ...args], { input, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
   } catch (e) {
-    if (e.code === "ENOENT") throw new Error("the 1Password CLI (`op`) is not installed: `brew install 1password-cli`");
-    throw new Error(String(e.stderr || e.message).trim().replace(/^\[ERROR\]\s*\S+\s+\S+\s*/, ""));
+    const err = e as NodeJS.ErrnoException & { stderr?: unknown };
+    if (err.code === "ENOENT") throw new Error("the 1Password CLI (`op`) is not installed: `brew install 1password-cli`");
+    throw new Error(String(err.stderr || err.message).trim().replace(/^\[ERROR\]\s*\S+\s+\S+\s*/, ""));
   }
 }
 
 /** A 1Password item as { id, group, password } (empty strings for absent fields), or null if there is none. */
-function readItem(title) {
+function readItem(title: string): OpItem | null {
   if (!itemCache.has(title)) {
-    let item = null;
+    let item: { id: string; fields?: { label: string; value?: string }[] } | null = null;
     try {
       item = JSON.parse(op(["item", "get", title, "--vault", OP_VAULT, "--format", "json", "--reveal"]));
     } catch (e) {
-      if (!/isn't an item|not found/i.test(e.message)) throw e;
+      if (!/isn't an item|not found/i.test((e as Error).message)) throw e;
     }
-    const field = (label) => String((item?.fields || []).find((f) => f.label === label)?.value ?? "");
+    const field = (label: string) => String((item?.fields || []).find((f) => f.label === label)?.value ?? "");
     itemCache.set(title, item && { id: item.id, group: field("group"), password: field("password") });
   }
-  return itemCache.get(title);
+  return itemCache.get(title) as OpItem | null;
 }
 
-const validKey = (key) => (key && KEY_RE.test(key) ? key : null);
+const validKey = (key: string | null | undefined) => (key && KEY_RE.test(key) ? key : null);
 
 /** The key that opens a page, or null if it has none yet. A grouped page's item names its group; the group's item holds the key. */
-function readKey(slug) {
+function readKey(slug: string): string | null {
   const item = readItem(opTitle(slug));
   if (!item) return null;
   if (item.group) return validKey(readItem(opGroupTitle(item.group))?.password);
@@ -1830,7 +1835,7 @@ function readKey(slug) {
 }
 
 /** Why `readKey` found no key for a page, in words. */
-function missingKeyReason(slug) {
+function missingKeyReason(slug: string): string {
   const item = readItem(opTitle(slug));
   if (!item) return `there is no item "${opTitle(slug)}"`;
   if (item.group) return `its group item "${opGroupTitle(item.group)}" is missing or holds no valid key (restore it from the 1Password archive)`;
@@ -1838,17 +1843,17 @@ function missingKeyReason(slug) {
 }
 
 /** Create a 1Password item from the given fields; read it back, because a key hasn't reached 1Password until it can be fetched again. */
-function createItem(title, category, fields, verify) {
+function createItem(title: string, category: string, fields: object[], verify: (item: OpItem | null) => boolean): void {
   const created = JSON.parse(op(["item", "create", "--vault", OP_VAULT, "--format", "json", "-"], JSON.stringify({ title, category, fields })));
   itemCache.delete(title);
   if (!verify(readItem(title))) throw new Error(`1Password item ${created.id} doesn't hold what was sent; archive it and retry`);
 }
 
-const notes = (value) => ({ id: "notesPlain", type: "STRING", purpose: "NOTES", label: "notesPlain", value });
-const secret = (key) => ({ id: "password", type: "CONCEALED", purpose: "PASSWORD", label: "password", value: key });
+const notes = (value: string) => ({ id: "notesPlain", type: "STRING", purpose: "NOTES", label: "notesPlain", value });
+const secret = (key: string) => ({ id: "password", type: "CONCEALED", purpose: "PASSWORD", label: "password", value: key });
 
 /** Store a new key as a 1Password Password item. */
-function storeKey(slug, key = crypto.randomBytes(32).toString("base64url")) {
+function storeKey(slug: string, key = crypto.randomBytes(32).toString("base64url")) {
   createItem(opTitle(slug), "PASSWORD", [secret(key),
     notes(`Decryption key for docs/${slug}.html in beautiful-html.\nShare as: docs/${slug}.html#k=<this password>\nRecreate the plaintext with: npm run unseal -- ${slug}`)],
   (item) => item?.password === key);
@@ -1856,7 +1861,7 @@ function storeKey(slug, key = crypto.randomBytes(32).toString("base64url")) {
 }
 
 /** Store a new group key. Every page in the group is opened by it, and so is the home-page card of each. */
-function storeGroupKey(name, key = crypto.randomBytes(32).toString("base64url")) {
+function storeGroupKey(name: string, key = crypto.randomBytes(32).toString("base64url")) {
   createItem(opGroupTitle(name), "PASSWORD", [secret(key),
     notes(`Decryption key shared by every private page in the group "${name}" (<meta name="bh:group">) in beautiful-html.\nShare as: docs/<slug>.html#k=<this password>, or index.html#k=<this password> for the home-page cards.\nAnyone with it opens every page in the group. Archive this item only once no page uses the group.`)],
   (item) => item?.password === key);
@@ -1864,13 +1869,13 @@ function storeGroupKey(name, key = crypto.randomBytes(32).toString("base64url"))
 }
 
 /** Point a page at its group: the page's item keeps no key, only the group's name. */
-function storePageGroup(slug, group) {
+function storePageGroup(slug: string, group: string): void {
   createItem(opTitle(slug), "SECURE_NOTE", [{ id: "group", type: "STRING", label: "group", value: group },
     notes(`The key for docs/${slug}.html is the password of "${opGroupTitle(group)}".\nRecreate the plaintext with: npm run unseal -- ${slug}`)],
   (item) => item?.group === group);
 }
 
-function archiveItem(title) {
+function archiveItem(title: string): void {
   op(["item", "delete", title, "--vault", OP_VAULT, "--archive"]);
   itemCache.delete(title);
 }
@@ -1881,7 +1886,7 @@ function archiveItem(title) {
  * lookup), and a group item that is gone while a page still points at it (minting a new key
  * would silently re-key the whole group).
  */
-function checkItems(slug, group) {
+function checkItems(slug: string, group: string): void {
   if (!group) return;
   const groupItem = readItem(opGroupTitle(group));
   if (groupItem && !validKey(groupItem.password)) throw new Error(`"${opGroupTitle(group)}" in 1Password holds no valid key: fix or archive that item, then run seal again`);
@@ -1893,7 +1898,7 @@ function checkItems(slug, group) {
  * every lookup; if the new one can't be created, the old one is put back, so a failure never
  * leaves a sealed page without its key.
  */
-function replacePageItem(slug, old, create) {
+function replacePageItem(slug: string, old: OpItem | null, create: () => void): void {
   const title = opTitle(slug);
   if (old) archiveItem(title);
   try { create(); }
@@ -1911,7 +1916,7 @@ function replacePageItem(slug, old, create) {
  * missing. Returns the key before and after: they differ when the page's group changed, which
  * re-keys it. An item whose mode changed is archived, not edited, so no secret passes through argv.
  */
-function ensureKey(slug, group) {
+function ensureKey(slug: string, group: string): { before: string | null; key: string | null } {
   const before = readKey(slug), title = opTitle(slug), item = readItem(title);
   checkItems(slug, group);
   if (group) {
@@ -1925,12 +1930,12 @@ function ensureKey(slug, group) {
 }
 
 /** Identifies the sealed plaintext without revealing anything about it (keyed MAC). */
-const sealDigest = (key, plain) => crypto.createHmac("sha256", key).update(plain).digest("hex");
+const sealDigest = (key: Buffer, plain: Buffer) => crypto.createHmac("sha256", key).update(plain).digest("hex");
 
 /** The base64 ciphertext inside a sealed page, whitespace removed. */
-const sealedPayload = (text) => ((text.match(/id="sealed-payload">([\s\S]*?)<\/script>/) || [])[1] || "").replace(/\s+/g, "");
+const sealedPayload = (text: string) => ((text.match(/id="sealed-payload">([\s\S]*?)<\/script>/) || [])[1] || "").replace(/\s+/g, "");
 
-function sealedShell(payload, digest, shell = SHELL_VERSION()) {
+function sealedShell(payload: string, digest: string, shell: string = SHELL_VERSION()): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -2007,12 +2012,12 @@ unseal(true);
 }
 
 /** Changes whenever the shell's markup or script changes, so stale shells get re-sealed. */
-function SHELL_VERSION() {
+function SHELL_VERSION(): string {
   return crypto.createHash("sha256").update(sealedShell("", "", "")).digest("hex").slice(0, 16);
 }
 
 /** Rewrap sealed pages in the current shell, keeping each payload as it is. Needs no key. */
-function reshell() {
+function reshell(): void {
   for (const file of sealedFiles()) {
     const text = fs.readFileSync(file, "utf8"), rel = path.relative(ROOT, file);
     const next = sealedShell(sealedPayload(text), getMeta(text, "bh:sealed-digest"));
@@ -2023,16 +2028,16 @@ function reshell() {
 }
 
 /** The page's `bh:group` from its plaintext ("" for none); exits on a name that isn't kebab-case. */
-function sourceGroup(src) {
+function sourceGroup(src: string): string {
   const group = getMeta(stripComments(fs.readFileSync(src, "utf8")), "bh:group");
   if (group && !GROUP_RE.test(group)) { console.error(c.red(`${path.relative(ROOT, src)}: bh:group "${group}" must be kebab-case (a-z, 0-9, hyphens)`)); process.exit(1); }
   return group;
 }
 
 /** The card a private source would show: what `readDoc` extracts, as plain data. */
-const sourceCard = (src) => { const d = readDoc(src); return cardFromDoc(d, docTopics(d)); };
+const sourceCard = (src: string) => { const d = readDoc(src); return cardFromDoc(d, docTopics(d)); };
 
-function cmdSeal(argv = []) {
+function cmdSeal(argv: string[] = []): void {
   if (argv.includes("--reshell")) return reshell();
   const showLinks = argv.includes("--show-links");
   const sources = privateSources();
@@ -2044,13 +2049,14 @@ function cmdSeal(argv = []) {
     const slug = path.basename(src, PRIVATE_EXT), out = path.join(DOCS, `${slug}.html`);
     const group = sourceGroup(src);
     if (fs.existsSync(out) && !isSealed(out)) { console.error(c.red(`Refusing to overwrite public page ${path.relative(ROOT, out)}`)); process.exit(1); }
-    try { checkItems(slug, group); } catch (e) { console.error(c.red(`${slug}: ${e.message}`)); process.exit(1); }
+    try { checkItems(slug, group); } catch (e) { console.error(c.red(`${slug}: ${(e as Error).message}`)); process.exit(1); }
     return { src, slug, out, rel: path.relative(ROOT, out), group };
   });
-  const fresh = {}, groups = new Map();
+  const fresh: Record<string, string> = {}, groups = new Map<string, string>();
   try {
     for (const { src, slug, out, rel, group } of plans) {
-      const { before, key: keyText } = ensureKey(slug, group);
+      const { before, key: storedKey } = ensureKey(slug, group);
+      const keyText = storedKey!; // ensureKey stores the key and reads it back
       if (fs.existsSync(out) && before !== keyText) {
         const why = !before ? "its key was missing from 1Password, so a new one was made" : group ? `now in the group "${group}"` : "it left its group";
         console.warn(c.yellow(`⚠ ${slug}: its key changed (${why}). The page is re-encrypted, so every old #k= link to ${rel} stops working: share the new link.`));
@@ -2090,7 +2096,7 @@ function cmdSeal(argv = []) {
 }
 
 /** Decrypt a sealed page with its key; the inverse of the encryption in cmdSeal. */
-function unsealFile(file, keyText) {
+function unsealFile(file: string, keyText: string): Buffer {
   const text = fs.readFileSync(file, "utf8");
   const b64 = (text.match(/id="sealed-payload">([\s\S]*?)<\/script>/) || [])[1];
   if (!b64) throw new Error(`${path.relative(ROOT, file)} has no sealed payload`);
@@ -2100,7 +2106,7 @@ function unsealFile(file, keyText) {
   return zlib.gunzipSync(Buffer.concat([decipher.update(raw.subarray(12, raw.length - 16)), decipher.final()]));
 }
 
-function cmdUnseal(argv) {
+function cmdUnseal(argv: string[]): void {
   const force = argv.includes("--force");
   const wanted = argv.filter((a) => a !== "--force");
   const shells = sealedFiles().filter((f) => !wanted.length || wanted.includes(path.basename(f, ".html")));
@@ -2110,8 +2116,8 @@ function cmdUnseal(argv) {
     const out = path.join(DOCS, slug + PRIVATE_EXT), rel = path.relative(ROOT, out);
     const keyText = readKey(slug);
     if (!keyText) { console.error(c.red(`No key for ${slug} in 1Password (vault ${OP_VAULT}): ${missingKeyReason(slug)}`)); process.exitCode = 1; continue; }
-    let plain;
-    try { plain = unsealFile(shell, keyText); } catch (e) { console.error(c.red(`Can't decrypt docs/${slug}.html: ${e.message}`)); process.exitCode = 1; continue; }
+    let plain: Buffer;
+    try { plain = unsealFile(shell, keyText); } catch (e) { console.error(c.red(`Can't decrypt docs/${slug}.html: ${(e as Error).message}`)); process.exitCode = 1; continue; }
     if (fs.existsSync(out)) {
       if (fs.readFileSync(out).equals(plain)) { console.log(c.dim(`${rel} is up to date`)); continue; }
       if (!force) { console.error(c.red(`${rel} has edits that aren't sealed yet; run \`npm run seal\`, or \`unseal -- --force\` to discard them`)); process.exitCode = 1; continue; }
@@ -2126,25 +2132,25 @@ function cmdUnseal(argv) {
 /** What review comments are made against: repo, commit and whether the tree had edits.
     On GitHub Pages the deploy writes theme/build.js; `serve` and `bundle` compute it here. */
 function buildInfo() {
-  const git = (args) => { try { return execSync(`git ${args}`, { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); } catch { return ""; } };
+  const git = (args: string) => { try { return execSync(`git ${args}`, { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); } catch { return ""; } };
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
   const repo = String(pkg.repository || "").replace(/^github:/, "");
   return { repo, commit: git("rev-parse HEAD") || null, dirty: git("status --porcelain -- docs theme index.html") !== "", builtAt: new Date().toISOString() };
 }
-const buildScript = (info) => `/* Review build stamp (generated, not committed). */\nwindow.BH_BUILD = ${JSON.stringify(info)};\n`;
+const buildScript = (info: ReturnType<typeof buildInfo>) => `/* Review build stamp (generated, not committed). */\nwindow.BH_BUILD = ${JSON.stringify(info)};\n`;
 
-function cmdServe([port = "8000"]) {
+function cmdServe([port = "8000"]: string[]): void {
   const root = fs.realpathSync(ROOT);
-  const contains = (file) => file === root || file.startsWith(root + path.sep);
-  const types = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".xml": "application/xml; charset=utf-8", ".woff2": "font/woff2", ...MIME };
+  const contains = (file: string) => file === root || file.startsWith(root + path.sep);
+  const types: Record<string, string> = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".xml": "application/xml; charset=utf-8", ".woff2": "font/woff2", ...MIME };
   http.createServer((req, res) => {
-    let p;
-    try { p = decodeURIComponent(new URL(req.url, "http://x").pathname); } catch { res.writeHead(400).end(); return; }
+    let p: string;
+    try { p = decodeURIComponent(new URL(req.url!, "http://x").pathname); } catch { res.writeHead(400).end(); return; }
     if (p === "/theme/build.js") {
       res.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-cache" }).end(buildScript(buildInfo()));
       return;
     }
-    let file = path.join(root, p), target;
+    let file = path.join(root, p), target: string;
     if (!contains(file)) { res.writeHead(403).end(); return; }
     try {
       target = fs.realpathSync(file);
@@ -2169,7 +2175,7 @@ function cmdServe([port = "8000"]) {
 // ---- main -------------------------------------------------------------------------
 
 const [cmd, ...args] = process.argv.slice(2);
-const commands = { new: cmdNew, index: cmdIndex, check: cmdCheck, cards: cmdCards, bundle: cmdBundle, seal: cmdSeal, unseal: cmdUnseal, serve: cmdServe };
+const commands: Record<string, (args: string[]) => unknown> = { new: cmdNew, index: cmdIndex, check: cmdCheck, cards: cmdCards, bundle: cmdBundle, seal: cmdSeal, unseal: cmdUnseal, serve: cmdServe };
 if (!commands[cmd]) {
   console.log(`beautiful-html
 
@@ -2186,4 +2192,4 @@ if (!commands[cmd]) {
   serve [port]                                 static server on http://localhost:8000/`);
   process.exit(cmd ? 2 : 0);
 }
-try { await commands[cmd](args); } catch (e) { console.error(c.red(`bh ${cmd}: ${e.message}`)); process.exit(1); }
+try { await commands[cmd](args); } catch (e) { console.error(c.red(`bh ${cmd}: ${(e as Error).message}`)); process.exit(1); }

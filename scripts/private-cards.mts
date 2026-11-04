@@ -15,7 +15,7 @@ import crypto from "node:crypto";
 import zlib from "node:zlib";
 import { isDeepStrictEqual } from "node:util";
 
-export const KIND_LABELS = {
+export const KIND_LABELS: Record<string, string> = {
   explainer: "Explainer",
   design: "Design doc",
   decision: "Decision",
@@ -24,8 +24,9 @@ export const KIND_LABELS = {
   reference: "Reference",
 };
 
-export function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+export function escapeHtml(s: unknown): string {
+  const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return String(s).replace(/[&<>"']/g, (ch) => entities[ch]!);
 }
 
 export const CARD_FILE = "theme/private-cards.js";
@@ -36,14 +37,44 @@ export const GROUP_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const SLUG_RE = GROUP_RE;
 const BLOB_RE = /^[A-Za-z0-9+/]+={0,2}$/;
 
-const aad = (slug) => Buffer.from(`bh-card/1:${slug}`, "utf8");
-const keyBytes = (key) => Buffer.from(key, "base64url");
+const aad = (slug: string) => Buffer.from(`bh-card/1:${slug}`, "utf8");
+const keyBytes = (key: string) => Buffer.from(key, "base64url");
 
 // ---- the card ------------------------------------------------------------------------------
 
+/** The fields of a catalogue document that a card is made from (a subset of what `index` reads from a page's head). */
+export interface CardDoc {
+  title: string;
+  description: string;
+  kind: string;
+  status: string;
+  date: string;
+  href?: string;
+  supersededBy?: string | null;
+  example?: boolean;
+  unlisted?: boolean;
+}
+
 /** What a public card shows, as plain data. `tags` is the lowercase topic list. */
-export function cardFromDoc(d, tags) {
-  const card = { title: d.title, description: d.description, kind: d.kind, status: d.status, date: d.date, tags: [...tags] };
+export interface Card {
+  title: string;
+  description: string;
+  kind: string;
+  status: string;
+  date: string;
+  tags: string[];
+  supersededBy?: string;
+}
+
+/** One line of theme/private-cards.js: a sealed page's slug and its encrypted card. */
+export interface CardEntry { slug: string; blob: string }
+
+/** What `parseCardsFile` found: the entries it could read, and what is wrong with the file. */
+export interface ParsedCardsFile { entries: CardEntry[]; problems: string[] }
+
+/** The card for `d`: plain data, safe to encrypt. */
+export function cardFromDoc(d: CardDoc, tags: Iterable<string>): Card {
+  const card: Card = { title: d.title, description: d.description, kind: d.kind, status: d.status, date: d.date, tags: [...tags] };
   const replaced = /^docs\/([a-z0-9-]+)\.html$/.exec(d.supersededBy || "");
   if (replaced) card.supersededBy = replaced[1];
   return card;
@@ -52,7 +83,7 @@ export function cardFromDoc(d, tags) {
 // ---- encrypt / decrypt ---------------------------------------------------------------------
 
 /** A fresh blob for `card`, under `key` (43-char base64url), bound to `slug`. */
-export function encryptCard(card, key, slug, iv = crypto.randomBytes(IV_LEN)) {
+export function encryptCard(card: Card, key: string, slug: string, iv: Buffer = crypto.randomBytes(IV_LEN)) {
   const cipher = crypto.createCipheriv("aes-256-gcm", keyBytes(key), iv, { authTagLength: TAG_LEN });
   cipher.setAAD(aad(slug));
   const sealed = Buffer.concat([iv, cipher.update(zlib.gzipSync(JSON.stringify(card), { level: 9 })), cipher.final(), cipher.getAuthTag()]);
@@ -60,7 +91,7 @@ export function encryptCard(card, key, slug, iv = crypto.randomBytes(IV_LEN)) {
 }
 
 /** The card in `blob`; throws when the key or the slug is wrong, or the blob was altered. */
-export function decryptCard(blob, key, slug) {
+export function decryptCard(blob: string, key: string, slug: string): Card {
   const raw = Buffer.from(blob, "base64");
   if (raw.length < IV_LEN + TAG_LEN) throw new Error("blob is too short");
   const decipher = crypto.createDecipheriv("aes-256-gcm", keyBytes(key), raw.subarray(0, IV_LEN), { authTagLength: TAG_LEN });
@@ -70,12 +101,12 @@ export function decryptCard(blob, key, slug) {
 }
 
 /** The card in `blob`, or null instead of throwing. */
-export function tryDecryptCard(blob, key, slug) {
+export function tryDecryptCard(blob: string, key: string, slug: string): Card | null {
   try { return decryptCard(blob, key, slug); } catch { return null; }
 }
 
 /** `existing` when it already holds `card` under `key`, else a new blob. Re-sealing unchanged input leaves the diff empty. */
-export function buildBlob(existing, card, key, slug) {
+export function buildBlob(existing: string | null | undefined, card: Card, key: string, slug: string): string {
   if (existing) {
     const current = tryDecryptCard(existing, key, slug);
     if (current && isDeepStrictEqual(current, card)) return existing;
@@ -86,31 +117,31 @@ export function buildBlob(existing, card, key, slug) {
 // ---- theme/private-cards.js ----------------------------------------------------------------
 
 /** Canonical text of the card file: sorted by slug, one entry per line, stable formatting. */
-export function renderCardsFile(entries) {
+export function renderCardsFile(entries: CardEntry[]): string {
   const sorted = [...entries].sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
   const lines = sorted.map((e) => `  { slug: ${JSON.stringify(e.slug)}, blob: ${JSON.stringify(e.blob)} }`);
   return `${CARD_FILE_HEADER}\nwindow.BH_PRIVATE = { v: 1, cards: [${lines.length ? "\n" + lines.join(",\n") + "\n" : ""}] };\n`;
 }
 
 /** Entries of a card file, read without running it: { entries, problems }. */
-export function parseCardsFile(text) {
-  const problems = [], entries = [];
+export function parseCardsFile(text: string): ParsedCardsFile {
+  const problems: string[] = [], entries: CardEntry[] = [];
   const lines = text.split("\n");
   if (lines[0] !== CARD_FILE_HEADER) problems.push("must start with the generated-file header");
-  const open = lines.findIndex((l) => l.startsWith("window.BH_PRIVATE"));
+  const open = lines.findIndex((l: string) => l.startsWith("window.BH_PRIVATE"));
   if (open < 0) { problems.push("has no window.BH_PRIVATE assignment"); return { entries, problems }; }
-  const head = lines[open];
+  const head = lines[open]!;
   if (!/^window\.BH_PRIVATE = \{ v: 1, cards: \[(?:\] \};)?$/.test(head)) problems.push("`v` must be 1 and `cards` an array");
   for (const line of lines.slice(open + 1)) {
     const m = /^ {2}\{ slug: "([^"]*)", blob: "([^"]*)" \},?$/.exec(line);
-    if (m) entries.push({ slug: m[1], blob: m[2] });
+    if (m) entries.push({ slug: m[1]!, blob: m[2]! });
     else if (line !== "" && line !== "] };") problems.push(`has an unrecognised line: ${line.slice(0, 40)}`);
   }
   return { entries, problems };
 }
 
 /** Structural problems with the card file against the slugs that have a sealed page. No keys needed. */
-export function validateCardsFile(text, sealedSlugs) {
+export function validateCardsFile(text: string, sealedSlugs: Set<string>): string[] {
   const { entries, problems } = parseCardsFile(text);
   const seen = new Set();
   let prev = "";
@@ -129,7 +160,7 @@ export function validateCardsFile(text, sealedSlugs) {
 }
 
 /** The home-page card list after sealing: a blob per sealed page, new ones from `fresh` ({ slug: blob }), the rest kept. */
-export function mergeEntries(existing, fresh, sealedSlugs) {
+export function mergeEntries(existing: CardEntry[], fresh: Record<string, string>, sealedSlugs: Iterable<string>): CardEntry[] {
   const kept = new Map(existing.map((e) => [e.slug, e.blob]));
   return [...sealedSlugs].sort().flatMap((slug) => {
     const blob = fresh[slug] ?? kept.get(slug);
@@ -140,7 +171,7 @@ export function mergeEntries(existing, fresh, sealedSlugs) {
 // ---- the home-page card --------------------------------------------------------------------
 
 /** The catalogue card for a document: the one source of the markup that `npm run index` writes. */
-export function docCardHtml(d, tags, titles) {
+export function docCardHtml(d: CardDoc, tags: string[], titles: Map<string, string>): string {
   const search = [d.title, d.description, tags.join(", "), d.kind].join(" ").toLowerCase();
   const replaced = d.supersededBy ? `\n        <p class="card-replaced">Replaced by <a href="${escapeHtml(d.supersededBy)}">${escapeHtml(titles.get(d.supersededBy) || d.supersededBy)}</a></p>` : "";
   const kindLabel = KIND_LABELS[d.kind] || d.kind;
