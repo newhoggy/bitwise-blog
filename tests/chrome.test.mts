@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { test } from "node:test";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const chromeModule = new URL("../scripts/chrome.mjs", import.meta.url).href;
+const chromeModule = new URL("../scripts/chrome.mts", import.meta.url).href;
 
 // The child must exit naturally. Killing a timed-out child is test cleanup, never success.
 function run(args, env, timeout = 10000) {
@@ -55,10 +55,10 @@ function fixture(t, body) {
   return { CHROME_PATH: exe, PROFILE_RECORD: path.join(dir, "profile.txt") };
 }
 
-function rendererFixture(env, renderer = "visual.mjs") {
+function rendererFixture(env, renderer = "visual.mts") {
   const scripts = path.join(path.dirname(env.CHROME_PATH), "repo", "scripts");
   fs.mkdirSync(scripts, { recursive: true });
-  for (const file of [renderer, "chrome.mjs"]) fs.copyFileSync(path.join(root, "scripts", file), path.join(scripts, file));
+  for (const file of [renderer, "chrome.mts"]) fs.copyFileSync(path.join(root, "scripts", file), path.join(scripts, file));
   return path.join(scripts, renderer);
 }
 
@@ -172,7 +172,7 @@ setInterval(() => {}, 1000);`);
 
 test("cards startup failure closes the static server and caller exits naturally nonzero", async (t) => {
   const env = fixture(t, `${profileRecorder}\nprocess.exit(7);`);
-  const cards = rendererFixture(env, "cards.mjs");
+  const cards = rendererFixture(env, "cards.mts");
   const result = await run(["--input-type=module", "-e", `
     const { renderCards } = await import(${JSON.stringify(pathToFileURL(cards).href)});
     try { await renderCards([{}], { sharedCard: '' }); }
@@ -185,7 +185,7 @@ test("cards startup failure closes the static server and caller exits naturally 
 
 // Real process/profile cleanup runs first; only its final return is made to reject.
 function injectCardsCleanupFailure(cards) {
-  const file = path.join(path.dirname(cards), "chrome.mjs");
+  const file = path.join(path.dirname(cards), "chrome.mts");
   let source = fs.readFileSync(file, "utf8");
   for (const name of ["launchChrome", "serveStatic"]) {
     const original = name === "launchChrome" ? `export async function ${name}(` : `export function ${name}(`;
@@ -223,7 +223,7 @@ const failingWebSocket = `globalThis.WebSocket = class {
 
 test("cards awaits server closure when Chrome cleanup throws and preserves the failure", async (t) => {
   const env = fixture(t, `${profileRecorder}\nconsole.error('DevTools listening on ws://fake'); setInterval(() => {}, 1000);`);
-  const cards = rendererFixture(env, "cards.mjs");
+  const cards = rendererFixture(env, "cards.mts");
   injectCardsCleanupFailure(cards);
   const result = await run(["--input-type=module", "-e", `
     ${failingWebSocket}
@@ -238,7 +238,7 @@ test("cards awaits server closure when Chrome cleanup throws and preserves the f
 
 test("cards reports every page failure and releases resources across repeated runs", async (t) => {
   const env = fixture(t, `${profileRecorder}\nconsole.error('DevTools listening on ws://fake'); setInterval(() => {}, 1000);`);
-  const cards = rendererFixture(env, "cards.mjs");
+  const cards = rendererFixture(env, "cards.mts");
   const result = await run(["--input-type=module", "-e", `
     ${failingWebSocket}
     const assert = (await import('node:assert/strict')).default;
@@ -257,7 +257,7 @@ test("cards reports every page failure and releases resources across repeated ru
 
 test("cards without Chrome retains shared-card fallback across repeated runs", async (t) => {
   const env = fixture(t, "process.exit(7);");
-  const cards = rendererFixture(env, "cards.mjs");
+  const cards = rendererFixture(env, "cards.mts");
   env.CHROME_PATH += "-missing";
   const out = path.join(path.dirname(cards), "fallback.png");
   const sharedCard = path.join(root, "theme", "logo", "og.png");

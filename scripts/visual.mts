@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Visual regression for beautiful-html — zero dependencies, Node ≥ 22 (global WebSocket).
 //
-//   node scripts/visual.mjs                compare against baselines (missing ones are created)
-//   node scripts/visual.mjs --update       accept the current renders as the new baselines
-//   node scripts/visual.mjs --only gallery run cases whose name contains "gallery"
-//   node scripts/visual.mjs --system-fonts block Google Fonts (offline / hermetic runs)
+//   node scripts/visual.mts                compare against baselines (missing ones are created)
+//   node scripts/visual.mts --update       accept the current renders as the new baselines
+//   node scripts/visual.mts --only gallery run cases whose name contains "gallery"
+//   node scripts/visual.mts --system-fonts block Google Fonts (offline / hermetic runs)
 //
 // Drives a local Chrome/Chromium over the DevTools protocol (set CHROME_PATH to override),
 // renders each page in light, dark and phone layouts with reduced motion, waits for
@@ -20,7 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import { launchChrome, serveStatic, sleep } from "./chrome.mjs";
+import { launchChrome, serveStatic, sleep } from "./chrome.mts";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");

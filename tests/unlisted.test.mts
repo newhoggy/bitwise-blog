@@ -143,7 +143,7 @@ test("pasting a new #unlisted into an open tab reloads only when the choice chan
 // ---- the sealed-page shell reads the same fragment ----------------------------------------------
 
 test("the sealed shell opens #k=<key>&unlisted=true, and leaves the flag and the section for bh.js", () => {
-  const bh = fs.readFileSync(path.join(source, "scripts/bh.mjs"), "utf8");
+  const bh = fs.readFileSync(path.join(source, "scripts/bh.mts"), "utf8");
   const literal = bh.match(/location\.hash\.match\((\/\^#k=[^\n]*?\/)\)/);
   assert.ok(literal, "the shell's fragment pattern was not found: update this test with the shell");
   const shell = new Function(`return ${literal[1]}`)();
@@ -170,7 +170,7 @@ function fixture(t) {
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, "op"), "#!/bin/sh\necho 'op: unavailable in tests' >&2\nexit 1\n", { mode: 0o755 });
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, CI: "" };
-  const bh = (...args) => spawnSync(process.execPath, [path.join(root, "scripts/bh.mjs"), ...args], { cwd: root, env, encoding: "utf8" });
+  const bh = (...args) => spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env, encoding: "utf8" });
   const file = (rel) => path.join(root, rel);
   const read = (rel) => fs.readFileSync(file(rel), "utf8");
   const edit = (rel, from, to) => {

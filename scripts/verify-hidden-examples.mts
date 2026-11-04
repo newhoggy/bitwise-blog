@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const { chromium, firefox } = await import(process.env.BH_PLAYWRIGHT_MODULE || 'playwright');
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { serveStatic, findChrome } from './chrome.mjs';
+import { serveStatic, findChrome } from './chrome.mts';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output=path.resolve(process.env.BH_LIVE_OUTPUT || path.join(root,'.visual/hidden-examples-live'));
 const base='https://bitwise.john-ky.io/';

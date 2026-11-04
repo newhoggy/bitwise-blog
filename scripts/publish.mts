@@ -22,7 +22,7 @@ const readData = (root, file, global) => {
   return window[global];
 };
 const writeData = (root, file, global, data) => fs.writeFileSync(path.join(root, file),
-  `/* GENERATED for publication by scripts/publish.mjs. Do not edit. */\nwindow.${global} = ${JSON.stringify(data, null, 1)};\n`);
+  `/* GENERATED for publication by scripts/publish.mts. Do not edit. */\nwindow.${global} = ${JSON.stringify(data, null, 1)};\n`);
 
 // GoatCounter page-view counting is added to the staged copy only (never to sources, templates,
 // theme or bundles), so a sealed page's decrypted title cannot reach a third party.
@@ -90,7 +90,7 @@ export function preparePublishedSite(stage, source = ROOT, { goatcounter = "" } 
   try {
     for (const entry of ["index.html", "docs", "theme"]) fs.cpSync(path.join(stage, entry), path.join(temp, entry), { recursive: true });
     for (const entry of ["scripts", "package.json", "reviews"]) fs.cpSync(path.join(source, entry), path.join(temp, entry), { recursive: true });
-    execFileSync(process.execPath, [path.join(temp, "scripts/bh.mjs"), "index"], { cwd: temp, stdio: "pipe" });
+    execFileSync(process.execPath, [path.join(temp, "scripts/bh.mts"), "index"], { cwd: temp, stdio: "pipe" });
     for (const entry of ["index.html", "feed.xml", "theme/glossary.js", "theme/site.js", "theme/search-index.js", "theme/reviews.js", "theme/unlisted-pages.js", "theme/unlisted-slugs.js", "theme/unlisted-reviews.js"]) {
       fs.copyFileSync(path.join(temp, entry), path.join(stage, entry));
     }

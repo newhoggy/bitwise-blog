@@ -176,7 +176,7 @@ function scratchRepo(t) {
   return dir;
 }
 
-const bh = (dir, ...args) => spawnSync(process.execPath, [path.join(dir, "scripts/bh.mjs"), ...args], { cwd: dir, encoding: "utf8" });
+const bh = (dir, ...args) => spawnSync(process.execPath, [path.join(dir, "scripts/bh.mts"), ...args], { cwd: dir, encoding: "utf8" });
 
 test("`new --example` writes the marker, and a plain `new` does not", (t) => {
   const dir = scratchRepo(t);

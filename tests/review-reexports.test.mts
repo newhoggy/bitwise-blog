@@ -26,7 +26,7 @@ function fixture(t) {
     assert.ok(fs.statSync(file).size > 0, "fixture was written");
   };
   const run = (...args) => {
-    const result = spawnSync(process.execPath, [path.join(dir, "scripts/bh.mjs"), ...args], { cwd: dir, encoding: "utf8" });
+    const result = spawnSync(process.execPath, [path.join(dir, "scripts/bh.mts"), ...args], { cwd: dir, encoding: "utf8" });
     assert.ifError(result.error);
     return { status: result.status, output: result.stdout + result.stderr };
   };

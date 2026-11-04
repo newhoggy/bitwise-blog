@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import {
   parseCsv, parseHits, countViews, toHref, sitePath, readCatalogue, joinViews, formatReport,
   resolveToken, fetchExport, main, OP_TOKEN_ITEM,
-} from "../scripts/stats.mjs";
+} from "../scripts/stats.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FIXTURE_CSV = path.join(ROOT, "tests/support/goatcounter-export.csv");

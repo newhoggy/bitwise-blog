@@ -1,7 +1,7 @@
 // Social card renderer for beautiful-html — zero dependencies, Node ≥ 22, local Chrome.
 //
-// Called by `bh cards` (scripts/bh.mjs), which decides what to render: the job list carries the
-// page, the visual chosen from it (bh.mjs `chooseVisual`) and the staleness key. This file only
+// Called by `bh cards` (scripts/bh.mts), which decides what to render: the job list carries the
+// page, the visual chosen from it (bh.mts `chooseVisual`) and the staleness key. This file only
 // draws. It is also part of that key, so editing the layout below makes every card stale.
 //
 // Two phases per page, both in Chrome:
@@ -14,7 +14,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChrome, findChrome, serveStatic, sleep } from "./chrome.mjs";
+import { launchChrome, findChrome, serveStatic, sleep } from "./chrome.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const c = { red: (s) => `\x1b[31m${s}\x1b[0m`, green: (s) => `\x1b[32m${s}\x1b[0m`, yellow: (s) => `\x1b[33m${s}\x1b[0m`, dim: (s) => `\x1b[2m${s}\x1b[0m` };

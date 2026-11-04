@@ -7,11 +7,11 @@ import vm from "node:vm";
 import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { site } from "./support/private-site.mjs";
+import { site } from "./support/private-site.mts";
 import {
   CARD_FILE_HEADER, KIND_LABELS, buildBlob, cardFromDoc, decryptCard, docCardHtml, encryptCard, escapeHtml, mergeEntries,
   parseCardsFile, renderCardsFile, tryDecryptCard, validateCardsFile,
-} from "../scripts/private-cards.mjs";
+} from "../scripts/private-cards.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const newKey = () => crypto.randomBytes(32).toString("base64url");

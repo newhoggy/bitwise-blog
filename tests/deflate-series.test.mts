@@ -1,9 +1,9 @@
-// The three-part DEFLATE series: its numbers must stay real (see support/deflate-suite.mjs).
+// The three-part DEFLATE series: its numbers must stay real (see support/deflate-suite.mts).
 // The suite reads the three pages as one, in series order.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineDeflateTests } from "./support/deflate-suite.mjs";
+import { defineDeflateTests } from "./support/deflate-suite.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const SERIES = ["how-deflate-compresses.html", "how-deflate-sends-its-code.html", "deflate-format-reference.html"];
@@ -15,7 +15,7 @@ defineDeflateTests({ PAGE: pages.map((p) => p.html).join("\n"), series: true, fi
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { EXAMPLE, PARAGRAPH, trace } from "../scripts/deflate-example.mjs";
+import { EXAMPLE, PARAGRAPH, trace } from "../scripts/deflate-example.mts";
 
 const PART1 = pages[0].html, PART2 = pages[1].html;
 const Deflate = vm.runInThisContext(`(() => {${PART1.match(/\/\* deflate-encoder:start \*\/([\s\S]*?)\/\* deflate-encoder:end \*\//)[1]}\nreturn Deflate;\n})`)();

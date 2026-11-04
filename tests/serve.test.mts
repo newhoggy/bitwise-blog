@@ -8,7 +8,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { serveStatic } from "../scripts/chrome.mjs";
+import { serveStatic } from "../scripts/chrome.mts";
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -29,7 +29,7 @@ async function fixture(t, { shared = false, symlinkRoot = false } = {}) {
   });
   let root = path.join(dir, "repo");
   fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-  for (const file of ["bh.mjs", "private-cards.mjs"]) fs.copyFileSync(path.join(source, "scripts", file), path.join(root, "scripts", file));
+  for (const file of ["bh.mts", "private-cards.mts"]) fs.copyFileSync(path.join(source, "scripts", file), path.join(root, "scripts", file));
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ repository: "github:example/blog" }));
   fs.writeFileSync(path.join(root, "index.html"), "<h1>Home</h1>");
   fs.mkdirSync(path.join(root, "docs"));
@@ -71,7 +71,7 @@ async function fixture(t, { shared = false, symlinkRoot = false } = {}) {
     await once(reservation, "listening");
     port = reservation.address().port;
     await new Promise((resolve) => reservation.close(resolve));
-    proc = spawn(process.execPath, [path.join(root, "scripts/bh.mjs"), "serve", String(port)], { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+    proc = spawn(process.execPath, [path.join(root, "scripts/bh.mts"), "serve", String(port)], { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
     let output = "";
     proc.stderr.on("data", (data) => { output += data; });
     await new Promise((resolve, reject) => {

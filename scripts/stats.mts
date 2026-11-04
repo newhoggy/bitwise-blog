@@ -15,7 +15,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CODE_RE = /^[a-z0-9-]+$/; // the same rule as GOATCOUNTER_CODE in scripts/publish.mjs
+const CODE_RE = /^[a-z0-9-]+$/; // the same rule as GOATCOUNTER_CODE in scripts/publish.mts
 const OP_VAULT = process.env.BH_OP_VAULT || "Private";
 export const OP_TOKEN_ITEM = "beautiful-html goatcounter token";
 const SUPPORTED_EXPORT_VERSIONS = new Set(["1", "2"]);

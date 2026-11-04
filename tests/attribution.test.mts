@@ -20,7 +20,7 @@ function fixture(t) {
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, "op"), "#!/bin/sh\necho 'op: unavailable in tests' >&2\nexit 1\n", { mode: 0o755 });
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, CI: "" };
-  const bh = (...args) => spawnSync(process.execPath, [path.join(root, "scripts/bh.mjs"), ...args], { cwd: root, env, encoding: "utf8" });
+  const bh = (...args) => spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env, encoding: "utf8" });
   const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
   const edit = (rel, from, to) => {
     const text = read(rel), next = text.replace(from, to);

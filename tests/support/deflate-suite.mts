@@ -9,7 +9,7 @@ import path from "node:path";
 import vm from "node:vm";
 import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
-import { EXAMPLE, PARAGRAPH as RECORDED_PARAGRAPH, REFERENCE, GZIP_OVERHEAD, isReferenceZlib, noise, trace, example } from "../../scripts/deflate-example.mjs";
+import { EXAMPLE, PARAGRAPH as RECORDED_PARAGRAPH, REFERENCE, GZIP_OVERHEAD, isReferenceZlib, noise, trace, example } from "../../scripts/deflate-example.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 

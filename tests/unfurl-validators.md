@@ -155,7 +155,7 @@ Current validation, with the real private source **present throughout**:
   digest and title/description leak checks.
 - `npm test`: **8 passed**, including the additional static-server checks now
   on main.
-- `node --check theme/bh.js` and all `theme/modules/*.js` / `scripts/*.mjs`:
+- `node --check theme/bh.js` and all `theme/modules/*.js` / `scripts/*.mts`:
   passed.
 - `npm run bundle:all`: seven public bundles; no private bundle.
 - `npm run visual -- --only token-bucket`: light, dark, and phone cases rendered.

@@ -1,6 +1,6 @@
 // Private-page cards: the encrypted card file, and the home-page card markup.
 //
-// No side effects, so tests can import it (scripts/bh.mjs runs its CLI on import).
+// No side effects, so tests can import it (scripts/bh.mts runs its CLI on import).
 //
 // A sealed page is invisible on the home page because its card data exists only inside its
 // ciphertext. `npm run seal` therefore also writes theme/private-cards.js: one blob per private

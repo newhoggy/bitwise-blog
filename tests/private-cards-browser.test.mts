@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { findChrome, launchChrome, serveStatic, sleep } from "../scripts/chrome.mjs";
-import { site } from "./support/private-site.mjs";
+import { findChrome, launchChrome, serveStatic, sleep } from "../scripts/chrome.mts";
+import { site } from "./support/private-site.mts";
 
 // The home page, with real sealed fixture pages, in a real Chrome. Keys are throwaway: the fake
 // `op` in tests/support makes them, and nothing here touches a vault. Skipped without Chrome
-// (and without the global WebSocket, Node >= 22, that scripts/chrome.mjs drives it with).
+// (and without the global WebSocket, Node >= 22, that scripts/chrome.mts drives it with).
 const skip = !findChrome() || typeof WebSocket === "undefined" ? "needs Chrome and Node >= 22" : false;
 
 /** A tab: navigate, evaluate, and see what the page did. Every tab has its own sessionStorage. */

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// beautiful-html CLI — zero dependencies, Node ≥ 20.
+// beautiful-html CLI — zero dependencies, Node ≥ 22.18.
 //
-//   node scripts/bh.mjs new [--private] [--example] [--unlisted] <template> <slug> "<Title>" ["<description>"]
-//   node scripts/bh.mjs index                 regenerate index.html list, social meta, feed.xml, theme/{glossary,site,search-index,unlisted-pages,unlisted-slugs}.js
-//   node scripts/bh.mjs check                 lint docs/ and index.html
-//   node scripts/bh.mjs cards                 render docs/assets/og/<slug>.png (needs Chrome; see scripts/cards.mjs)
-//   node scripts/bh.mjs bundle <page|--all>   inline theme → dist/<name>.html (single file)
-//   node scripts/bh.mjs seal [--show-links|--reshell]   encrypt docs/*.private.html → docs/<slug>.html (see "Private pages")
-//   node scripts/bh.mjs unseal [slug…]        decrypt docs/<slug>.html → docs/<slug>.private.html
-//   node scripts/bh.mjs serve [port]          static server (pages also work from file://)
+//   node scripts/bh.mts new [--private] [--example] [--unlisted] <template> <slug> "<Title>" ["<description>"]
+//   node scripts/bh.mts index                 regenerate index.html list, social meta, feed.xml, theme/{glossary,site,search-index,unlisted-pages,unlisted-slugs}.js
+//   node scripts/bh.mts check                 lint docs/ and index.html
+//   node scripts/bh.mts cards                 render docs/assets/og/<slug>.png (needs Chrome; see scripts/cards.mts)
+//   node scripts/bh.mts bundle <page|--all>   inline theme → dist/<name>.html (single file)
+//   node scripts/bh.mts seal [--show-links|--reshell]   encrypt docs/*.private.html → docs/<slug>.html (see "Private pages")
+//   node scripts/bh.mts unseal [slug…]        decrypt docs/<slug>.html → docs/<slug>.private.html
+//   node scripts/bh.mts serve [port]          static server (pages also work from file://)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import {
   KIND_LABELS, escapeHtml, CARD_FILE, KEY_RE, GROUP_RE, cardFromDoc, tryDecryptCard, buildBlob,
   renderCardsFile, parseCardsFile, validateCardsFile, mergeEntries, docCardHtml,
-} from "./private-cards.mjs";
+} from "./private-cards.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = path.join(ROOT, "docs");
@@ -131,7 +131,7 @@ function resolveDocLink(file, value) {
 // Every public page carries Open Graph / Twitter tags between two markers. `npm run index`
 // writes them from the page's own title, description and bh:* metas, and `check` fails when
 // they are missing or stale. Each page also has a 1200×630 card, docs/assets/og/<slug>.png,
-// rendered by scripts/cards.mjs from a visual chosen out of the page itself. The home page uses
+// rendered by scripts/cards.mts from a visual chosen out of the page itself. The home page uses
 // the shared site card. Absolute URLs come from one place: package.json `homepage`, or the
 // BH_SITE_URL environment variable (for forks).
 
@@ -289,7 +289,7 @@ function pickVisual(file, raw) {
 /** Hash of the shared files every card is drawn from: the card layout, the logo, the theme CSS and bh.js (which adds a diagram's arrowhead markers). */
 let sharedCardInputs = null;
 const cardInputsHash = (withModules) => {
-  sharedCardInputs ??= sha256(["scripts/cards.mjs", "theme/logo/mark.svg", "theme/bh.js", ...["tokens", "base", "layout", "components", "diagrams"].map((f) => `theme/${f}.css`)]
+  sharedCardInputs ??= sha256(["scripts/cards.mts", "theme/logo/mark.svg", "theme/bh.js", ...["tokens", "base", "layout", "components", "diagrams"].map((f) => `theme/${f}.css`)]
     .map((f) => fs.readFileSync(path.join(ROOT, f))).join("\0"));
   if (!withModules) return sharedCardInputs;
   // <bh-…> components (charts, sequences, …) are drawn by the on-demand modules.
@@ -350,7 +350,7 @@ async function cmdCards(argv) {
   for (const j of jobs) if (j.selection.problem) throw new Error(`${j.href}: ${j.selection.problem}`);
   const todo = jobs.filter((j) => force || !fs.existsSync(j.out) || readPng(j.out)?.card !== j.key);
   if (!todo.length) { console.log(c.green(`All ${jobs.length} cards are up to date.`)); return; }
-  const { renderCards } = await import("./cards.mjs");
+  const { renderCards } = await import("./cards.mts");
   const r = await renderCards(todo, { sharedCard: path.join(ROOT, SHARED_CARD), systemFonts: argv.includes("--system-fonts") });
   console.log(c.green(`Rendered ${r.rendered} card${r.rendered === 1 ? "" : "s"}`) + (r.fallback ? c.yellow(`, ${r.fallback} fell back to the shared card`) : "") + c.dim(`, ${jobs.length - todo.length} already up to date`));
   if (r.failed.length) throw new Error(`could not render the card of ${r.failed.join(", ")}`);
@@ -507,7 +507,7 @@ function extractSections(html) {
   });
 }
 
-/** The card markup for one page of the home list (the markup lives in scripts/private-cards.mjs). `titles` maps hrefs to titles for "Replaced by".
+/** The card markup for one page of the home list (the markup lives in scripts/private-cards.mts). `titles` maps hrefs to titles for "Replaced by".
     theme/modules/unlisted-cards.js and private-cards.js build the same card in the browser (tests compare them). */
 const cardHtml = (d, titles, tags = docTopics(d)) => docCardHtml(d, tags, titles);
 

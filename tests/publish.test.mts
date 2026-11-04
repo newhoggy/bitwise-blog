@@ -6,8 +6,8 @@ import vm from "node:vm";
 import http from "node:http";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { preparePublishedSite } from "../scripts/publish.mjs";
-import { encryptCard, renderCardsFile } from "../scripts/private-cards.mjs";
+import { preparePublishedSite } from "../scripts/publish.mts";
+import { encryptCard, renderCardsFile } from "../scripts/private-cards.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 function fixture(t) {

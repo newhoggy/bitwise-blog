@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Authoring-time helper for docs/how-deflate-works.html: every number that page quotes about
-// zlib comes from here, and tests/how-deflate-works.test.mjs checks the page against it.
+// zlib comes from here, and tests/how-deflate-works.test.mts checks the page against it.
 //
-//   node scripts/deflate-example.mjs            print the worked example, bit by bit, the zlib sizes,
+//   node scripts/deflate-example.mts            print the worked example, bit by bit, the zlib sizes,
 //                                               and whether this Node's zlib reproduces REFERENCE
 //
 // It needs nothing beyond Node's own zlib. The page's interactive has its own small encoder

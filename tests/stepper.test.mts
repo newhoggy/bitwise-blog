@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { findChrome, launchChrome, serveStatic, sleep } from "../scripts/chrome.mjs";
+import { findChrome, launchChrome, serveStatic, sleep } from "../scripts/chrome.mts";
 
 // A stepper's diagram must match the narration on screen from the first paint: step 1 is lit
 // before anyone presses "Next". It once showed the whole diagram until the reader engaged, so

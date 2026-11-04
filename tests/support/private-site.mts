@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { parseCardsFile, renderCardsFile } from "../../scripts/private-cards.mjs";
+import { parseCardsFile, renderCardsFile } from "../../scripts/private-cards.mts";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -50,7 +50,7 @@ export function site(t) {
   fs.writeFileSync(path.join(bin, "op"), FAKE_OP, { mode: 0o755 });
   const env = (withOp) => ({ ...process.env, PATH: (withOp ? bin + path.delimiter : "") + path.dirname(process.execPath) + path.delimiter + "/usr/bin:/bin", FAKE_OP_STATE: state, BH_OP_VAULT: "Private", CI: "" });
   const run = (args, { withOp = true } = {}) => {
-    const r = spawnSync(process.execPath, [path.join(root, "scripts/bh.mjs"), ...args], { cwd: root, env: env(withOp), encoding: "utf8" });
+    const r = spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env: env(withOp), encoding: "utf8" });
     return { code: r.status, out: (r.stdout || "") + (r.stderr || "") };
   };
   const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");

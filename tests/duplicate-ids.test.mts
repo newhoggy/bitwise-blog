@@ -24,7 +24,7 @@ function fixture(t) {
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, "op"), "#!/bin/sh\necho 'op: unavailable in tests' >&2\nexit 1\n", { mode: 0o755 });
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, CI: "" };
-  const check = () => spawnSync(process.execPath, [path.join(root, "scripts/bh.mjs"), "check"], { cwd: root, env, encoding: "utf8" }).stdout;
+  const check = () => spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), "check"], { cwd: root, env, encoding: "utf8" }).stdout;
   const inject = (text) => {
     const file = path.join(root, PAGE), html = fs.readFileSync(file, "utf8"), next = html.replace("</main>", `${text}</main>`);
     assert.notEqual(next, html, "the injection changed nothing");

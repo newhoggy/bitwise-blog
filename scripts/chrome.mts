@@ -1,4 +1,4 @@
-// Shared by scripts/visual.mjs and scripts/cards.mjs: find a local Chrome and drive it over the
+// Shared by scripts/visual.mts and scripts/cards.mts: find a local Chrome and drive it over the
 // DevTools protocol (Node >= 22 for the global WebSocket). No dependencies.
 
 import fs from "node:fs";
