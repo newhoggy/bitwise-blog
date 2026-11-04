@@ -53,7 +53,7 @@ jobs:
           echo "window.BH_BUILD = {\"repo\": \"${GITHUB_REPOSITORY}\", \"commit\": \"${GITHUB_SHA}\", \"dirty\": false, \"builtAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"};" > _site/theme/build.js
 
       - name: Remove example pages and rebuild published data
-        run: node scripts/publish.mjs
+        run: node scripts/publish.mts
         env:
           GOATCOUNTER_CODE: ${{ vars.GOATCOUNTER_CODE }}
 
