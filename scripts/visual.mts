@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Visual regression for beautiful-html — zero dependencies, Node ≥ 22 (global WebSocket).
+// Visual regression for beautiful-html — no runtime dependencies, Node ≥ 22 (global WebSocket).
 //
 //   node scripts/visual.mts                compare against baselines (missing ones are created)
 //   node scripts/visual.mts --update       accept the current renders as the new baselines

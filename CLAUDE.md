@@ -44,7 +44,7 @@ by Node itself, which strips the types (on by default from Node 22.18). There is
   `import type` (`verbatimModuleSyntax`), and write relative imports with the real extension
   (`./chrome.mts`, not `./chrome.mjs`).
 - Shared data shapes (a page, its `bh:*` metas, the records passed between `index`, `check`, `cards`,
-  `publish` and `bundle`) are named types, not inline objects. Don't reach for `any`; use `unknown` and narrow.
+  `publish` and `bundle`) are named types, not inline objects. Prefer `unknown` and narrow it; `any` only for genuinely dynamic data (JSON, code run in `vm`, DevTools payloads), at the narrowest point.
 - The browser code stays plain JavaScript, because TypeScript there would need a build step:
   `theme/bh.js`, `theme/modules/*.js`, and the per-page `<script>` blocks. So do `.claude/skills/**` and `figures/**`.
 - `scripts/cards.mts` is a social-card staleness input, so editing it (types included) makes every card stale:

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// beautiful-html CLI — zero dependencies, Node ≥ 22.18.
+// beautiful-html CLI — no runtime dependencies, Node ≥ 22.18.
 //
 //   node scripts/bh.mts new [--private] [--example] [--unlisted] <template> <slug> "<Title>" ["<description>"]
 //   node scripts/bh.mts index                 regenerate index.html list, social meta, feed.xml, theme/{glossary,site,search-index,unlisted-pages,unlisted-slugs}.js

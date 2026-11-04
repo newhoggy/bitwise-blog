@@ -1,4 +1,4 @@
-// Social card renderer for beautiful-html — zero dependencies, Node ≥ 22, local Chrome.
+// Social card renderer for beautiful-html — no runtime dependencies, Node ≥ 22, local Chrome.
 //
 // Called by `bh cards` (scripts/bh.mts), which decides what to render: the job list carries the
 // page, the visual chosen from it (bh.mts `chooseVisual`) and the staleness key. This file only
