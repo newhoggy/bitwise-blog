@@ -3,18 +3,25 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   parseCsv, parseHits, countViews, toHref, sitePath, readCatalogue, joinViews, formatReport,
   resolveToken, fetchExport, main, OP_TOKEN_ITEM,
+  type FetchLike, type Output, type ResponseLike,
 } from "../scripts/stats.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FIXTURE_CSV = path.join(ROOT, "tests/support/goatcounter-export.csv");
 const csv = fs.readFileSync(FIXTURE_CSV, "utf8");
 
-const page = ({ title, kind = "explainer", tags = "", extra = "" }) => `<!doctype html>
+/** `v`, failing the test if it is missing. */
+function must<T>(v: T | null | undefined, what: string): T {
+  assert.ok(v !== null && v !== undefined, what);
+  return v;
+}
+
+const page = ({ title, kind = "explainer", tags = "", extra = "" }: { title: string; kind?: string; tags?: string; extra?: string }): string => `<!doctype html>
 <html><head><title>${title}</title>
   <meta name="description" content="d">
   <meta name="bh:kind" content="${kind}">
@@ -23,12 +30,12 @@ const page = ({ title, kind = "explainer", tags = "", extra = "" }) => `<!doctyp
 </head><body></body></html>`;
 
 /** A repo with a public post, an unlisted one, a sealed one, a plaintext private source and a page with no views. */
-function repo(t) {
+function repo(t: TestContext): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bh-stats-test-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, "docs"));
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ homepage: "https://example.test/" }));
-  const w = (name, html) => fs.writeFileSync(path.join(root, "docs", name), html);
+  const w = (name: string, html: string): void => fs.writeFileSync(path.join(root, "docs", name), html);
   w("how-deflate-works.html", page({ title: "How DEFLATE works", tags: "compression, deflate" }));
   w("announcing-patchcov.html", page({ title: "Announcing patchcov &amp; friends", tags: "tools", kind: "explainer" }));
   w("quiet-draft.html", page({ title: "Quiet draft", tags: "misc", extra: '<meta name="bh:unlisted" content="true">' }));
@@ -66,8 +73,9 @@ test("countViews leaves out bots and events and counts distinct sessions", () =>
   const counts = countViews(parseHits(csv).hits);
   assert.equal(counts.bots, 2);
   assert.equal(counts.events, 1);
-  assert.equal(counts.byPath.get("/docs/how-deflate-works.html").views, 2);
-  assert.equal(counts.byPath.get("/docs/how-deflate-works.html").sessions.size, 1);
+  const deflate = must(counts.byPath.get("/docs/how-deflate-works.html"), "the fixture has hits for the deflate page");
+  assert.equal(deflate.views, 2);
+  assert.equal(deflate.sessions.size, 1);
   assert.equal(counts.from, "2026-10-09T05:00:00Z");
   assert.equal(counts.to, "2026-10-13T10:00:00Z");
 });
@@ -93,10 +101,11 @@ test("sitePath comes from homepage, BH_SITE_URL overrides it", (t) => {
 
 test("readCatalogue reads titles, kinds, tags and flags; sealed pages carry no title; private sources are skipped", (t) => {
   const cat = readCatalogue(repo(t));
-  assert.deepEqual(cat.get("docs/announcing-patchcov.html").title, "Announcing patchcov & friends");
-  assert.deepEqual(cat.get("docs/how-deflate-works.html").tags, ["compression", "deflate"]);
-  assert.deepEqual(cat.get("docs/quiet-draft.html").notes, ["unlisted"]);
-  assert.equal(cat.get("docs/secret-notes.html").title, "(private page) docs/secret-notes.html");
+  const entry = (href: string) => must(cat.get(href), `${href} is in the catalogue`);
+  assert.deepEqual(entry("docs/announcing-patchcov.html").title, "Announcing patchcov & friends");
+  assert.deepEqual(entry("docs/how-deflate-works.html").tags, ["compression", "deflate"]);
+  assert.deepEqual(entry("docs/quiet-draft.html").notes, ["unlisted"]);
+  assert.equal(entry("docs/secret-notes.html").title, "(private page) docs/secret-notes.html");
   assert.ok(!cat.has("docs/secret-notes.private.html"));
   assert.ok(cat.has("index.html"));
 });
@@ -138,39 +147,47 @@ test("formatReport prints a table with titles, tags and notes, and never a priva
 
 test("resolveToken prefers the environment, then 1Password, then explains plainly", () => {
   assert.deepEqual(resolveToken({ env: { GOATCOUNTER_TOKEN: " abc " }, readItem: () => assert.fail("op must not run") }), { token: "abc" });
-  const asked = [];
+  const asked: [string, string][] = [];
   assert.deepEqual(resolveToken({ env: { BH_OP_VAULT: "V" }, readItem: (title, vault) => { asked.push([title, vault]); return "from-op\n"; } }), { token: "from-op" });
   assert.deepEqual(asked, [[OP_TOKEN_ITEM, "V"]]);
 
+  const errorOf = (r: ReturnType<typeof resolveToken>): string => must(r.error, "resolveToken explains why it has no token");
   const none = resolveToken({ env: {}, readItem: () => { throw Object.assign(new Error("spawn op ENOENT"), { code: "ENOENT" }); } });
-  assert.match(none.error, /No GoatCounter API token found\./);
-  assert.match(none.error, /GOATCOUNTER_TOKEN/);
-  assert.match(none.error, /beautiful-html goatcounter token/);
-  assert.doesNotMatch(none.error, /found\. \(/); // op simply absent: no extra reason
+  assert.match(errorOf(none), /No GoatCounter API token found\./);
+  assert.match(errorOf(none), /GOATCOUNTER_TOKEN/);
+  assert.match(errorOf(none), /beautiful-html goatcounter token/);
+  assert.doesNotMatch(errorOf(none), /found\. \(/); // op simply absent: no extra reason
   const missing = resolveToken({ env: {}, readItem: () => { throw Object.assign(new Error("x"), { stderr: '"beautiful-html goatcounter token" isn\'t an item in the "Private" vault' }); } });
-  assert.match(missing.error, /No GoatCounter API token found\.\n/);
+  assert.match(errorOf(missing), /No GoatCounter API token found\.\n/);
   const vault = resolveToken({ env: {}, readItem: () => { throw Object.assign(new Error("x"), { stderr: '"Typo" isn\'t a vault in this account: vault not found' }); } });
-  assert.match(vault.error, /\(1Password: "Typo" isn't a vault/);
+  assert.match(errorOf(vault), /\(1Password: "Typo" isn't a vault/);
   const locked = resolveToken({ env: {}, readItem: () => { throw Object.assign(new Error("x"), { stderr: "[ERROR] account is locked\nmore" }); } });
-  assert.match(locked.error, /\(1Password: \[ERROR\] account is locked\)/);
+  assert.match(errorOf(locked), /\(1Password: \[ERROR\] account is locked\)/);
 });
 
 // ---- Export --------------------------------------------------------------------------
 
-const json = (status, body) => ({ ok: status < 400, status, json: async () => body });
+const json = (status: number, body: unknown): ResponseLike => ({
+  ok: status < 400, status, json: async () => body, arrayBuffer: async () => assert.fail("not a download"),
+});
+/** A successful download of `bytes`. */
+const download = (bytes: Buffer): ResponseLike => ({
+  ok: true, status: 200, json: async () => assert.fail("not json"),
+  arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length) as ArrayBuffer,
+});
 
 test("fetchExport starts, polls, downloads and gunzips, sending the token only as a header", async () => {
-  const calls = [];
+  const calls: [string, string, string | undefined, unknown][] = [];
   let polls = 0;
-  const fetch = async (url, init = {}) => {
-    calls.push([init.method || "GET", url, init.headers?.Authorization, init.body]);
+  const fetch: FetchLike = async (url, init = {}) => {
+    calls.push([init.method || "GET", url, (init.headers as Record<string, string> | undefined)?.Authorization, init.body]);
     if (url.endsWith("/export")) return json(202, { id: 7 });
     if (url.endsWith("/export/7")) return json(200, { id: 7, finished_at: ++polls < 3 ? null : "2026-10-18T00:00:00Z" });
-    if (url.endsWith("/export/7/download")) { const gz = zlib.gzipSync(csv); return { ok: true, status: 200, arrayBuffer: async () => gz.buffer.slice(gz.byteOffset, gz.byteOffset + gz.length) }; }
+    if (url.endsWith("/export/7/download")) return download(zlib.gzipSync(csv));
     assert.fail(url);
   };
-  const slept = [];
-  const out = await fetchExport({ code: "my-site", token: "T0KEN", fetch, sleep: async (ms) => slept.push(ms) });
+  const slept: number[] = [];
+  const out = await fetchExport({ code: "my-site", token: "T0KEN", fetch, sleep: async (ms) => { slept.push(ms); } });
   assert.equal(out, csv);
   assert.deepEqual(slept, [1000, 1000]);
   assert.deepEqual(calls.map((c) => [c[0], c[1]]), [
@@ -185,32 +202,32 @@ test("fetchExport starts, polls, downloads and gunzips, sending the token only a
 });
 
 test("fetchExport accepts an uncompressed body and reports failures in words", async () => {
-  const plain = async (url) => (url.endsWith("/export") ? json(202, { id: 1 }) : url.endsWith("/download") ? { ok: true, status: 200, arrayBuffer: async () => Buffer.from("a,b\n") } : json(200, { finished_at: "x" }));
+  const plain: FetchLike = async (url) => (url.endsWith("/export") ? json(202, { id: 1 }) : url.endsWith("/download") ? download(Buffer.from("a,b\n")) : json(200, { finished_at: "x" }));
   assert.equal(await fetchExport({ code: "s", token: "t", fetch: plain }), "a,b\n");
   await assert.rejects(fetchExport({ code: "s", token: "t", fetch: async () => json(403, { error: "no" }) }), /refused the token.*Individual pageviews/);
   await assert.rejects(fetchExport({ code: "s", token: "t", fetch: async () => json(429, {}) }), /one new export per hour.*--export-id/);
   await assert.rejects(fetchExport({ code: "s", token: "t", fetch: async () => json(400, { error: "exports disabled" }) }), /HTTP 400: exports disabled/);
   await assert.rejects(fetchExport({ code: "Bad Code", token: "t", fetch: plain }), /GOATCOUNTER_CODE must contain only/);
-  const never = async (url) => (url.endsWith("/export") ? json(202, { id: 1 }) : json(200, { finished_at: null }));
+  const never: FetchLike = async (url) => (url.endsWith("/export") ? json(202, { id: 1 }) : json(200, { finished_at: null }));
   await assert.rejects(fetchExport({ code: "s", token: "t", fetch: never, sleep: async () => {}, maxPolls: 2 }), /not ready after/);
   // A failure after the export started names its id, and --export-id resumes it without a POST.
-  const dl403 = async (url) => (url.endsWith("/export") ? json(202, { id: 9 }) : url.endsWith("/download") ? json(500, {}) : json(200, { finished_at: "x" }));
-  const started = [];
+  const dl403: FetchLike = async (url) => (url.endsWith("/export") ? json(202, { id: 9 }) : url.endsWith("/download") ? json(500, {}) : json(200, { finished_at: "x" }));
+  const started: (string | number)[] = [];
   await assert.rejects(fetchExport({ code: "s", token: "t", fetch: dl403, onStart: (id) => started.push(id) }), /rerun with --export-id 9/);
   assert.deepEqual(started, [9]);
-  const methods = [];
-  const resume = async (url, init = {}) => { methods.push(init.method || "GET"); return url.endsWith("/download") ? { ok: true, status: 200, arrayBuffer: async () => Buffer.from("x\n") } : json(200, { finished_at: "x" }); };
+  const methods: string[] = [];
+  const resume: FetchLike = async (url, init = {}) => { methods.push(init.method || "GET"); return url.endsWith("/download") ? download(Buffer.from("x\n")) : json(200, { finished_at: "x" }); };
   assert.equal(await fetchExport({ code: "s", token: "t", exportId: "9", fetch: resume }), "x\n");
   assert.ok(!methods.includes("POST"));
-  const broken = async (url) => (url.endsWith("/export") ? json(202, { id: 1 }) : json(200, { error: "disk full" }));
+  const broken: FetchLike = async (url) => (url.endsWith("/export") ? json(202, { id: 1 }) : json(200, { error: "disk full" }));
   await assert.rejects(fetchExport({ code: "s", token: "t", fetch: broken }), /disk full/);
 });
 
 // ---- main ----------------------------------------------------------------------------
 
-function capture() {
-  const out = { log: [], error: [] };
-  return { out, sink: { log: (s) => out.log.push(s), error: (s) => out.error.push(s) } };
+function capture(): { out: { log: string[]; error: string[] }; sink: Output } {
+  const out: { log: string[]; error: string[] } = { log: [], error: [] };
+  return { out, sink: { log: (s: string) => { out.log.push(s); }, error: (s: string) => { out.error.push(s); } } };
 }
 
 test("main --file prints the report with no token and no network", async (t) => {

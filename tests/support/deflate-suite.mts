@@ -9,28 +9,105 @@ import path from "node:path";
 import vm from "node:vm";
 import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
-import { EXAMPLE, PARAGRAPH as RECORDED_PARAGRAPH, REFERENCE, GZIP_OVERHEAD, isReferenceZlib, noise, trace, example } from "../../scripts/deflate-example.mts";
+import { EXAMPLE, PARAGRAPH as RECORDED_PARAGRAPH, REFERENCE, GZIP_OVERHEAD, isReferenceZlib, noise, trace as traceStream, example as exampleTrace } from "../../scripts/deflate-example.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
+type BlockKind = "stored" | "fixed" | "dynamic";
+
+/** What the page's own encoder (loaded from the page script) returns for one input. */
+interface Encoded {
+  streams: Record<BlockKind, Uint8Array>;
+  bits: Record<BlockKind, number>;
+  bytes: Uint8Array;
+  tokens: { lit?: number; len: number; dist: number }[];
+  rawBits: number;
+  huffmanOnlyBits: number;
+  headerBits: number;
+  best: BlockKind;
+}
+
+/** The page script's `Deflate` object: the surface these tests use. */
+interface PageDeflate {
+  encode(data: Uint8Array): Encoded;
+  summary(r: Encoded, inputLength: number): string;
+  lengthSymbol(len: number): { sym: number; nExtra: number };
+  distanceCode(dist: number): { code: number; nExtra: number };
+  canonicalCodes(lengths: number[]): number[];
+  codeLengths(counts: number[], maxBits: number): number[];
+}
+
 /**
- * Defines the tests for one DEFLATE page, or for a series of pages given as one string.
- * @param {{ PAGE: string, series: boolean, file: string, pages?: { file: string, html: string }[] }} opts
- *   `pages` lists a series' pages in order; PAGE is then all of them joined.
+ * One field the tracer read. The tracer sets only the properties its `kind` uses, and the tests read
+ * them after filtering on `kind`, so this lens declares them all: a property a kind does not set is a
+ * mistake in the test, and the recorded numbers it asserts would catch it.
  */
-export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: PAGE }] }) {
+interface Field {
+  kind: string; bits: string; value: number;
+  symbol: number; extraBits: string; count: number; at: number; hlit: number;
+  length: number; distance: number; base: number;
+}
+interface Block { type: string; start: number; bits: number; hlit: number; hdist: number; hclen: number; headerBits: number }
+interface Trace { fields: Field[]; blocks: Block[]; bitsUsed: number; bytes: number; output: Uint8Array }
+interface ExampleTrace extends Trace { raw: Buffer; gzipBytes: number }
+
+const trace = (buf: Uint8Array): Trace => traceStream(buf) as unknown as Trace;
+const example = (): ExampleTrace => exampleTrace() as unknown as ExampleTrace;
+
+/** `s.match(re)`, failing the test if the page does not contain it. */
+function grab(s: string, re: RegExp): RegExpMatchArray {
+  const m = s.match(re);
+  assert.ok(m, `the page contains ${re}`);
+  return m;
+}
+
+/** `v`, failing the test if it is missing. */
+function must<T>(v: T | null | undefined, what: string): T {
+  assert.ok(v !== null && v !== undefined, what);
+  return v;
+}
+
+/** Strips tags and decodes the few entities the pages use. */
+function text(html: string): string {
+  return html.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+}
+
+const utf8 = (s: string): Uint8Array => new TextEncoder().encode(s);
+
+/** The decode-table figure's data, as the page script declares it (`const DT`). */
+interface DecodeTable {
+  entries: unknown[];
+  lengths: { l: number; s: number; e: number }[];
+  codes: { id: string; y: number; y0: number }[];
+  stream: string;
+  syms: { start: number }[];
+  readout: { r1: string }[];
+  out: string[];
+}
+
+/** A run-length-coded code-length symbol, as the dynamic bit walk's JSON describes the page's parts. */
+type Part = [string, string, number, string?];
+
+interface DeflateTestOptions {
+  PAGE: string;
+  series: boolean;
+  file: string;
+  /** A series' pages in order; `PAGE` is then all of them joined. */
+  pages?: { file: string; html: string }[];
+}
+
+/** Defines the tests for one DEFLATE page, or for a series of pages given as one string. */
+export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: PAGE }] }: DeflateTestOptions): void {
 
   /** The encoder lives in the page script between two markers, so the reader runs exactly what is tested. */
-  function loadEncoder() {
+  function loadEncoder(): PageDeflate {
     const m = PAGE.match(/\/\* deflate-encoder:start \*\/([\s\S]*?)\/\* deflate-encoder:end \*\//);
     assert.ok(m, "encoder markers are in the page");
     // In this realm, so its arrays compare equal to ours.
     return vm.runInThisContext(`(() => {${m[1]}\nreturn Deflate;\n})`, { filename: file })();
   }
   const Deflate = loadEncoder();
-  const utf8 = (s) => new TextEncoder().encode(s);
-  const text = (html) => html.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-  const byId = (id) => {
+  const byId = (id: string): string => {
     const m = PAGE.match(new RegExp(`id="${id}"[^>]*>([\\s\\S]*?)</`));
     assert.ok(m, `#${id} is on the page`);
     return text(m[1]);
@@ -57,7 +134,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     ];
     for (const data of corpus) {
       const r = Deflate.encode(data);
-      for (const type of ["stored", "fixed", "dynamic"]) {
+      for (const type of ["stored", "fixed", "dynamic"] as const) {
         const stream = r.streams[type];
         assert.deepEqual(new Uint8Array(zlib.inflateRawSync(stream)), data, `${type} block for ${data.length} bytes`);
         assert.equal(stream.length, Math.ceil(r.bits[type] / 8), `${type} bit count matches the bytes written`);
@@ -72,7 +149,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     const r = Deflate.encode(utf8(EXAMPLE));
     const labels = r.tokens.map((t) => (t.lit !== undefined ? (t.lit === 32 ? "␣" : String.fromCharCode(t.lit)) : `(${t.len},${t.dist})`));
     assert.deepEqual(labels, ["a", "b", "r", "a", "c", "a", "d", "(4,7)", "␣", "(23,12)"]);
-    const windowTokens = [...PAGE.match(/<figure[^>]*id="window"[\s\S]*?<\/figure>/)[0].matchAll(/<g class="node tok [^"]*" data-id="t\d+">.*?<text[^>]*>([^<]*)<\/text><\/g>/g)].map((m) => m[1]);
+    const windowTokens = [...grab(PAGE, /<figure[^>]*id="window"[\s\S]*?<\/figure>/)[0].matchAll(/<g class="node tok [^"]*" data-id="t\d+">.*?<text[^>]*>([^<]*)<\/text><\/g>/g)].map((m) => m[1]);
     assert.deepEqual(windowTokens, labels, "the window figure shows the encoder's tokens");
     assert.equal(r.bits.fixed, 103);
     assert.equal(r.bytes.length, 13);
@@ -89,7 +166,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(zlib.deflateRawSync(Buffer.from(EXAMPLE), { level: 9 }).toString("hex"), REFERENCE.example);
     assert.equal(zlib.gzipSync(Buffer.from(EXAMPLE), { level: 9 }).length, 33);
     // "zlib 1.2.12 switches from fixed to dynamic once the text is 74 bytes long."
-    const types = [];
+    const types: string[] = [];
     for (let n = 1; n <= PARAGRAPH.length; n++) types.push(trace(zlib.deflateRawSync(Buffer.from(PARAGRAPH.slice(0, n)), { level: 9 })).blocks.map((b) => b.type).join("+"));
     assert.equal(types.indexOf("dynamic") + 1, 74);
     assert.ok(types.slice(0, 73).every((t) => t === "fixed"));
@@ -105,7 +182,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
   });
 
   test("the join figure's bits are the encoder's fixed-Huffman stream, in read order", () => {
-    const fig = PAGE.match(/<figure[^>]*id="join"[\s\S]*?<\/figure>/)[0];
+    const fig = grab(PAGE, /<figure[^>]*id="join"[\s\S]*?<\/figure>/)[0];
     const shown = [...fig.matchAll(/data-id="b\d+"><rect [^>]*\/><text class="mono"[^>]*>([01]+)<\/text>/g)].map((m) => m[1]).join("");
     const stream = Deflate.encode(utf8(EXAMPLE)).streams.fixed;
     const read = Array.from({ length: stream.length * 8 }, (_, i) => (stream[i >> 3] >> (i & 7)) & 1).join("");
@@ -124,9 +201,9 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(new TextDecoder().decode(ex.output), EXAMPLE, "the tracer decodes it to the input");
     assert.match(PAGE, /<strong>33 bytes\.<\/strong>/);
     assert.match(PAGE, /The DEFLATE stream inside is <strong>15 bytes<\/strong>, 43% of the input/);
-    assert.ok(PAGE.includes(`<code>${ex.raw.toString("hex").match(/../g).join(" ")}</code>`), "hex of zlib's output");
-    const walk = text(PAGE.match(/<bh-codewalk[^>]*id="bit-walk"[\s\S]*?<code>([\s\S]*?)<\/code>/)[1]).split("\n");
-    const at = (n) => walk[n - 1];
+    assert.ok(PAGE.includes(`<code>${grab(ex.raw.toString("hex"), /../g).join(" ")}</code>`), "hex of zlib's output");
+    const walk = text(grab(PAGE, /<bh-codewalk[^>]*id="bit-walk"[\s\S]*?<code>([\s\S]*?)<\/code>/)[1]).split("\n");
+    const at = (n: number): string => walk[n - 1];
     const shown = walk.map((l) => l.split(/\s+/)[0]);
     shown.forEach((b) => assert.match(b, /^[01]+$/));
     if (series) {
@@ -165,14 +242,14 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
   });
 
   test("the block-type chart and the dynamic-header numbers match the recorded zlib streams", () => {
-    const pct = (bytes, n) => (Math.round((bytes / n) * 1000) / 10).toFixed(1);
-    const rowFor = (label) => {
-      const m = PAGE.match(new RegExp(`<tr><td>${label.replace(/[()×]/g, "\\$&")}</td>((?:<td>[^<]*</td>){4})</tr>`));
-      assert.ok(m, `chart row ${label}`);
+    const pct = (bytes: number, n: number): string => (Math.round((bytes / n) * 1000) / 10).toFixed(1);
+    const rowFor = (label: string): string[] => {
+      const m = grab(PAGE, new RegExp(`<tr><td>${label.replace(/[()×]/g, "\\$&")}</td>((?:<td>[^<]*</td>){4})</tr>`));
       return [...m[1].matchAll(/<td>([^<]*)<\/td>/g)].map((c) => c[1]);
     };
-    const zlibBytes = [REFERENCE.example.length / 2, REFERENCE.paragraph.length / 2, REFERENCE.noise];
-    for (const [i, [label, data]] of [["abracadabra ×3 (35 B)", utf8(EXAMPLE)], [`A paragraph (${utf8(PARAGRAPH).length} B)`, utf8(PARAGRAPH)], ["Random bytes (1 KiB)", noise()]].entries()) {
+    const zlibBytes: number[] = [REFERENCE.example.length / 2, REFERENCE.paragraph.length / 2, REFERENCE.noise];
+    const rowsToCheck: [string, Uint8Array][] = [["abracadabra ×3 (35 B)", utf8(EXAMPLE)], [`A paragraph (${utf8(PARAGRAPH).length} B)`, utf8(PARAGRAPH)], ["Random bytes (1 KiB)", noise()]];
+    for (const [i, [label, data]] of rowsToCheck.entries()) {
       const r = Deflate.encode(data);
       const want = [r.bits.stored, r.bits.fixed, r.bits.dynamic].map((b) => pct(Math.ceil(b / 8), data.length));
       want.push(pct(zlibBytes[i], data.length));
@@ -191,7 +268,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
   test("the playground's no-JavaScript state is the encoder's result for its default text", () => {
     const input = byId("lab-text");
     assert.equal(input, EXAMPLE);
-    const data = utf8(input), r = Deflate.encode(data), nf = (n) => n.toLocaleString("en");
+    const data = utf8(input), r = Deflate.encode(data), nf = (n: number): string => n.toLocaleString("en");
     assert.equal(byId("lab-raw"), nf(r.rawBits));
     assert.equal(byId("lab-huff"), nf(r.huffmanOnlyBits));
     assert.equal(byId("lab-lz"), nf(r.bits.fixed));
@@ -200,13 +277,13 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(byId("lab-out"), nf(r.bytes.length));
     assert.equal(byId("lab-type"), r.best);
     assert.equal(byId("lab-summary"), Deflate.summary(r, data.length));
-    const rows = PAGE.match(/<tbody id="lab-table">([\s\S]*?)<\/tbody>/)[1].match(/<tr>/g).length;
+    const rows = grab(PAGE, /<tbody id="lab-table">([\s\S]*?)<\/tbody>/)[1].match(/<tr>/g)?.length;
     assert.equal(rows, r.tokens.length);
   });
 
   test("the alphabet table's examples are the encoder's own mapping", () => {
-    const table = text(PAGE.match(/<div class="table-wrap wide" id="alphabets"[\s\S]*?<\/table>/)[0]);
-    const len = (n) => Deflate.lengthSymbol(n), dist = (n) => Deflate.distanceCode(n);
+    const table = text(grab(PAGE, /<div class="table-wrap wide" id="alphabets"[\s\S]*?<\/table>/)[0]);
+    const len = (n: number) => Deflate.lengthSymbol(n), dist = (n: number) => Deflate.distanceCode(n);
     assert.deepEqual([len(4).sym, len(4).nExtra], [258, 0]);
     assert.match(table, /length 4 → 258/);
     assert.deepEqual([len(23).sym, len(23).nExtra, len(26).sym, len(27).sym], [270, 2, 270, 271]);
@@ -219,18 +296,18 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
   });
 
   test("the alphabet explorer's strips and default state are the encoder's mapping", () => {
-    const lab = PAGE.match(/<bh-playground class="wide" id="alphabet-lab">[\s\S]*?<\/bh-playground>/)[0];
+    const lab = grab(PAGE, /<bh-playground class="wide" id="alphabet-lab">[\s\S]*?<\/bh-playground>/)[0];
     const boxes = [...lab.matchAll(/data-sym="(\d+|d\d+)" title="[^:]+: (length|distance) ([\d,]+)(?:–([\d,]+))?(?:, (\d+) extra bits?)?"/g)];
     assert.equal(boxes.length, 29 + 30, "29 length symbols and 30 distance symbols");
-    const num = (t) => +t.replace(/,/g, "");
+    const num = (t: string): number => +t.replace(/,/g, "");
     for (const [, sym, kind, lo, hi = lo, n = "0"] of boxes) {
       for (const v of [num(lo), num(hi)]) {
         const r = kind === "length" ? Deflate.lengthSymbol(v) : Deflate.distanceCode(v);
-        assert.equal(kind === "length" ? String(r.sym) : `d${r.code}`, sym, `${kind} ${v}`);
+        assert.equal("sym" in r ? String(r.sym) : `d${r.code}`, sym, `${kind} ${v}`);
         assert.equal(r.nExtra, +n, `${sym} extra bits`);
       }
       // The range is exactly the values that map to this symbol: one below and one above map elsewhere.
-      const map = (v) => (kind === "length" ? String(Deflate.lengthSymbol(v).sym) : `d${Deflate.distanceCode(v).code}`);
+      const map = (v: number): string => (kind === "length" ? String(Deflate.lengthSymbol(v).sym) : `d${Deflate.distanceCode(v).code}`);
       if (num(lo) > (kind === "length" ? 3 : 1)) assert.notEqual(map(num(lo) - 1), sym);
       if (num(hi) < (kind === "length" ? 258 : 32768)) assert.notEqual(map(num(hi) + 1), sym);
     }
@@ -250,7 +327,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
   test("the bit walk's output figure is what the walked stream decodes to", () => {
     // Replay the recorded stream's tokens: which bytes are literals, which are copies, and which
     // bytes a copy reads after writing them itself.
-    const kinds = [], copies = [];
+    const kinds: string[] = [], copies: { at: number; len: number; dist: number }[] = [];
     let len = 0;
     const walked = series ? trace(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.fixed)) : example();
     for (const f of walked.fields) {
@@ -263,7 +340,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     for (let k = 0; k < last.len; k++) if (last.at + k - last.dist >= last.at) selfRead.add(last.at + k - last.dist);
     assert.deepEqual([...selfRead], series ? [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22] : [13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
 
-    const fig = PAGE.match(/<figure class="diagram wide" id="bit-output"[\s\S]*?<\/figure>/)[0];
+    const fig = grab(PAGE, /<figure class="diagram wide" id="bit-output"[\s\S]*?<\/figure>/)[0];
     const cells = [...fig.matchAll(/<g class="node (c[12])( overlap)?" data-id="o(\d+)"><rect [^>]*\/><text[^>]*>([^<]*)<\/text><\/g>/g)];
     assert.equal(cells.length, EXAMPLE.length);
     cells.forEach(([, tone, overlap, i, ch]) => {
@@ -272,7 +349,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
       assert.equal(ch === "␣" ? " " : ch, EXAMPLE[+i]);
     });
     // The arc runs from the copy's first write back to its first read; the brackets span both ranges.
-    const x = (i) => i * 20 + 10, src = last.at - last.dist;
+    const x = (i: number): number => i * 20 + 10, src = last.at - last.dist;
     if (series) assert.match(fig, new RegExp(`data-id="copy2" d="M${x(last.at)} 36 C${x(last.at)} 0 ${x(src) + 4} 0 ${x(src) + 4} 25"`));
     else assert.match(fig, /data-id="copy2" d="M270 36 C270 0 34 0 34 25"/);
     assert.ok(fig.includes(`>copied from: bytes ${src}–${src + last.len - 1}<`));
@@ -280,8 +357,8 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
   });
 
   test("the plain-field table's widths are the ones that decode real streams", () => {
-    const table = text(PAGE.match(/<div class="table-wrap wide" id="plain-fields"[\s\S]*?<\/table>/)[0]);
-    const rows = Object.fromEntries([...PAGE.match(/<div class="table-wrap wide" id="plain-fields"[\s\S]*?<\/tbody>/)[0]
+    const table = text(grab(PAGE, /<div class="table-wrap wide" id="plain-fields"[\s\S]*?<\/table>/)[0]);
+    const rows = Object.fromEntries([...grab(PAGE, /<div class="table-wrap wide" id="plain-fields"[\s\S]*?<\/tbody>/)[0]
       .matchAll(/<tr><td>(.*?)<\/td><td class="num">(.*?)<\/td>/g)].map((m) => [text(m[1]), m[2]]));
     assert.deepEqual(rows, {
       BFINAL: "1", BTYPE: "2", "length extra bits": "0–5", "distance extra bits": "0–13",
@@ -297,7 +374,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(new TextDecoder().decode(dyn.output), PARAGRAPH);
 
     // Extra-bit widths over every length and distance.
-    const lenExtra = new Set(), distExtra = new Set();
+    const lenExtra = new Set<number>(), distExtra = new Set<number>();
     for (let n = 3; n <= 258; n++) lenExtra.add(Deflate.lengthSymbol(n).nExtra);
     for (let n = 1; n <= 32768; n++) distExtra.add(Deflate.distanceCode(n).nExtra);
     assert.deepEqual([Math.min(...lenExtra), Math.max(...lenExtra)], [0, 5]);
@@ -320,9 +397,10 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(codes[0].toString(2).padStart(8, "0"), "00110000");
     const budget = FIXED.reduce((sum, l) => sum + 2 ** -l, 0);
     assert.equal(budget, 1, "the fixed code spends the whole budget");
-    const box = PAGE.match(/<details class="disclosure" id="fixed-lengths"[\s\S]*?<\/details>/)[0];
-    for (const [label, count, bits] of [["bytes 0–143", 144, 8], ["bytes 144–255", 112, 9], ["256–279", 24, 7], ["280–287", 8, 8]]) {
-      const row = text(box.match(new RegExp(`<tr><td>${label}[\\s\\S]*?</tr>`))[0]);
+    const box = grab(PAGE, /<details class="disclosure" id="fixed-lengths"[\s\S]*?<\/details>/)[0];
+    const fixedRows: [string, number, number][] = [["bytes 0–143", 144, 8], ["bytes 144–255", 112, 9], ["256–279", 24, 7], ["280–287", 8, 8]];
+    for (const [label, count, bits] of fixedRows) {
+      const row = text(grab(box, new RegExp(`<tr><td>${label}[\\s\\S]*?</tr>`))[0]);
       assert.match(row, new RegExp(`${count}\\s*${bits}`), label);
     }
     // Without JavaScript the playground shows the encoder's own stream for its default text.
@@ -336,7 +414,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     const stream = Deflate.encode(utf8(EXAMPLE)).streams.dynamic;
     assert.equal(new TextDecoder().decode(zlib.inflateRawSync(stream)), EXAMPLE, "zlib reads it back");
     const all = Array.from({ length: stream.length * 8 }, (_, i) => (stream[i >> 3] >> (i & 7)) & 1).join("");
-    const walk = text(PAGE.match(/<bh-codewalk[^>]*id="dyn-walk"[\s\S]*?<code>([\s\S]*?)<\/code>/)[1]).split("\n");
+    const walk = text(grab(PAGE, /<bh-codewalk[^>]*id="dyn-walk"[\s\S]*?<code>([\s\S]*?)<\/code>/)[1]).split("\n");
     assert.equal(walk.length, 56);
     const shown = walk.map((l) => l.slice(0, 13).trim().replace(" +", ""));
     shown.forEach((b) => assert.match(b, /^[01]+$/));
@@ -377,12 +455,12 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     // "Isn't sending all those zeros wasteful?": the literal/length list's zeros and used lengths.
     const lit = fields.filter((f) => f.kind === "clsym" && f.at < f.hlit);
     const zeros = lit.filter((f) => f.value === 0), used = lit.filter((f) => f.value > 0);
-    const bitsOf = (list) => list.reduce((sum, f) => sum + f.bits.length + (f.extraBits || "").length, 0);
+    const bitsOf = (list: Field[]): number => list.reduce((sum, f) => sum + f.bits.length + (f.extraBits || "").length, 0);
     assert.equal(zeros.reduce((sum, f) => sum + f.count, 0), 262);
     assert.deepEqual([zeros.filter((f) => f.count > 1).length, zeros.filter((f) => f.count === 1).length], [6, 1]);
     assert.deepEqual([bitsOf(zeros), bitsOf(used), used.length], [56, 21, 9]);
     assert.equal(9 * (Math.ceil(Math.log2(286)) + 4), 117);
-    const note = text(PAGE.match(/<details class="disclosure" id="zero-lengths"[\s\S]*?<\/details>/)[0]);
+    const note = text(grab(PAGE, /<details class="disclosure" id="zero-lengths"[\s\S]*?<\/details>/)[0]);
     assert.match(note, /271 symbols in 77 bits: its 262 zeros take 56 bits, as 6 runs and one lone zero, and the 9 used lengths take 21/);
     assert.match(note, /117 bits/);
     // Every bit that says "unused": the code-length code's zeros (3 bits each), and the zero runs of both lists.
@@ -393,7 +471,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(bitsOf(clZero) + bitsOf(zeros) + bitsOf(distZero), 95);
     assert.equal(t.blocks[0].headerBits, 159);
     assert.match(note, /saying "unused" is most of the header: 95 of its 159 bits\. Besides those 56, 6 bits mark d0–d4 as unused, and 33 go on the code-length code's own list, where 11 of the 18 lengths are 0 at 3 bits each/);
-    assert.match(text(PAGE.match(/<bh-cw-step lines="6-23">[\s\S]*?<\/bh-cw-step>/)[0]), /11 of these 18 lengths are 0, and each costs the full 3 bits: 33 bits/);
+    assert.match(text(grab(PAGE, /<bh-cw-step lines="6-23">[\s\S]*?<\/bh-cw-step>/)[0]), /11 of these 18 lengths are 0, and each costs the full 3 bits: 33 bits/);
 
     // The two levels: which symbols each alphabet uses, their code lengths, and the walk lines.
     const litUsed = lit.filter((f) => f.value > 0), distUsed = dist.filter((f) => f.value > 0), clUsed = cl.filter((f) => f.value > 0);
@@ -402,7 +480,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.deepEqual(distUsed.map((f) => [f.at - f.hlit, f.value]), [[5, 1], [6, 1]]);
     assert.deepEqual(clUsed.map((f) => f.symbol).sort((x, y) => x - y), [0, 1, 2, 3, 4, 17, 18]);
     assert.deepEqual([Math.min(...clUsed.map((f) => f.value)), Math.max(...clUsed.map((f) => f.value))], [2, 5]);
-    const levels = text(PAGE.match(/<div class="table-wrap wide" id="dynamic-levels"[\s\S]*?<\/table>/)[0]);
+    const levels = text(grab(PAGE, /<div class="table-wrap wide" id="dynamic-levels"[\s\S]*?<\/table>/)[0]);
     assert.match(levels, /literal\/length\s*9: a, b, r, c, d, ␣, 256, 258, 270\s*2, 3 or 4 bits\s*24–39\s*43–55/);
     assert.match(levels, /distance\s*2: d5, d6\s*1 bit each\s*40–42\s*51, 54/);
     assert.match(levels, /code-length \(CL\)\s*7: 1, 2, 3, 4 \(the lengths above\), 0, 17, 18 \(for zeros\)\s*2 to 5 bits\s*6–23\s*24–42/);
@@ -426,11 +504,11 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
 
     // The hex, and where the bits go.
     assert.ok(PAGE.includes(`<code>${Array.from(stream, (b) => b.toString(16).padStart(2, "0")).join(" ")}</code>`));
-    const n = (kinds) => fields.filter((f) => kinds.includes(f.kind)).reduce((sum, f) => sum + f.bits.length + (f.extraBits || "").length, 0);
+    const n = (kinds: string[]): number => fields.filter((f) => kinds.includes(f.kind)).reduce((sum, f) => sum + f.bits.length + (f.extraBits || "").length, 0);
     const parts = [3, n(["hlit", "hdist", "hclen"]), n(["cllen"]), n(["clsym"]), n(["literal", "length", "distance", "end"])];
     assert.deepEqual(parts, [3, 14, 54, 91, 41]);
     assert.equal(parts.reduce((a, b) => a + b), t.bitsUsed);
-    const table = text(PAGE.match(/<div class="table-wrap" id="dynamic-bits"[\s\S]*?<\/table>/)[0]);
+    const table = text(grab(PAGE, /<div class="table-wrap" id="dynamic-bits"[\s\S]*?<\/table>/)[0]);
     assert.match(table, /HLIT, HDIST and HCLEN\s*14\s*0/);
     assert.match(table, /code-length-code lengths\s*54/);
     assert.match(table, /the code lengths themselves\s*91/);
@@ -440,18 +518,18 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
   });
 
   test("the page's own glossary: A–Z, no clash with the site glossary, every link resolves", () => {
-    const terms = (html) => [...html.matchAll(/<dt id="([^"]+)"(?: data-aliases="([^"]*)")?>([^<]+)<\/dt>/g)]
+    const terms = (html: string) => [...html.matchAll(/<dt id="([^"]+)"(?: data-aliases="([^"]*)")?>([^<]+)<\/dt>/g)]
       .map(([, id, aliases = "", term]) => ({ id, names: [term, ...aliases.split(",").map((x) => x.trim()).filter(Boolean)].map((n) => n.toLowerCase()), term }));
     const site = terms(fs.readFileSync(path.join(ROOT, "docs/glossary.html"), "utf8"));
     for (const { file: pageFile, html: PAGE } of pages) {
-    const local = terms(PAGE.match(/<dl class="glossary wide">[\s\S]*?<\/dl>/)[0]);
+    const local = terms(grab(PAGE, /<dl class="glossary wide">[\s\S]*?<\/dl>/)[0]);
     assert.equal(local.length, { "how-deflate-works.html": 19, "how-deflate-compresses.html": 13, "how-deflate-sends-its-code.html": 12, "deflate-format-reference.html": 19 }[pageFile], pageFile);
     const sorted = [...local].sort((x, y) => x.term.localeCompare(y.term, "en", { sensitivity: "base" }));
     assert.deepEqual(local.map((e) => e.id), sorted.map((e) => e.id), "kept A–Z");
     const siteNames = new Map(site.flatMap((e) => e.names.map((n) => [n, e.id])));
     for (const e of local) for (const n of e.names) assert.ok(!siteNames.has(n), `"${n}" is already the site glossary's "${siteNames.get(n)}"`);
     const ids = new Set([...PAGE.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
-    const box = PAGE.match(/<h2 id="terms">[\s\S]*?<\/dl>/)[0];
+    const box = grab(PAGE, /<h2 id="terms">[\s\S]*?<\/dl>/)[0];
     for (const [, href] of box.matchAll(/href="#([^"]+)"/g)) assert.ok(ids.has(href), `#${href}`);
     const siteIds = new Set(site.map((e) => e.id));
     for (const [, href] of box.matchAll(/href="glossary\.html#([^"]+)"/g)) assert.ok(siteIds.has(href), `glossary.html#${href}`);
@@ -464,22 +542,23 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
       for (const [, target, id] of p.html.matchAll(/href="([a-z0-9-]+\.html)?#([^"]+)"/g)) {
         const on = target || p.file;
         if (!idsOf.has(on)) continue; // a page outside this set (the glossary, the home page)
-        assert.ok(idsOf.get(on).has(id) || /-step-\d+$/.test(id), `${p.file}: ${on}#${id}`);
+        assert.ok(must(idsOf.get(on), on).has(id) || /-step-\d+$/.test(id), `${p.file}: ${on}#${id}`);
       }
     }
   });
 
   test("the code-length alphabet table holds for every run symbol in real dynamic blocks", () => {
-    const table = PAGE.match(/<div class="table-wrap" id="cl-alphabet"[\s\S]*?<\/table>/)[0];
-    const rows = Object.fromEntries([...table.matchAll(/<tr><td>(\d+)<\/td><td>[^<]*<\/td><td class="num">(\d+)<\/td><td>(.*?)<\/td><\/tr>/g)]
+    const table = grab(PAGE, /<div class="table-wrap" id="cl-alphabet"[\s\S]*?<\/table>/)[0];
+    const rows: Record<number, { n: number; count: string }> = Object.fromEntries([...table.matchAll(/<tr><td>(\d+)<\/td><td>[^<]*<\/td><td class="num">(\d+)<\/td><td>(.*?)<\/td><\/tr>/g)]
       .map(([, sym, n, count]) => [sym, { n: +n, count: text(count) }]));
     assert.deepEqual(rows, { 16: { n: 2, count: "3–6 times" }, 17: { n: 3, count: "3–10" }, 18: { n: 7, count: "11–138" } });
-    // Each range is its minimum plus every value the extra bits can hold.
-    for (const [sym, min] of [[16, 3], [17, 3], [18, 11]]) assert.match(rows[sym].count, new RegExp(`^${min}–${min + 2 ** rows[sym].n - 1}`));
+    // Each range is its minimum plus every value the extra bits can hold. (deepEqual narrows `rows` to the literal, so read it through a wider name.)
+    const info: Record<number, { n: number; count: string }> = rows;
+    for (const [sym, min] of [[16, 3], [17, 3], [18, 11]] as const) assert.match(info[sym].count, new RegExp(`^${min}–${min + 2 ** info[sym].n - 1}`));
     let seen = 0;
     for (const stream of [Deflate.encode(utf8(EXAMPLE)).streams.dynamic, Buffer.from(REFERENCE.paragraph, "hex")]) {
       for (const f of trace(Buffer.from(stream)).fields.filter((x) => x.kind === "clsym" && x.symbol >= 16)) {
-        const { n } = rows[f.symbol], min = f.symbol === 18 ? 11 : 3;
+        const { n } = info[f.symbol], min = f.symbol === 18 ? 11 : 3;
         assert.equal(f.extraBits.length, n, `symbol ${f.symbol} carries ${n} extra bits`);
         assert.ok(f.count >= min && f.count <= min + 2 ** n - 1, `symbol ${f.symbol} count ${f.count}`);
         seen++;
@@ -490,7 +569,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
 
   test("the four steps to sending a dynamic code cost what the page says", () => {
     // Each step's header cost, computed from the real blocks' code lengths and run symbols.
-    const steps = (buf) => {
+    const steps = (buf: Uint8Array) => {
       const tr = trace(buf), b = tr.blocks[0], runs = tr.fields.filter((f) => f.kind === "clsym");
       const data = tr.fields.filter((f) => ["literal", "length", "distance", "end"].includes(f.kind)).reduce((s, f) => s + f.bits.length + (f.extraBits || "").length, 0);
       return {
@@ -505,10 +584,10 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     const ex = steps(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.dynamic)), para = steps(Buffer.from(REFERENCE.paragraph, "hex"));
     assert.deepEqual([ex.naive, ex.counts, ex.runs, ex.coded, ex.data, ex.runSymbols], [1264, 1122, 146, 159, 41, 19]);
     assert.deepEqual([para.naive, para.counts, para.runs, para.coded, para.data], [1264, 1158, 443, 352, 1521]);
-    const chart = PAGE.match(/<figure class="frame wide" id="header-steps">[\s\S]*?<\/figure>/)[0];
+    const chart = grab(PAGE, /<figure class="frame wide" id="header-steps">[\s\S]*?<\/figure>/)[0];
     const rows = [...chart.matchAll(/<tr><td>[^<]*<\/td><td>(\d+)<\/td><td>(\d+)<\/td><\/tr>/g)].map((m) => [+m[1], +m[2]]);
     assert.deepEqual(rows, [[111, 581], [ex.naive, para.naive], [ex.counts, para.counts], [ex.runs, para.runs], [ex.coded, para.coded]]); // the tree row: see the tree-cost test
-    const prose = text(PAGE.match(/<h2 id="dynamic-header">[\s\S]*?<figure class="frame wide" id="header-steps">/)[0]);
+    const prose = text(grab(PAGE, /<h2 id="dynamic-header">[\s\S]*?<figure class="frame wide" id="header-steps">/)[0]);
     assert.match(prose, /That is 1,264 bits, 158 bytes/);
     assert.match(prose, series ? /The example's data is only 41 bits, so describing its code would cost 30 times as much/ : /The example's data is only 41 bits, so its code table would cost 30 times as much/);
     assert.equal(Math.floor(ex.naive / ex.data), 30);
@@ -535,12 +614,12 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
 
   // What sending each block's code as a tree would cost: a pre-order walk, 1 bit per branch or leaf,
   // then each leaf's symbol in 9 bits (literal/length) or 5 (distance).
-  const codeLengths = (buf) => {
+  const codeLengths = (buf: Uint8Array): { lit: number[]; dist: number[] } => {
     const tr = trace(buf), hlit = tr.blocks[0].hlit, lens = [];
     for (const f of tr.fields) if (f.kind === "clsym") for (let i = 0; i < f.count; i++) lens[f.at + i] = f.value;
     return { lit: lens.slice(0, hlit), dist: lens.slice(hlit) };
   };
-  const treeCost = ({ lit, dist }) => {
+  const treeCost = ({ lit, dist }: { lit: number[]; dist: number[] }) => {
     const n = lit.filter(Boolean).length, m = dist.filter(Boolean).length;
     const shape = 2 * n - 1 + (m ? 2 * m - 1 : 0), names = 9 * n + 5 * m;
     const table = n * (9 + 4) + lit.reduce((s, v) => s + v, 0) + m * (5 + 4) + dist.reduce((s, v) => s + v, 0);
@@ -553,13 +632,13 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.deepEqual(ex, { n: 9, m: 2, shape: 20, names: 91, tree: 111, table: 167 });
     assert.deepEqual([para.n, para.m, para.names, para.tree], [46, 11, 469, 581]);
     // The figure: the walk of the drawn tree (EXTREE), left before right, each name in binary, to scale.
-    const fig = PAGE.match(/<figure class="diagram wide" id="tree-cost">[\s\S]*?<\/figure>/)[0];
-    const EXTREE = JSON.parse(PAGE.match(/const EXTREE = (\{.*\});/)[1]);
-    const kids = Object.fromEntries(EXTREE.inner.map((n) => [n.id, n.kids]));
-    const root = EXTREE.inner.find((n) => !EXTREE.inner.some((p) => p.kids.includes(n.id))).id;
-    const SYM = { "x-sp": 32, "x-b": 98, "x-c": 99, "x-d": 100, "x-r": 114, "x-end": 256, "x-258": 258, "x-270": 270, "x-a": 97 };
-    const want = [];
-    const walk = (id) => { if (kids[id]) { want.push([id, "0"]); kids[id].forEach(walk); } else want.push([id, "1"], [id, SYM[id].toString(2).padStart(9, "0")]); };
+    const fig = grab(PAGE, /<figure class="diagram wide" id="tree-cost">[\s\S]*?<\/figure>/)[0];
+    const EXTREE: { inner: { id: string; kids: string[] }[]; leaves: { id: string; code: string }[] } = JSON.parse(grab(PAGE, /const EXTREE = (\{.*\});/)[1]);
+    const kids: Record<string, string[]> = Object.fromEntries(EXTREE.inner.map((n) => [n.id, n.kids]));
+    const root = must(EXTREE.inner.find((n) => !EXTREE.inner.some((p) => p.kids.includes(n.id))), "the tree has a root").id;
+    const SYM: Record<string, number> = { "x-sp": 32, "x-b": 98, "x-c": 99, "x-d": 100, "x-r": 114, "x-end": 256, "x-258": 258, "x-270": 270, "x-a": 97 };
+    const want: [string, string][] = [];
+    const walk = (id: string): void => { if (kids[id]) { want.push([id, "0"]); kids[id].forEach(walk); } else want.push([id, "1"], [id, SYM[id].toString(2).padStart(9, "0")]); };
     walk(root);
     want.push(["y-root", "0"], ["y-d5", "1"], ["y-d5", "00101"], ["y-d6", "1"], ["y-d6", "00110"]);
     const got = [...fig.matchAll(/data-id="([xy]-[a-z0-9]+)-(flag|name)"><rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"[^>]*\/>(?:<text[^>]*>[^<]*<\/text>)?<text[^>]*>([01]+)<\/text>/g)];
@@ -569,7 +648,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(got.filter((m) => m[2] === "name").reduce((s, m) => s + m[5].length, 0), ex.names);
     assert.match(fig, />111 bits</);
     // The prose.
-    const sec = text(PAGE.match(/<h2 id="canonical">[\s\S]*?<h2 id="dynamic-header">/)[0]);
+    const sec = text(grab(PAGE, /<h2 id="canonical">[\s\S]*?<h2 id="dynamic-header">/)[0]);
     assert.match(sec, series ? /For the example that is 9 × \(9 \+ 4\) bits plus the codes themselves, 30 bits in all, 147 bits, and d5 and d6 add 2 × \(5 \+ 4 \+ 1\) = 20: 167 bits/
       : /For the example that is 9 × \(9 \+ 4\) bits plus the 30 bits of the codes, 147 bits, and d5 and d6 add 2 × \(5 \+ 4 \+ 1\) = 20: 167 bits/);
     assert.match(sec, /That is 111 bits for the example\. Look at where they go: 20 describe the shape, and 91 name the symbols/);
@@ -590,17 +669,17 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.match(fig, />a \(97\)</);
     assert.match(text(fig), /a is symbol 97, 001100001\. It is neither a's code nor the byte it decodes to/);
     assert.match(sec, /so the 98th is symbol 97's, which is a's\. Nothing in the stream says 97; the position does/);
-    const trip = text(PAGE.match(/<ol id="round-trip"[\s\S]*?<\/ol>/)[0]);
+    const trip = text(grab(PAGE, /<ol id="round-trip"[\s\S]*?<\/ol>/)[0]);
     assert.match(trip, /Slot 97, the 98th length, is a's because a is symbol 97, and it holds 2/);
     assert.match(trip, /a is the only symbol of length 2, so it gets 00/);
     assert.match(trip, /builds a lookup table from code to symbol/);
     // zlib's table: a 9-bit index, cut to the longest code when shorter (inflate_table: root = min(9, max)).
-    const tables = text(PAGE.match(/<details class="disclosure" id="lookup-tables"[\s\S]*?<\/details>/)[0]);
+    const tables = text(grab(PAGE, /<details class="disclosure" id="lookup-tables"[\s\S]*?<\/details>/)[0]);
     const maxLen = Math.max(...exLens.lit);
     assert.deepEqual([2 ** (9 - 2), maxLen, 2 ** maxLen, 2 ** (maxLen - exLens.lit[97])], [128, 4, 16, 4]);
     assert.match(tables, /in a 9-bit table a 2-bit code fills every entry that starts with its two bits, 128 of them/);
     assert.match(trip, /reads 00, looks it up and gets symbol 97\. A symbol below 256 is a literal, so it outputs byte 97, 01100001: a/);
-    const after = text(PAGE.match(/<h3 id="step-coded">[\s\S]*?<figure class="frame wide" id="header-steps">/)[0]);
+    const after = text(grab(PAGE, /<h3 id="step-coded">[\s\S]*?<figure class="frame wide" id="header-steps">/)[0]);
     assert.match(after, /For the example, the tree still wins, 111 bits to 159/);
     assert.match(after, /the tree would cost 581 bits, 469 of them names, against 352 for the lengths/);
     assert.match(after, /uses 46 literal\/length symbols and 11 distances/);
@@ -620,8 +699,8 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
       return { idx, ...owners[0] };
     });
     for (const u of used) assert.equal(table.filter((e) => e.sym === u.sym).length, 2 ** (BITS - u.l));
-    const DT = JSON.parse(PAGE.match(/const DT = (\{.*\});/)[1]);
-    const ID = { 32: "sp", 97: "a", 98: "b", 99: "c", 100: "d", 114: "r", 256: "end", 258: "l258", 270: "l270" };
+    const DT: DecodeTable = JSON.parse(grab(PAGE, /const DT = (\{.*\});/)[1]);
+    const ID: Record<number, string> = { 32: "sp", 97: "a", 98: "b", 99: "c", 100: "d", 114: "r", 256: "end", 258: "l258", 270: "l270" };
     assert.deepEqual(DT.entries, table.map((e) => ({ idx: e.idx, owner: ID[e.sym], l: e.l })));
     // The first column is the block's own length list, in symbol order, zeros folded into ranges;
     // each code starts beside its length and ends in canonical order (by length, then symbol).
@@ -631,29 +710,29 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     const sorted = [...used].sort((x, y) => x.l - y.l || x.sym - y.sym).map((u) => ID[u.sym]);
     assert.deepEqual([...DT.codes].sort((x, y) => x.y - y.y).map((c) => c.id), sorted);
     const rowY = Object.fromEntries(DT.lengths.map((r, i) => [r.s, 36 + i * 26]));
-    for (const c of DT.codes) assert.equal(c.y0, rowY[used.find((u) => ID[u.sym] === c.id).sym], `${c.id} starts beside its length`);
+    for (const c of DT.codes) assert.equal(c.y0, rowY[must(used.find((u) => ID[u.sym] === c.id), c.id).sym], `${c.id} starts beside its length`);
     // The data: the block's own bits, in arrival order, up to the first distance code.
     const data = tr.fields.filter((f) => ["literal", "length", "distance"].includes(f.kind));
     const firstDist = data.findIndex((f) => f.kind === "distance");
     assert.equal(DT.stream, data.slice(0, firstDist + 1).map((f) => f.bits).join(""));
     assert.equal(DT.stream, "0011010100011100011111000");
     // Decoding with the table: peek 4, consume the entry's length. It gives back the encoder's symbols.
-    const got = [];
-    for (let pos = 0; got.length < firstDist; ) { const e = table.find((x) => x.idx === DT.stream.slice(pos, pos + BITS)); got.push(e.sym); pos += e.l; }
+    const got: number[] = [];
+    for (let pos = 0; got.length < firstDist; ) { const e = must(table.find((x) => x.idx === DT.stream.slice(pos, pos + BITS)), "the table covers every index"); got.push(e.sym); pos += e.l; }
     assert.deepEqual(got, data.slice(0, firstDist).map((f) => f.value));
     assert.deepEqual(DT.syms.map((y) => y.start), [0, 2, 6, 9, 11, 15, 17, 21, 24]);
     assert.deepEqual(DT.readout.map((r) => r.r1), ["peek: 0011", "peek: 1101", "peek: 0100", "peek: 1111", "peek: 1000"]);
     assert.deepEqual(DT.out, ["a", "ab", "abr", "abracad", "abracadabra"]);
-    assert.ok(EXAMPLE.startsWith(DT.out.at(-1)));
+    assert.ok(EXAMPLE.startsWith(must(DT.out.at(-1), "the readout has output")));
     // 258 is length 4, then d5 with extra bit 0 is distance 7: the copy that turns abracad into abracadabra.
     const len = data[firstDist - 1], d = data[firstDist];
     assert.deepEqual([len.value, len.length, d.value, d.extraBits, d.distance], [258, 4, 5, "0", 7]);
     assert.deepEqual(dist.map((l, i) => [i, l]).filter(([, l]) => l), [[5, 1], [6, 1]]);
     // The markup: every entry's label, and the stepper's narration.
-    const fig = PAGE.match(/<figure class="diagram wide" id="decode-table">[\s\S]*?<\/figure>/)[0];
-    const NAME = { 32: "␣", 256: "end", 258: "258", 270: "270" };
+    const fig = grab(PAGE, /<figure class="diagram wide" id="decode-table">[\s\S]*?<\/figure>/)[0];
+    const NAME: Record<number, string> = { 32: "␣", 256: "end", 258: "258", 270: "270" };
     for (const e of table) assert.match(fig, new RegExp(`data-id="e-${e.idx}">.*?>${NAME[e.sym] ?? String.fromCharCode(e.sym)} · ${e.l} bits<`));
-    const steps = text(PAGE.match(/<bh-stepper for="decode-table">[\s\S]*?<\/bh-stepper>/)[0]);
+    const steps = text(grab(PAGE, /<bh-stepper for="decode-table">[\s\S]*?<\/bh-stepper>/)[0]);
     assert.match(steps, /one length per symbol, in symbol order, 271 of them\. The decoder knows each one's symbol by counting: the 98th is symbol 97, a, and it is 2\. 262 of the 271 are 0/);
     assert.match(steps, /a, the only length 2, gets 00; the four 3s get 010 to 101; the four 4s get 1100 to 1111/);
     assert.match(steps, /so a fills all four entries from 0000 to 0011/);
@@ -682,27 +761,28 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
 
   test("where the fixed code falls short: the paragraph's fitted codes and totals", () => {
     const tr = trace(Buffer.from(REFERENCE.paragraph, "hex")), b = tr.blocks[0];
-    const lengths = []; for (const f of tr.fields.filter((x) => x.kind === "clsym")) for (let k = 0; k < f.count; k++) lengths.push(f.value);
-    const fixedLen = (sym) => (sym < 144 ? 8 : sym < 256 ? 9 : sym < 280 ? 7 : 8);
+    const lengths: number[] = []; for (const f of tr.fields.filter((x) => x.kind === "clsym")) for (let k = 0; k < f.count; k++) lengths.push(f.value);
+    const fixedLen = (sym: number): number => (sym < 144 ? 8 : sym < 256 ? 9 : sym < 280 ? 7 : 8);
     const data = tr.fields.filter((f) => ["literal", "length", "distance", "end"].includes(f.kind));
     const lits = data.filter((f) => f.kind === "literal");
-    const counts = new Map(); for (const f of lits) counts.set(f.value, (counts.get(f.value) || 0) + 1);
-    const extra = (f) => (f.extraBits || "").length;
+    const counts = new Map<number, number>(); for (const f of lits) counts.set(f.value, (counts.get(f.value) || 0) + 1);
+    const extra = (f: Field): number => (f.extraBits || "").length;
     const fitted = data.reduce((s, f) => s + f.bits.length + extra(f), 0);
     const fixed = data.reduce((s, f) => s + (f.kind === "distance" ? 5 : fixedLen(f.value)) + extra(f), 0);
     const litFitted = lits.reduce((s, f) => s + f.bits.length, 0);
     assert.deepEqual([lits.length, counts.size, lits.length * 8, litFitted, fixed, fitted, b.headerBits, 3 + fixed, 3 + b.headerBits + fitted],
       [233, 38, 1864, 1108, 2375, 1521, 352, 2378, 1876]);
     assert.ok(lits.every((f) => fixedLen(f.value) === 8), "every literal here costs 8 bits in the fixed code");
-    const table = text(PAGE.match(/<div class="table-wrap" id="fitted-codes"[\s\S]*?<\/table>/)[0]);
-    for (const [ch, times, bits] of [[" ", 32, 3], ["e", 20, 4], ["i", 16, 4], ["s", 15, 4], ["t", 15, 4], ["o", 14, 4], ["k", 1, 8], ["u", 1, 8], ["v", 1, 8], ["x", 1, 8]]) {
+    const table = text(grab(PAGE, /<div class="table-wrap" id="fitted-codes"[\s\S]*?<\/table>/)[0]);
+    const letters: [string, number, number][] = [[" ", 32, 3], ["e", 20, 4], ["i", 16, 4], ["s", 15, 4], ["t", 15, 4], ["o", 14, 4], ["k", 1, 8], ["u", 1, 8], ["v", 1, 8], ["x", 1, 8]];
+    for (const [ch, times, bits] of letters) {
       const v = ch.charCodeAt(0);
       assert.equal(counts.get(v), times, `${ch} count`);
       assert.equal(lengths[v], bits, `${ch} fitted length`);
     }
     assert.match(table, /space\s*32\s*8 bits\s*3 bits/);
     assert.match(table, /k, u, v, x\s*1 each\s*8 bits\s*8 bits/);
-    const prose = text(PAGE.match(/<h2 id="fixed-limits">[\s\S]*?<h2 id="canonical">/)[0]);
+    const prose = text(grab(PAGE, /<h2 id="fixed-limits">[\s\S]*?<h2 id="canonical">/)[0]);
     assert.match(prose, /233 literals, using 38 different bytes/);
     assert.match(prose, /the fixed code spends 1,864 bits and the fitted code 1,108, about 4\.8 bits a literal/);
     assert.equal((litFitted / lits.length).toFixed(1), "4.8");
@@ -715,12 +795,12 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
   test("the bridges between sections quote real numbers", () => {
     const tr = trace(Buffer.from(REFERENCE.paragraph, "hex"));
     const data = tr.fields.filter((f) => ["literal", "length", "distance", "end"].includes(f.kind));
-    const fixedLen = (sym) => (sym < 144 ? 8 : sym < 256 ? 9 : sym < 280 ? 7 : 8), extra = (f) => (f.extraBits || "").length;
+    const fixedLen = (sym: number): number => (sym < 144 ? 8 : sym < 256 ? 9 : sym < 280 ? 7 : 8), extra = (f: Field): number => (f.extraBits || "").length;
     const saved = data.reduce((s, f) => s + (f.kind === "distance" ? 5 : fixedLen(f.value)) + extra(f), 0) - data.reduce((s, f) => s + f.bits.length + extra(f), 0);
     assert.equal(saved, 854);
     assert.match(PAGE, /the fitted code saved 854 bits on the data, and sending it cost 352 of them/);
     // Step 3 → 4: how unequal the paragraph's run symbols are.
-    const runs = tr.fields.filter((f) => f.kind === "clsym"), n = (sym) => runs.filter((f) => f.symbol === sym).length;
+    const runs = tr.fields.filter((f) => f.kind === "clsym"), n = (sym: number): number => runs.filter((f) => f.symbol === sym).length;
     assert.deepEqual([runs.length, n(8), n(5), n(0), n(2), n(16)], [78, 14, 14, 12, 1, 0]);
     assert.ok(Math.max(...[...Array(19).keys()].map(n)) === 14, "8 and 5 are the most common");
     assert.match(PAGE, series ? /The paragraph's lengths take 78 of them: symbols 8 and 5 appear 14 times each and 0 appears 12 times, while 2 appears once and 16 not at all/
@@ -735,11 +815,11 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
   test("the send-steps figure is the example's real code-length list", () => {
     const tr = trace(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.dynamic)), b = tr.blocks[0];
     const runs = tr.fields.filter((f) => f.kind === "clsym");
-    const fig = PAGE.match(/<figure class="diagram wide" id="send-steps">[\s\S]*?<\/bh-stepper>/)[0];
+    const fig = grab(PAGE, /<figure class="diagram wide" id="send-steps">[\s\S]*?<\/bh-stepper>/)[0];
     const chips = [...fig.matchAll(/data-id="(r\d+)"><rect [^>]*\/><text[^>]*>(\d+)<\/text><\/g>/g)].map((m) => m[2]);
-    const sub = (k) => text(fig.match(new RegExp(`data-id="r${k}-sub"[^>]*>([^<]*)<`))[1]);
-    const code = (k) => fig.match(new RegExp(`data-id="r${k}-code"[^>]*>([^<]*)<`))[1];
-    const cost = (k) => fig.match(new RegExp(`data-id="r${k}-cost"[^>]*>([^<]*)<`))[1];
+    const sub = (k: number): string => text(grab(fig, new RegExp(`data-id="r${k}-sub"[^>]*>([^<]*)<`))[1]);
+    const code = (k: number): string => grab(fig, new RegExp(`data-id="r${k}-code"[^>]*>([^<]*)<`))[1];
+    const cost = (k: number): string => grab(fig, new RegExp(`data-id="r${k}-cost"[^>]*>([^<]*)<`))[1];
     assert.deepEqual(chips, runs.map((f) => String(f.symbol)), "one chip per run symbol, in order");
     runs.forEach((f, k) => {
       assert.equal(code(k), f.bits, `chip ${k} code`);
@@ -762,14 +842,14 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(Math.ceil(159 / 8), 20);
     assert.match(fig, /class="label strong send-delta up"[^>]*>\+13 bits</);
     // The bar is to scale: full width is step 1, and the mark is the example's data.
-    const width = +fig.match(/viewBox="-16 -16 (\d+)/)[1] - 32, bar = +fig.match(/class="send-size"[^>]*width="([\d.]+)"/)[1];
+    const width = +grab(fig, /viewBox="-16 -16 (\d+)/)[1] - 32, bar = +grab(fig, /class="send-size"[^>]*width="([\d.]+)"/)[1];
     assert.ok(Math.abs(bar - 159 * width / 1264) < 0.1);
     const dataBits = tr.fields.filter((f) => ["literal", "length", "distance", "end"].includes(f.kind)).reduce((s, f) => s + f.bits.length + (f.extraBits || "").length, 0);
     assert.equal(dataBits, 41);
-    assert.ok(Math.abs(+fig.match(/class="send-data-mark" d="M([\d.]+)/)[1] - 41 * width / 1264) < 0.1);
+    assert.ok(Math.abs(+grab(fig, /class="send-data-mark" d="M([\d.]+)/)[1] - 41 * width / 1264) < 0.1);
     // What each step is made of: every part's bits come from the stream, and the parts add up to the step's total.
-    const PARTS = JSON.parse(PAGE.match(/const PARTS = (\[[\s\S]*?\]);\n/)[1]);
-    const byLen = (n) => runs.filter((f) => f.bits.length === n).length, extraOf = (n) => runs.filter((f) => f.extraBits.length === n).length;
+    const PARTS: Part[][] = JSON.parse(grab(PAGE, /const PARTS = (\[[\s\S]*?\]);\n/)[1]);
+    const byLen = (n: number): number => runs.filter((f) => f.bits.length === n).length, extraOf = (n: number): number => runs.filter((f) => f.extraBits.length === n).length;
     assert.deepEqual([byLen(2), byLen(3), byLen(4), byLen(5)], [13, 2, 2, 2]);
     assert.deepEqual([extraOf(7), extraOf(3)], [5, 2]);
     const codeBits = runs.reduce((s, f) => s + f.bits.length, 0);
@@ -793,13 +873,13 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
       const m = fig.match(new RegExp(`data-id="r${k}-extra"[^>]*>([01]+)<`));
       if (f.symbol >= 16) assert.equal(m && m[1], f.extraBits, `r${k}`); else assert.equal(m, null, `r${k} has no extra bits`);
     });
-    const rev = (bits) => parseInt([...bits].reverse().join(""), 2);
+    const rev = (bits: string): number => parseInt([...bits].reverse().join(""), 2);
     assert.deepEqual([runs[0].symbol, runs[0].extraBits, rev(runs[0].extraBits), runs[0].count], [18, "1010100", 21, 32]);
     for (const f of runs.filter((f) => f.symbol >= 17)) assert.equal((f.symbol === 17 ? 3 : 11) + rev(f.extraBits), f.count);
-    if (series) assert.match(text(PAGE.match(/<h3 id="step-runs">[\s\S]*?<h3 id="step-coded">/)[0]), /an 18, then the 7 extra bits 1010100\. Read backwards that is 0010101, 21, and an 18's runs start at 11, so 11 \+ 21 = 32/);
+    if (series) assert.match(text(grab(PAGE, /<h3 id="step-runs">[\s\S]*?<h3 id="step-coded">/)[0]), /an 18, then the 7 extra bits 1010100\. Read backwards that is 0010101, 21, and an 18's runs start at 11, so 11 \+ 21 = 32/);
     else assert.match(text(fig), /Under the first 18, 1010100 read backwards is 0010101, 21, and 18's runs start at 11, so 11 \+ 21 = 32/);
     // Step 3's fans: each joins the stretch of the old list a chip replaced to that chip.
-    const SEND = JSON.parse(PAGE.match(/const SEND = (\{.*\});/)[1]);
+    const SEND = JSON.parse(grab(PAGE, /const SEND = (\{.*\});/)[1]);
     for (const id of ["row-sym", "row-sub", "row-code", "row-cost"]) assert.match(fig, new RegExp(`data-id="${id}"`));
     for (const c of SEND.chips) {
       const ghost = fig.match(new RegExp(`data-id="${c.id}-ghost" x="([\\d.]+)" y="[\\d.]+" width="([\\d.]+)"`));
@@ -815,14 +895,14 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
 
   test("the example's tree is the encoder's Huffman code for its LZ77 symbols", () => {
     const tr = trace(Buffer.from(Deflate.encode(utf8(EXAMPLE)).streams.dynamic));
-    const counts = new Map();
+    const counts = new Map<number, number>();
     for (const f of tr.fields) if (["literal", "length", "end"].includes(f.kind)) counts.set(f.value, (counts.get(f.value) || 0) + 1);
     const lengths = Deflate.codeLengths(Array.from({ length: 286 }, (_, s) => counts.get(s) || 0), 15);
-    const fig = PAGE.match(/<figure class="diagram wide" id="example-tree">[\s\S]*?<\/figure>/)[0];
-    const SYM = { "x-sp": 32, "x-b": 98, "x-c": 99, "x-d": 100, "x-r": 114, "x-end": 256, "x-258": 258, "x-270": 270, "x-a": 97 };
+    const fig = grab(PAGE, /<figure class="diagram wide" id="example-tree">[\s\S]*?<\/figure>/)[0];
+    const SYM: Record<string, number> = { "x-sp": 32, "x-b": 98, "x-c": 99, "x-d": 100, "x-r": 114, "x-end": 256, "x-258": 258, "x-270": 270, "x-a": 97 };
     // The drawn tree, from its edges: each leaf's depth must be its code length.
     const parent = new Map([...fig.matchAll(/data-id="e-(x-n\d+)-(x-[a-z0-9]+)"/g)].map((m) => [m[2], m[1]]));
-    const depth = (id) => (parent.has(id) ? 1 + depth(parent.get(id)) : 0);
+    const depth = (id: string): number => (parent.has(id) ? 1 + depth(must(parent.get(id), id)) : 0);
     assert.equal([...counts.keys()].length, 9);
     for (const [id, sym] of Object.entries(SYM)) {
       assert.equal(depth(id), lengths[sym], `${id} depth`);
@@ -830,11 +910,11 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
       assert.match(fig, new RegExp(`data-id="${id}"><rect [^>]*/><text[^>]*>[^<]+</text><text class="sub"[^>]*>×${counts.get(sym)}<`));
     }
     // Each inner node's weight is the sum of its leaves' counts.
-    const kids = new Map(); for (const [c, p] of parent) kids.set(p, [...(kids.get(p) || []), c]);
-    const weight = (id) => (SYM[id] !== undefined ? counts.get(SYM[id]) : kids.get(id).reduce((s, k) => s + weight(k), 0));
+    const kids = new Map<string, string[]>(); for (const [c, p] of parent) kids.set(p, [...(kids.get(p) || []), c]);
+    const weight = (id: string): number => (SYM[id] !== undefined ? must(counts.get(SYM[id]), id) : must(kids.get(id), id).reduce((s, k) => s + weight(k), 0));
     for (const m of fig.matchAll(/data-id="(x-n\d+)"><rect [^>]*\/><text[^>]*>(\d+)</g)) assert.equal(+m[2], weight(m[1]), m[1]);
     // 85 bits with the fixed code, 34 with these codes.
-    const fixedLen = (s) => (s < 144 ? 8 : s < 256 ? 9 : s < 280 ? 7 : 8);
+    const fixedLen = (s: number): number => (s < 144 ? 8 : s < 256 ? 9 : s < 280 ? 7 : 8);
     let fixed = 0, fitted = 0; for (const [s, n] of counts) { fixed += n * fixedLen(s); fitted += n * lengths[s]; }
     assert.deepEqual([fixed, fitted], [85, 34]);
     assert.match(PAGE, /With the fixed code these 11 symbols cost 85 bits/);
@@ -842,7 +922,7 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
   });
 
   test("both Huffman trees read the codes, then the lengths, then lay them out as a table", () => {
-    const steps = (fig) => [...PAGE.match(new RegExp(`<bh-stepper for="${fig}">[\\s\\S]*?</bh-stepper>`))[0].matchAll(/<p><strong>([^<]*)/g)].map((m) => m[1].trim());
+    const steps = (fig: string): string[] => [...grab(PAGE, new RegExp(`<bh-stepper for="${fig}">[\\s\\S]*?</bh-stepper>`))[0].matchAll(/<p><strong>([^<]*)/g)].map((m) => m[1].trim());
     for (const fig of ["huffman-tree", "example-tree"]) assert.deepEqual(steps(fig).slice(-3), ["Read the codes.", "Count the bits.", "As a table."], fig);
     // Static (no-JavaScript) pictures show the tree with both codes and lengths.
     for (const id of ["a", "b", "r", "c", "d"]) assert.match(PAGE, new RegExp(`data-id="len-${id}"[^>]*>[13] bits?<`));
@@ -853,9 +933,9 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.equal(zlib.inflateRawSync(Buffer.from([0b001, 0x00, 0x00, 0xff, 0xff])).length, 0, "00: an empty stored block");
     assert.equal(zlib.inflateRawSync(Buffer.from([0b011, 0x00])).length, 0, "01: a fixed block holding only end-of-block");
     assert.throws(() => zlib.inflateRawSync(Buffer.from([0b111, 0x00, 0x00, 0x00])), /invalid block type/, "11 is reserved");
-    const btype = example().fields.find((f) => f.kind === "btype");
+    const btype = must(example().fields.find((f) => f.kind === "btype"), "the example has a btype field");
     assert.deepEqual([btype.bits, btype.value], ["10", 1], "fixed (01) arrives as 1, then 0");
-    const table = text(PAGE.match(/<div class="table-wrap" id="btype"[\s\S]*?<\/table>/)[0]);
+    const table = text(grab(PAGE, /<div class="table-wrap" id="btype"[\s\S]*?<\/table>/)[0]);
     assert.match(table, /01\s*1, then 0\s*fixed Huffman codes/);
     assert.match(table, /11\s*1, then 1\s*reserved: invalid/);
   });
@@ -870,13 +950,13 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
 
   test("the canonical ladder builds the example's real codes from its lengths", () => {
     const stream = Deflate.encode(utf8(EXAMPLE)).streams.dynamic, tr = trace(Buffer.from(stream));
-    const counts = new Map();
+    const counts = new Map<number, number>();
     for (const f of tr.fields) if (["literal", "length", "end"].includes(f.kind)) counts.set(f.value, (counts.get(f.value) || 0) + 1);
     const lengths = Deflate.codeLengths(Array.from({ length: 286 }, (_, s) => counts.get(s) || 0), 15);
     const codes = Deflate.canonicalCodes(lengths);
-    const bin = (s) => codes[s].toString(2).padStart(lengths[s], "0");
-    const ROWS = { a: 97, r: 114, end: 256, l258: 258, l270: 270, sp: 32, b: 98, c: 99, d: 100 };
-    const fig = PAGE.match(/<figure class="diagram" id="canonical-codes">[\s\S]*?<\/figure>/)[0];
+    const bin = (s: number): string => codes[s].toString(2).padStart(lengths[s], "0");
+    const ROWS: Record<string, number> = { a: 97, r: 114, end: 256, l258: 258, l270: 270, sp: 32, b: 98, c: 99, d: 100 };
+    const fig = grab(PAGE, /<figure class="diagram" id="canonical-codes">[\s\S]*?<\/figure>/)[0];
     // Rows in canonical order: by length, then by symbol number.
     const order = [...fig.matchAll(/data-id="sym-([a-z0-9]+)"/g)].map((m) => ROWS[m[1]]);
     assert.deepEqual(order, [...order].sort((x, y) => lengths[x] - lengths[y] || x - y));
@@ -887,14 +967,14 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     // The dynamic walk's data uses exactly these codes.
     for (const f of tr.fields.filter((x) => x.kind === "literal" || x.kind === "length" || x.kind === "end")) assert.equal(f.bits, bin(f.value));
     // And the tree's own path codes, read off the drawn edges, match its labels.
-    const tree = PAGE.match(/<figure class="diagram wide" id="example-tree">[\s\S]*?<\/figure>/)[0];
+    const tree = grab(PAGE, /<figure class="diagram wide" id="example-tree">[\s\S]*?<\/figure>/)[0];
     const parent = new Map([...tree.matchAll(/data-id="e-(x-n\d+)-(x-[a-z0-9]+)"/g)].map((m) => [m[2], m[1]]));
-    const kids = new Map(); for (const [c, p] of parent) kids.set(p, [...(kids.get(p) || []), c]);
-    const path = (id) => (parent.has(id) ? path(parent.get(id)) + kids.get(parent.get(id)).indexOf(id) : "");
-    const treeCodes = {};
+    const kids = new Map<string, string[]>(); for (const [c, p] of parent) kids.set(p, [...(kids.get(p) || []), c]);
+    const path = (id: string): string => (parent.has(id) ? path(must(parent.get(id), id)) + must(kids.get(must(parent.get(id), id)), id).indexOf(id) : "");
+    const treeCodes: Record<string, string> = {};
     for (const m of tree.matchAll(/data-id="(x-[a-z0-9]+)-code"[^>]*>([01]+)</g)) { assert.equal(m[2], path(m[1]), m[1]); treeCodes[m[1]] = m[2]; }
     assert.deepEqual(treeCodes, { "x-sp": "1100", "x-b": "1101", "x-c": "1110", "x-d": "1111", "x-r": "000", "x-end": "001", "x-258": "010", "x-270": "011", "x-a": "10" });
-    for (const m of tree.matchAll(/data-id="bit-(x-n\d+)-(x-[a-z0-9]+)"[^>]*>([01])</g)) assert.equal(+m[3], kids.get(m[1]).indexOf(m[2]));
+    for (const m of tree.matchAll(/data-id="bit-(x-n\d+)-(x-[a-z0-9]+)"[^>]*>([01])</g)) assert.equal(+m[3], must(kids.get(m[1]), m[1]).indexOf(m[2]));
   });
 
   test("the page has no audio, video or external media", () => {

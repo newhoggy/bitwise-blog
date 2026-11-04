@@ -4,12 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = JSON.parse(fs.readFileSync(path.join(source, "package.json"), "utf8")).homepage;
 
-function fixture(t) {
+function fixture(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bh-feed-test-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "package.json", "index.html", "feed.xml"]) {
@@ -20,9 +20,9 @@ function fixture(t) {
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, "op"), "#!/bin/sh\necho 'op: unavailable in tests' >&2\nexit 1\n", { mode: 0o755 });
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, CI: "" };
-  const bh = (...args) => spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env, encoding: "utf8" });
-  const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
-  const edit = (rel, from, to) => {
+  const bh = (...args: string[]) => spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env, encoding: "utf8" });
+  const read = (rel: string) => fs.readFileSync(path.join(root, rel), "utf8");
+  const edit = (rel: string, from: string | RegExp, to: string) => {
     const text = read(rel), next = text.replace(from, to);
     assert.notEqual(next, text, `the injection into ${rel} changed nothing: ${String(from)}`);
     fs.writeFileSync(path.join(root, rel), next);

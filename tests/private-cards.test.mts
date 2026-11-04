@@ -11,11 +11,12 @@ import { site } from "./support/private-site.mts";
 import {
   CARD_FILE_HEADER, KIND_LABELS, buildBlob, cardFromDoc, decryptCard, docCardHtml, encryptCard, escapeHtml, mergeEntries,
   parseCardsFile, renderCardsFile, tryDecryptCard, validateCardsFile,
+  type Card, type CardDoc, type CardEntry,
 } from "../scripts/private-cards.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const newKey = () => crypto.randomBytes(32).toString("base64url");
-const card = { title: "Family trip", description: "Where we are going & why", kind: "explainer", status: "draft", date: "2026-10-12", tags: ["travel", "plans"] };
+const card: Card = { title: "Family trip", description: "Where we are going & why", kind: "explainer", status: "draft", date: "2026-10-12", tags: ["travel", "plans"] };
 
 // ---- blobs ---------------------------------------------------------------------------------
 
@@ -67,7 +68,7 @@ test("cardFromDoc carries what a public card shows", () => {
 
 // ---- the card file -------------------------------------------------------------------------
 
-const entry = (slug) => ({ slug, blob: encryptCard(card, newKey(), slug) });
+const entry = (slug: string): CardEntry => ({ slug, blob: encryptCard(card, newKey(), slug) });
 
 test("the card file renders sorted and parses back", () => {
   const entries = [entry("b-page"), entry("a-page")];
@@ -85,9 +86,9 @@ test("the card file is validated against the sealed pages", () => {
   const [a, b] = [entry("a-page"), entry("b-page")];
   const ok = renderCardsFile([a, b]);
   assert.deepEqual(validateCardsFile(ok, new Set(["a-page", "b-page"])), []);
-  const has = (problems, re) => assert.ok(problems.some((p) => re.test(p)), `${re}: ${problems.join(" | ")}`);
-  const line = (e) => `  { slug: "${e.slug}", blob: "${e.blob}" }`;
-  const mutate = (from, to) => { const t = ok.replace(from, to); assert.notEqual(t, ok, "the injection changed nothing"); return t; };
+  const has = (problems: string[], re: RegExp) => assert.ok(problems.some((p) => re.test(p)), `${re}: ${problems.join(" | ")}`);
+  const line = (e: CardEntry) => `  { slug: "${e.slug}", blob: "${e.blob}" }`;
+  const mutate = (from: string, to: string) => { const t = ok.replace(from, to); assert.notEqual(t, ok, "the injection changed nothing"); return t; };
   has(validateCardsFile(mutate(line(a) + ",\n" + line(b), line(b) + ",\n" + line(a)), new Set(["a-page", "b-page"])), /not sorted/);
   has(validateCardsFile(mutate(line(b), line(a)), new Set(["a-page", "b-page"])), /duplicate entry for a-page/);
   has(validateCardsFile(ok, new Set(["a-page"])), /blob for b-page, which has no sealed page/);
@@ -108,23 +109,30 @@ test("merging keeps blobs of pages without plaintext and drops orphans", () => {
 
 // ---- the card markup: the browser builds what `npm run index` writes ----------------------
 
-function moduleApi() {
-  const bh = {};
-  const context = { window: { bhModules: {} }, document: {}, location: {}, atob, Response, Blob, TextEncoder };
-  context.window.bh = bh;
-  vm.runInNewContext(fs.readFileSync(path.join(ROOT, "theme/modules/private-cards.js"), "utf8"), context);
-  assert.equal(context.window.bhModules["private-cards.js"], true);
-  return bh.privateCards;
+/** A node of the element tree theme/modules/private-cards.js builds: text, or a tag with attributes and children. */
+type SpecNode = string | { tag: string; attrs: [string, string][]; children: SpecNode[] };
+/** What theme/modules/private-cards.js puts on `bh.privateCards` (the part under test). */
+interface PrivateCardsModule {
+  cardSpec(doc: CardDoc & { superseded?: boolean }, tags: string[], titles: Map<string, string>, isPrivate: boolean): SpecNode;
+  KIND_LABELS: Record<string, string>;
 }
 
-const serialise = (n) => typeof n === "string" ? escapeHtml(n)
-  : `<${n.tag}${n.attrs.map(([k, v]) => (v === "" && k === "data-example" ? ` ${k}` : ` ${k}="${escapeHtml(v)}"`)).join("")}>${n.children.map(serialise).join("")}</${n.tag}>`;
-const squash = (html) => html.replace(/>\s+</g, "><").trim();
+function moduleApi(): PrivateCardsModule {
+  const bh: { privateCards?: PrivateCardsModule } = {};
+  const context = { window: { bhModules: {} as Record<string, boolean>, bh }, document: {}, location: {}, atob, Response, Blob, TextEncoder };
+  vm.runInNewContext(fs.readFileSync(path.join(ROOT, "theme/modules/private-cards.js"), "utf8"), context);
+  assert.equal(context.window.bhModules["private-cards.js"], true);
+  return bh.privateCards!;
+}
+
+const serialise = (n: SpecNode): string => typeof n === "string" ? escapeHtml(n)
+  : `<${n.tag}${n.attrs.map(([k, v]: [string, string]) => (v === "" && k === "data-example" ? ` ${k}` : ` ${k}="${escapeHtml(v)}"`)).join("")}>${n.children.map(serialise).join("")}</${n.tag}>`;
+const squash = (html: string) => html.replace(/>\s+</g, "><").trim();
 
 test("the browser's card equals the one npm run index writes", () => {
   const { cardSpec } = moduleApi();
   const titles = new Map([["docs/new-one.html", "The new one"]]);
-  const fixtures = [
+  const fixtures: (CardDoc & { tags: string[] })[] = [
     { href: "docs/a.html", title: 'Q&A: "quotes" <b>', description: "Plain", kind: "explainer", status: "draft", date: "2026-10-11", supersededBy: "", example: false, tags: ["ai workflows", "testing"] },
     { href: "docs/b.html", title: "Old", description: "Replaced", kind: "decision", status: "Superseded", date: "2026-01-02", supersededBy: "docs/new-one.html", example: false, tags: [] },
     { href: "docs/c.html", title: "No meta", description: "", kind: "custom-kind", status: "", date: "", supersededBy: "", example: false, tags: ["x"] },
@@ -158,7 +166,7 @@ test("a private card adds a lock and the word Private, and nothing else", () => 
 
 // ---- seal and check, with a fake 1Password CLI ---------------------------------------------
 
-const errorsOf = (out) => (out.match(/(\d+) errors?/) || [])[1];
+const errorsOf = (out: string) => (out.match(/(\d+) errors?/) || [])[1];
 
 test("grouped pages share one key, and sealing is idempotent", (t) => {
   const s = site(t);
@@ -171,20 +179,20 @@ test("grouped pages share one key, and sealing is idempotent", (t) => {
   assert.ok(!/[A-Za-z0-9_-]{43}/.test(sealed.out.replace(/beautiful-html private (page|group): [a-z-]+/g, "")), "seal printed a key without --show-links");
 
   // Items: one group key, grouped pages hold only the group's name, the solo page its own key.
-  const groupKey = s.field("beautiful-html private group: kin-circle", "password");
+  const groupKey = s.field("beautiful-html private group: kin-circle", "password")!;
   assert.match(groupKey, /^[A-Za-z0-9_-]{43}$/);
   assert.equal(s.field("beautiful-html private page: alpha-plan", "group"), "kin-circle");
   assert.equal(s.field("beautiful-html private page: alpha-plan", "password"), undefined);
-  const soloKey = s.field("beautiful-html private page: solo-note", "password");
+  const soloKey = s.field("beautiful-html private page: solo-note", "password")!;
   assert.match(soloKey, /^[A-Za-z0-9_-]{43}$/);
 
   // Cards: the group key opens the group's two cards and not the solo page's.
   const blobs = Object.fromEntries(s.entries().map((e) => [e.slug, e.blob]));
   assert.deepEqual(Object.keys(blobs), ["alpha-plan", "beta-plan", "solo-note"]);
-  assert.equal(tryDecryptCard(blobs["alpha-plan"], groupKey, "alpha-plan").title, "Alpha plan");
-  assert.equal(tryDecryptCard(blobs["beta-plan"], groupKey, "beta-plan").title, "Beta plan");
+  assert.equal(tryDecryptCard(blobs["alpha-plan"], groupKey, "alpha-plan")!.title, "Alpha plan");
+  assert.equal(tryDecryptCard(blobs["beta-plan"], groupKey, "beta-plan")!.title, "Beta plan");
   assert.equal(tryDecryptCard(blobs["solo-note"], groupKey, "solo-note"), null);
-  assert.equal(tryDecryptCard(blobs["solo-note"], soloKey, "solo-note").title, "Solo note");
+  assert.equal(tryDecryptCard(blobs["solo-note"], soloKey, "solo-note")!.title, "Solo note");
   assert.equal(JSON.stringify(s.read("docs/alpha-plan.html")).includes("kin-circle"), false, "the group name reached a sealed file");
   assert.equal(s.read("theme/private-cards.js").includes("Alpha"), false);
 
@@ -206,27 +214,27 @@ test("changing bh:group re-keys the page and says so", (t) => {
   s.newPrivate("alpha-plan", "Alpha plan", "kin-circle");
   s.newPrivate("beta-plan", "Beta plan", "kin-circle");
   assert.equal(s.run(["seal"]).code, 0);
-  const familyKey = s.field("beautiful-html private group: kin-circle", "password");
+  const familyKey = s.field("beautiful-html private group: kin-circle", "password")!;
 
   s.setGroup("beta-plan", "work");
   const moved = s.run(["seal"]);
   assert.equal(moved.code, 0, moved.out);
   assert.match(moved.out, /beta-plan: its key changed \(now in the group "work"\)/);
   assert.ok(!/alpha-plan: its key changed/.test(moved.out));
-  const workKey = s.field("beautiful-html private group: work", "password");
+  const workKey = s.field("beautiful-html private group: work", "password")!;
   assert.notEqual(workKey, familyKey);
   const blobs = Object.fromEntries(s.entries().map((e) => [e.slug, e.blob]));
   assert.equal(tryDecryptCard(blobs["beta-plan"], familyKey, "beta-plan"), null);
-  assert.equal(tryDecryptCard(blobs["beta-plan"], workKey, "beta-plan").title, "Beta plan");
-  assert.equal(tryDecryptCard(blobs["alpha-plan"], familyKey, "alpha-plan").title, "Alpha plan");
+  assert.equal(tryDecryptCard(blobs["beta-plan"], workKey, "beta-plan")!.title, "Beta plan");
+  assert.equal(tryDecryptCard(blobs["alpha-plan"], familyKey, "alpha-plan")!.title, "Alpha plan");
 
   // Leaving the group gives the page its own key.
   s.setGroup("beta-plan", "");
   const left = s.run(["seal"]);
   assert.match(left.out, /beta-plan: its key changed \(it left its group\)/);
-  const own = s.field("beautiful-html private page: beta-plan", "password");
+  const own = s.field("beautiful-html private page: beta-plan", "password")!;
   assert.match(own, /^[A-Za-z0-9_-]{43}$/);
-  assert.equal(tryDecryptCard(Object.fromEntries(s.entries().map((e) => [e.slug, e.blob]))["beta-plan"], own, "beta-plan").title, "Beta plan");
+  assert.equal(tryDecryptCard(Object.fromEntries(s.entries().map((e) => [e.slug, e.blob]))["beta-plan"], own, "beta-plan")!.title, "Beta plan");
   assert.equal(s.run(["check"]).code, 0);
 });
 
@@ -308,22 +316,22 @@ test("check accepts a clean site and fails each injected fault", { timeout: 2400
   assert.equal(clean.code, 0, clean.out);
 
   const original = { cards: s.read("theme/private-cards.js"), alpha: s.read("docs/alpha-plan.html"), index: s.read("index.html") };
-  const inject = (rel, from, to) => {
+  const inject = (rel: string, from: string, to: string) => {
     const before = s.read(rel), after = before.replace(from, to);
     assert.notEqual(after, before, `the injection into ${rel} changed nothing`);
     s.write(rel, after);
   };
   const restore = () => { s.write("theme/private-cards.js", original.cards); s.write("docs/alpha-plan.html", original.alpha); s.write("index.html", original.index); };
-  const fails = (re, opts) => {
+  const fails = (re: RegExp, opts?: { withOp?: boolean }) => {
     const r = s.run(["check"], opts);
     assert.notEqual(r.code, 0, r.out);
     assert.match(r.out, re);
     restore();
   };
-  const blobOf = (slug) => s.entries().find((e) => e.slug === slug).blob;
+  const blobOf = (slug: string) => s.entries().find((e) => e.slug === slug)!.blob;
 
   // A blob that is valid base64 but no longer the page's card (local check, where keys exist).
-  inject("theme/private-cards.js", blobOf("alpha-plan"), blobOf("alpha-plan").replace(/^(.{20})./, (m, p) => p + (m.endsWith("A") ? "B" : "A")));
+  inject("theme/private-cards.js", blobOf("alpha-plan"), blobOf("alpha-plan").replace(/^(.{20})./, (m: string, p: string) => p + (m.endsWith("A") ? "B" : "A")));
   fails(/private card for alpha-plan is stale: run `npm run seal`/);
   const [a, b] = s.entries();
   inject("theme/private-cards.js", `  { slug: "${a.slug}", blob: "${a.blob}" },\n  { slug: "${b.slug}", blob: "${b.blob}" }`, `  { slug: "${b.slug}", blob: "${b.blob}" },\n  { slug: "${a.slug}", blob: "${a.blob}" }`);

@@ -4,12 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = JSON.parse(fs.readFileSync(path.join(source, "package.json"), "utf8")).homepage;
 
-function fixture(t) {
+function fixture(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bh-feed-test-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "package.json", "index.html", "feed.xml"]) {
@@ -20,9 +20,9 @@ function fixture(t) {
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, "op"), "#!/bin/sh\necho 'op: unavailable in tests' >&2\nexit 1\n", { mode: 0o755 });
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, CI: "" };
-  const bh = (...args) => spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env, encoding: "utf8" });
-  const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
-  const edit = (rel, from, to) => {
+  const bh = (...args: string[]) => spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env, encoding: "utf8" });
+  const read = (rel: string) => fs.readFileSync(path.join(root, rel), "utf8");
+  const edit = (rel: string, from: string | RegExp, to: string) => {
     const text = read(rel), next = text.replace(from, to);
     assert.notEqual(next, text, `the injection into ${rel} changed nothing: ${String(from)}`);
     fs.writeFileSync(path.join(root, rel), next);
@@ -30,10 +30,10 @@ function fixture(t) {
   const feed = () => read("feed.xml");
   return { root, bh, read, edit, feed };
 }
-const ids = (xml) => [...xml.matchAll(/<entry>\s*<id>([^<]*)<\/id>/g)].map((m) => m[1]);
-const metaOf = (html, name) => (html.match(new RegExp(`<meta name="${name}" content="([^"]*)"`)) || [])[1] || "";
+const ids = (xml: string) => [...xml.matchAll(/<entry>\s*<id>([^<]*)<\/id>/g)].map((m) => m[1]);
+const metaOf = (html: string, name: string) => (html.match(new RegExp(`<meta name="${name}" content="([^"]*)"`)) || [])[1] || "";
 
-const title = (html) => (html.match(/<title>([^<]*)<\/title>/) || [])[1] || "";
+const title = (html: string) => (html.match(/<title>([^<]*)<\/title>/) || [])[1] || "";
 
 test("the committed feed lists exactly the listed posts, newest first, and check accepts it", (t) => {
   const f = fixture(t);
@@ -60,7 +60,7 @@ test("the committed feed lists exactly the listed posts, newest first, and check
 
 test("index keeps examples, unlisted, reference and sealed pages out of the feed, and escapes text", (t) => {
   const f = fixture(t);
-  const make = (slug, title, flags = []) => assert.equal(f.bh("new", ...flags, "explainer", slug, title, `About ${slug} & <more>`).status, 0);
+  const make = (slug: string, title: string, flags: string[] = []) => assert.equal(f.bh("new", ...flags, "explainer", slug, title, `About ${slug} & <more>`).status, 0);
   make("loud-post", "Fish & <chips>");
   make("an-example", "An example page", ["--example"]);
   make("a-quiet-page", "A quiet page", ["--unlisted"]);
@@ -126,7 +126,7 @@ test("check fails on a stale or hand-edited feed, and on an entry the site keeps
 
 test("check requires the autodiscovery link and the Subscribe link on every page and template", (t) => {
   const link = '  <link rel="alternate" type="application/atom+xml" title="Bitwise Engineering" href="../feed.xml">\n';
-  for (const [rel, from, to, message] of [
+  const cases: [rel: string, from: string, to: string, message: RegExp][] = [
     ["docs/glossary.html", link, "", /needs exactly one feed autodiscovery link in <head> \(found 0\)/],
     ["docs/glossary.html", link, link + link, /needs exactly one feed autodiscovery link in <head> \(found 2\)/],
     ["docs/glossary.html", 'title="Bitwise Engineering" href="../feed.xml"', 'title="Elsewhere" href="../feed.xml"', /feed autodiscovery link must be/],
@@ -135,7 +135,8 @@ test("check requires the autodiscovery link and the Subscribe link on every page
     ["templates/adr.html", '<a href="../feed.xml">Subscribe</a>', "", /needs a Subscribe link/],
     ["index.html", '  <link rel="alternate" type="application/atom+xml" title="Bitwise Engineering" href="feed.xml">\n', "", /needs exactly one feed autodiscovery link/],
     ["index.html", '<span><a href="feed.xml">Subscribe</a></span>', "", /needs a Subscribe link/],
-  ]) {
+  ];
+  for (const [rel, from, to, message] of cases) {
     const f = fixture(t);
     f.edit(rel, from, to);
     const out = f.bh("check");

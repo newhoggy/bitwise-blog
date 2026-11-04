@@ -6,36 +6,37 @@ import vm from "node:vm";
 import zlib from "node:zlib";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const document = "docs/edge-rate-limiting-design.html";
 const root = { id: "reexport-root", created: "2026-10-11T01:00:00Z", kind: "question", body: "Why?", target: { anchor: "", anchorKind: "top", quote: null } };
 const reply = { id: "reexport-reply", created: "2026-10-11T02:00:00Z", kind: "comment", body: "Answered", inReplyTo: root.id, resolves: true };
-const review = (comments, extra = {}) => ({ format: "bh-review/1", document, build: {}, reviewer: "Reader", comments, ...extra });
+const review = (comments: unknown[], extra: Record<string, unknown> = {}) => ({ format: "bh-review/1", document, build: {}, reviewer: "Reader", comments, ...extra });
 
-function fixture(t) {
+function fixture(t: TestContext) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bh-reexports-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   for (const name of ["scripts", "theme", "docs", "templates", "index.html", "feed.xml", "package.json"]) fs.cpSync(path.join(source, name), path.join(dir, name), { recursive: true });
   fs.mkdirSync(path.join(dir, "reviews/inbox"), { recursive: true });
-  const write = (name, data) => {
+  const write = (name: string, data: unknown) => {
     const file = path.join(dir, "reviews/inbox", name);
     const json = JSON.stringify(data);
     fs.writeFileSync(file, name.endsWith(".gz") ? zlib.gzipSync(json) : json);
     assert.ok(fs.statSync(file).size > 0, "fixture was written");
   };
-  const run = (...args) => {
+  const run = (...args: string[]) => {
     const result = spawnSync(process.execPath, [path.join(dir, "scripts/bh.mts"), ...args], { cwd: dir, encoding: "utf8" });
     assert.ifError(result.error);
     return { status: result.status, output: result.stdout + result.stderr };
   };
-  const ok = (...args) => { const r = run(...args); assert.equal(r.status, 0, r.output); return r; };
+  const ok = (...args: string[]) => { const r = run(...args); assert.equal(r.status, 0, r.output); return r; };
   return { dir, write, run, ok };
 }
 
-function published(dir, file) {
-  const context = {};
+function published(dir: string, file: string) {
+  // Whatever the generated script assigns to `window`: its shape is the generator's, not ours.
+  const context: Record<string, any> = {};
   vm.runInNewContext(fs.readFileSync(path.join(dir, "theme", file), "utf8"), { window: context });
   return context;
 }
@@ -44,7 +45,7 @@ test("overlapping exports publish roots and replies once, including gzip and exp
   const f = fixture(t);
   f.write("a.json", review([root, reply]));
   // Later export changes its envelope, field order and location observation, then adds a reply.
-  const reordered = Object.fromEntries(Object.entries(root).reverse());
+  const reordered: Record<string, unknown> = Object.fromEntries(Object.entries(root).reverse());
   reordered.target = Object.fromEntries(Object.entries(root.target).reverse());
   const followup = { ...reply, id: "reexport-followup", inReplyTo: reply.id, created: "2026-10-11T03:00:00Z", resolves: false };
   f.write("b.json.gz", review([{ ...reordered, author: "Reader", outdated: true }, reply, followup], { exported: "2026-10-11T04:00:00Z", build: { commit: "later" } }));
@@ -52,7 +53,7 @@ test("overlapping exports publish roots and replies once, including gzip and exp
   f.ok("check");
   const messages = published(f.dir, "reviews.js").BH_REVIEWS[document];
   assert.equal(messages.length, 3);
-  assert.equal(new Set(messages.map((m) => m.id)).size, 3);
+  assert.equal(new Set(messages.map((m: { id: string }) => m.id)).size, 3);
   assert.equal(messages[0].file, "reviews/inbox/a.json");
   assert.equal(messages[0].author, "Reader");
   assert.equal("outdated" in messages[0], false);

@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import type { TestContext } from "node:test";
 import { parseCardsFile, renderCardsFile } from "../../scripts/private-cards.mts";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -34,7 +35,12 @@ if (b === "get") {
 } else { console.error("[ERROR] fake op: unsupported " + b); process.exit(1); }
 `;
 
-export function site(t) {
+/** One item in the fake vault, as `op item get` prints it. */
+export interface FakeOpItem { id?: string; title: string; fields: { id?: string; label: string; value?: string }[]; [more: string]: unknown }
+/** The fake vault's state file. */
+interface FakeOpState { items: FakeOpItem[]; archived: FakeOpItem[]; failCreateOnce?: string }
+
+export function site(t: TestContext) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "bh-private-cards-test-"));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const root = path.join(temp, "site"), bin = path.join(temp, "bin"), state = path.join(temp, "op-state.json");
@@ -48,47 +54,50 @@ export function site(t) {
   }
   fs.writeFileSync(path.join(root, "theme/private-cards.js"), renderCardsFile([]));
   fs.writeFileSync(path.join(bin, "op"), FAKE_OP, { mode: 0o755 });
-  const env = (withOp) => ({ ...process.env, PATH: (withOp ? bin + path.delimiter : "") + path.dirname(process.execPath) + path.delimiter + "/usr/bin:/bin", FAKE_OP_STATE: state, BH_OP_VAULT: "Private", CI: "" });
-  const run = (args, { withOp = true } = {}) => {
+  const env = (withOp: boolean) => ({ ...process.env, PATH: (withOp ? bin + path.delimiter : "") + path.dirname(process.execPath) + path.delimiter + "/usr/bin:/bin", FAKE_OP_STATE: state, BH_OP_VAULT: "Private", CI: "" });
+  const run = (args: string[], { withOp = true }: { withOp?: boolean } = {}) => {
     const r = spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env: env(withOp), encoding: "utf8" });
     return { code: r.status, out: (r.stdout || "") + (r.stderr || "") };
   };
-  const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
-  const write = (rel, text) => fs.writeFileSync(path.join(root, rel), text);
-  const items = () => JSON.parse(fs.existsSync(state) ? fs.readFileSync(state, "utf8") : '{"items":[]}').items;
-  const field = (title, label) => items().find((i) => i.title === title)?.fields.find((f) => f.label === label)?.value;
+  const read = (rel: string) => fs.readFileSync(path.join(root, rel), "utf8");
+  const write = (rel: string, text: string) => fs.writeFileSync(path.join(root, rel), text);
+  const items = (): FakeOpItem[] => JSON.parse(fs.existsSync(state) ? fs.readFileSync(state, "utf8") : '{"items":[]}').items;
+  const field = (title: string, label: string) => items().find((i) => i.title === title)?.fields.find((f) => f.label === label)?.value;
   const entries = () => parseCardsFile(read("theme/private-cards.js")).entries;
-  const newPrivate = (slug, title, group) => {
+  const newPrivate = (slug: string, title: string, group?: string) => {
     const r = run(["new", "--private", "explainer", slug, title, `About ${title}`]);
     assert.equal(r.code, 0, r.out);
     if (group) setGroup(slug, group);
   };
-  const setGroup = (slug, group) => {
+  const setGroup = (slug: string, group?: string) => {
     const rel = `docs/${slug}.private.html`, html = read(rel).replace(/\s*<meta name="bh:group"[^>]*>/, "");
     const next = group ? html.replace(/(<meta name="bh:tags"[^>]*>)/, `$1\n  <meta name="bh:group" content="${group}">`) : html;
     assert.ok(!group || next !== html, "the group meta was not injected");
     write(rel, next);
   };
-  const setMeta = (slug, name, value) => {
+  const setMeta = (slug: string, name: string, value: string) => {
     const rel = `docs/${slug}.private.html`, html = read(rel), next = html.replace(new RegExp(`(<meta name="${name}" content=")[^"]*"`), `$1${value}"`);
     assert.notEqual(next, html, `${name} was not changed`);
     write(rel, next);
   };
   /** Put an item in the fake vault as it is, for states `seal` would never make itself. */
-  const seed = (item) => {
-    const data = fs.existsSync(state) ? JSON.parse(fs.readFileSync(state, "utf8")) : { items: [], archived: [] };
+  const seed = (item: FakeOpItem) => {
+    const data: FakeOpState = fs.existsSync(state) ? JSON.parse(fs.readFileSync(state, "utf8")) : { items: [], archived: [] };
     data.items.push({ id: "seed" + data.items.length, ...item });
     fs.writeFileSync(state, JSON.stringify(data));
   };
-  const edit = (change) => {
-    const data = fs.existsSync(state) ? JSON.parse(fs.readFileSync(state, "utf8")) : { items: [], archived: [] };
+  const edit = (change: (data: FakeOpState) => void) => {
+    const data: FakeOpState = fs.existsSync(state) ? JSON.parse(fs.readFileSync(state, "utf8")) : { items: [], archived: [] };
     change(data);
     fs.writeFileSync(state, JSON.stringify(data));
   };
   /** Remove an item from the fake vault, as if it were archived or deleted out of band. */
-  const drop = (title) => edit((data) => { data.items = data.items.filter((i) => i.title !== title); });
+  const drop = (title: string) => edit((data) => { data.items = data.items.filter((i) => i.title !== title); });
   /** Make the next `op item create` for this title fail. */
-  const failCreateOnce = (title) => edit((data) => { data.failCreateOnce = title; });
+  const failCreateOnce = (title: string) => edit((data) => { data.failCreateOnce = title; });
   return { root, run, read, write, items, field, entries, newPrivate, setGroup, setMeta, seed, drop, failCreateOnce };
 }
 
+
+/** The helpers `site` returns. */
+export type Site = ReturnType<typeof site>;

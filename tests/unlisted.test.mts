@@ -3,35 +3,101 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import vm from "node:vm";
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-// Unlisted pages the repo itself already has: the fixtures add their own on top of these.
-const REPO_UNLISTED = (() => { const w = {}; vm.runInNewContext(fs.readFileSync(path.join(source, "theme/unlisted-slugs.js"), "utf8"), { window: w }); return new Set(w.BH_UNLISTED_SLUGS); })();
-const added = (list) => list.filter((p) => !REPO_UNLISTED.has(typeof p === "string" ? p : p.href));
 const script = fs.readFileSync(path.join(source, "theme/unlisted.js"), "utf8");
 const KEY = "A".repeat(43);
 
+/** Shapes of the generated data files these tests read (`window.BH_*`). */
+interface UnlistedPage { slug: string; href: string; title: string; kind: string }
+interface UnlistedData { v: number; pages: UnlistedPage[]; search: { href: string }[]; backlinks: Record<string, { href: string }[]> }
+interface SiteData { backlinks: Record<string, { href: string }[]>; reviews: Record<string, unknown>; pages: { href: string }[] }
+
+/** Runs a generated `theme/*.js` file against an empty `window` and returns what it set. */
+function windowOf<T extends object>(js: string): Partial<T> {
+  const w = {};
+  vm.runInNewContext(js, { window: w });
+  return w as Partial<T>;
+}
+const unlistedData = (js: string): UnlistedData => must(windowOf<{ BH_UNLISTED: UnlistedData }>(js).BH_UNLISTED, "BH_UNLISTED is set");
+const unlistedSlugs = (js: string): string[] => must(windowOf<{ BH_UNLISTED_SLUGS: string[] }>(js).BH_UNLISTED_SLUGS, "BH_UNLISTED_SLUGS is set");
+const siteData = (js: string): SiteData => must(windowOf<{ BH_SITE: SiteData }>(js).BH_SITE, "BH_SITE is set");
+
+/** A stand-in for `bh.el` that renders to an HTML string, so the card builder can run without a DOM. */
+type FakeEl = { html: string };
+type FakeChild = string | FakeEl | null | undefined | false;
+function makeFakeEl(esc: (s: unknown) => string) {
+  return (tag: string, attrs: Record<string, unknown> = {}, children: FakeChild | FakeChild[] = []): FakeEl => {
+    let text = "", attributes = "";
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === "text") text = esc(v); else attributes += v === true ? ` ${k}` : ` ${k}="${esc(v)}"`;
+    }
+    const inner = ([] as FakeChild[]).concat(children).filter(Boolean).map((c) => (typeof c === "string" ? esc(c) : (c as FakeEl).html)).join("");
+    return { html: `<${tag}${attributes}>${text}${inner}</${tag}>` };
+  };
+}
+/** What theme/modules/unlisted-cards.js needs from the page, and adds. */
+interface CardsContext {
+  document: { querySelector: () => null };
+  window: { bh: { el: ReturnType<typeof makeFakeEl>; settle(): void; unlisted: { visible: boolean }; cards?: { build(record: object): FakeEl } }; bhModules: object };
+}
+const cardBuilder = (context: CardsContext) => must(context.window.bh.cards, "the module registers bh.cards").build;
+
+// Unlisted pages the repo itself already has: the fixtures add their own on top of these.
+const REPO_UNLISTED = new Set(unlistedSlugs(fs.readFileSync(path.join(source, "theme/unlisted-slugs.js"), "utf8")));
+const added = <T extends string | { href: string }>(list: T[]): T[] => list.filter((p) => !REPO_UNLISTED.has(typeof p === "string" ? p : p.href));
+
+/** `v`, failing the test if it is missing. */
+function must<T>(v: T | null | undefined, what: string): T {
+  assert.ok(v !== null && v !== undefined, what);
+  return v;
+}
+
 // ---- theme/unlisted.js: the fragment parser and the flag ----------------------------------------
 
-/** Run theme/unlisted.js as a browser would, in a fresh context. */
-function load(url, { bundled = false, unlistedPage = false, store = {}, storageThrows = false } = {}) {
-  const u = new URL(url);
-  const attrs = new Map(bundled ? [["data-bundled", ""]] : []);
-  const listeners = [];
-  const storage = storageThrows ? null : {
-    getItem: (k) => (k in store ? store[k] : null),
-    setItem: (k, v) => { store[k] = String(v); },
-    removeItem: (k) => { delete store[k]; },
+/** What theme/unlisted.js publishes as `window.bhUnlisted`, as far as these tests use it. */
+interface UnlistedApi {
+  visible: boolean;
+  source: string;
+  page: boolean;
+  parseFragment(hash: string): unknown;
+  [name: string]: unknown;
+}
+type Store = Record<string, string>;
+
+/** The slice of a browser window theme/unlisted.js touches; the script adds `bhUnlisted`. */
+interface FakeWindow {
+  location: { hash: string; reload: () => void };
+  addEventListener: (type: string, fn: () => void) => void;
+  document: {
+    documentElement: { hasAttribute: (k: string) => boolean; setAttribute: (k: string, v: string) => void };
+    querySelector: (sel: string) => object | null;
   };
-  const reloads = [];
-  const context = {
-    location: { hash: u.hash, reload: () => reloads.push(1) },
-    addEventListener: (type, fn) => listeners.push([type, fn]),
+  sessionStorage?: { getItem: (k: string) => string | null; setItem: (k: string, v: unknown) => void; removeItem: (k: string) => void };
+  window?: FakeWindow;
+  bhUnlisted?: UnlistedApi;
+}
+
+/** Run theme/unlisted.js as a browser would, in a fresh context. */
+function load(url: string, { bundled = false, unlistedPage = false, store = {}, storageThrows = false }: { bundled?: boolean; unlistedPage?: boolean; store?: Store; storageThrows?: boolean } = {}) {
+  const u = new URL(url);
+  const attrs = new Map<string, string>(bundled ? [["data-bundled", ""]] : []);
+  const listeners: [string, () => void][] = [];
+  const storage = {
+    getItem: (k: string) => (k in store ? store[k] : null),
+    setItem: (k: string, v: unknown) => { store[k] = String(v); },
+    removeItem: (k: string) => { delete store[k]; },
+  };
+  const reloads: number[] = [];
+  const context: FakeWindow = {
+    location: { hash: u.hash, reload: () => { reloads.push(1); } },
+    addEventListener: (type, fn) => { listeners.push([type, fn]); },
     document: {
-      documentElement: { hasAttribute: (k) => attrs.has(k), setAttribute: (k, v) => attrs.set(k, v) },
+      documentElement: { hasAttribute: (k) => attrs.has(k), setAttribute: (k, v) => { attrs.set(k, v); } },
       querySelector: (sel) => (unlistedPage && sel === 'meta[name="bh:unlisted"]' ? {} : null),
     },
   };
@@ -39,11 +105,11 @@ function load(url, { bundled = false, unlistedPage = false, store = {}, storageT
   else context.sessionStorage = storage;
   context.window = context;
   vm.runInNewContext(script, context);
-  return { api: context.bhUnlisted, attrs, store, context, listeners, reloads };
+  return { api: must(context.bhUnlisted, "the script publishes bhUnlisted"), attrs, store, context, listeners, reloads };
 }
 // Objects made inside the vm context have another realm's prototypes: compare plain copies.
-const plain = (value) => JSON.parse(JSON.stringify(value));
-const parse = (hash) => plain(load("http://localhost/").api.parseFragment(hash));
+const plain = (value: unknown) => JSON.parse(JSON.stringify(value));
+const parse = (hash: string) => plain(load("http://localhost/").api.parseFragment(hash));
 
 test("the fragment is a list of tokens: reserved ones, and the first bare one is the section", () => {
   assert.deepEqual(parse(""), { id: "", unlisted: null, keys: [] });
@@ -62,7 +128,7 @@ test("the fragment is a list of tokens: reserved ones, and the first bare one is
 });
 
 test("value spellings", () => {
-  for (const [v, want] of [["true", "on"], ["on", "on"], ["1", "on"], ["YES", "on"], ["false", "off"], ["off", "off"], ["0", "off"], ["no", "off"], ["auto", "auto"], ["", null], ["maybe", null]]) {
+  for (const [v, want] of [["true", "on"], ["on", "on"], ["1", "on"], ["YES", "on"], ["false", "off"], ["off", "off"], ["0", "off"], ["no", "off"], ["auto", "auto"], ["", null], ["maybe", null]] as [string, string | null][]) {
     assert.equal(parse(`#unlisted=${v}`).unlisted, want, v);
   }
 });
@@ -76,7 +142,7 @@ test("the flag is off by default everywhere, local hosts included", () => {
 });
 
 test("#unlisted=true turns it on, remembers it for the tab session, and #unlisted=false and auto clear it", () => {
-  const store = {};
+  const store: Store = {};
   const on = load("https://bitwise.john-ky.io/#unlisted=true", { store });
   assert.equal(on.api.visible, true);
   assert.equal(on.attrs.get("data-unlisted"), "on");
@@ -147,7 +213,7 @@ test("the sealed shell opens #k=<key>&unlisted=true, and leaves the flag and the
   const literal = bh.match(/location\.hash\.match\((\/\^#k=[^\n]*?\/)\)/);
   assert.ok(literal, "the shell's fragment pattern was not found: update this test with the shell");
   const shell = new Function(`return ${literal[1]}`)();
-  const anchorOf = (hash) => { const m = hash.match(shell); return m ? m[2] || "" : null; };
+  const anchorOf = (hash: string): string | null => { const m = hash.match(shell); return m ? m[2] || "" : null; };
   // After decrypting, the shell keeps what follows the key in the address bar.
   assert.equal(anchorOf(`#k=${KEY}&unlisted=true`), "unlisted=true");
   assert.equal(anchorOf(`#k=${KEY}&unlisted=true&some-section`), "unlisted=true&some-section");
@@ -159,7 +225,7 @@ test("the sealed shell opens #k=<key>&unlisted=true, and leaves the flag and the
 
 // ---- a fixture copy of the repo -----------------------------------------------------------------
 
-function fixture(t) {
+function fixture(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bh-unlisted-test-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "package.json", "index.html"]) {
@@ -170,10 +236,10 @@ function fixture(t) {
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, "op"), "#!/bin/sh\necho 'op: unavailable in tests' >&2\nexit 1\n", { mode: 0o755 });
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, CI: "" };
-  const bh = (...args) => spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env, encoding: "utf8" });
-  const file = (rel) => path.join(root, rel);
-  const read = (rel) => fs.readFileSync(file(rel), "utf8");
-  const edit = (rel, from, to) => {
+  const bh = (...args: string[]) => spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env, encoding: "utf8" });
+  const file = (rel: string): string => path.join(root, rel);
+  const read = (rel: string): string => fs.readFileSync(file(rel), "utf8");
+  const edit = (rel: string, from: string | RegExp, to: string): void => {
     const text = read(rel), next = text.replace(from, to);
     assert.notEqual(next, text, `the injection into ${rel} changed nothing: ${String(from)}`);
     fs.writeFileSync(file(rel), next);
@@ -199,12 +265,11 @@ test("new --unlisted writes the marker; index keeps the page out of every defaul
     assert.ok(!f.read(rel).includes("quiet-demo"), `${rel} must not mention the unlisted page`);
     assert.ok(!f.read(rel).includes(TITLE), `${rel} must not carry its title`);
   }
-  const data = {}; vm.runInNewContext(f.read("theme/unlisted-pages.js"), { window: data });
-  assert.equal(data.BH_UNLISTED.v, 1);
-  assert.deepEqual(plain(added(data.BH_UNLISTED.pages).map((p) => [p.slug, p.href, p.title, p.kind])), [["quiet-demo", "docs/quiet-demo.html", TITLE, "explainer"]]);
-  assert.equal(added(data.BH_UNLISTED.search)[0].href, "docs/quiet-demo.html");
-  const slugs = {}; vm.runInNewContext(f.read("theme/unlisted-slugs.js"), { window: slugs });
-  assert.deepEqual(plain(added(slugs.BH_UNLISTED_SLUGS)), ["docs/quiet-demo.html"]);
+  const data = unlistedData(f.read("theme/unlisted-pages.js"));
+  assert.equal(data.v, 1);
+  assert.deepEqual(plain(added(data.pages).map((p) => [p.slug, p.href, p.title, p.kind])), [["quiet-demo", "docs/quiet-demo.html", TITLE, "explainer"]]);
+  assert.equal(added(data.search)[0].href, "docs/quiet-demo.html");
+  assert.deepEqual(plain(added(unlistedSlugs(f.read("theme/unlisted-slugs.js")))), ["docs/quiet-demo.html"]);
   assert.ok(!f.read("theme/unlisted-slugs.js").includes(TITLE), "the slug list carries paths only");
 
   const before = Object.fromEntries(generated.concat("docs/quiet-demo.html").map((rel) => [rel, f.read(rel)]));
@@ -228,14 +293,14 @@ test("backlinks and review summaries that touch an unlisted page stay out of sit
     comments: [{ id: "c1", kind: "comment", created: "2026-10-13T00:00:00Z", body: "Hi", target: { quote: { exact: "x" } } }],
   }));
   assert.equal(f.bh("index").status, 0);
-  const site = {}; vm.runInNewContext(f.read("theme/site.js"), { window: site });
-  assert.equal(site.BH_SITE.backlinks["docs/quiet-demo.html"], undefined);
-  assert.equal(Object.values(site.BH_SITE.backlinks).flat().some((b) => b.href.includes("quiet-demo")), false);
-  assert.equal(site.BH_SITE.reviews["docs/quiet-demo.html"], undefined);
-  assert.ok(!site.BH_SITE.pages.some((p) => p.href.includes("quiet-demo")));
-  const data = {}; vm.runInNewContext(f.read("theme/unlisted-pages.js"), { window: data });
-  assert.deepEqual(plain(data.BH_UNLISTED.backlinks["docs/quiet-demo.html"].map((b) => b.href.split("#")[0])), ["docs/announcing-patchcov.html"]);
-  assert.deepEqual(plain(data.BH_UNLISTED.backlinks["docs/glossary.html"].map((b) => b.href.split("#")[0])), ["docs/quiet-demo.html"]);
+  const site = siteData(f.read("theme/site.js"));
+  assert.equal(site.backlinks["docs/quiet-demo.html"], undefined);
+  assert.equal(Object.values(site.backlinks).flat().some((b) => b.href.includes("quiet-demo")), false);
+  assert.equal(site.reviews["docs/quiet-demo.html"], undefined);
+  assert.ok(!site.pages.some((p) => p.href.includes("quiet-demo")));
+  const data = unlistedData(f.read("theme/unlisted-pages.js"));
+  assert.deepEqual(plain(data.backlinks["docs/quiet-demo.html"].map((b) => b.href.split("#")[0])), ["docs/announcing-patchcov.html"]);
+  assert.deepEqual(plain(data.backlinks["docs/glossary.html"].map((b) => b.href.split("#")[0])), ["docs/quiet-demo.html"]);
   // Its threads are in their own file, which only the unlisted page loads: listed pages load reviews.js.
   assert.ok(!f.read("theme/reviews.js").includes("quiet-demo"));
   assert.ok(f.read("theme/unlisted-reviews.js").includes("docs/quiet-demo.html"));
@@ -248,45 +313,28 @@ test("the client's card is the markup index writes for a listed page", (t) => {
   const unlistedMarker = '  <meta name="bh:unlisted" content="true">\n';
   // The record the browser receives.
   assert.equal(f.bh("index").status, 0);
-  const data = {}; vm.runInNewContext(f.read("theme/unlisted-pages.js"), { window: data });
-  const [record] = added(data.BH_UNLISTED.pages);
+  const [record] = added(unlistedData(f.read("theme/unlisted-pages.js")).pages);
   // What index writes for the same page when it is listed (the marker is the only difference).
   f.edit("docs/quiet-demo.html", unlistedMarker, "");
   assert.equal(f.bh("index").status, 0);
   const card = f.read("index.html").match(/ {6}<li class="card doc-card"[^>]*>\s*<a class="card-link" href="docs\/quiet-demo\.html">[\s\S]*?<\/li>/);
   assert.ok(card, "the listed page has a card in index.html");
-  const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-  const fakeEl = (tag, attrs = {}, children = []) => {
-    let text = "", attributes = "";
-    for (const [k, v] of Object.entries(attrs)) {
-      if (v == null || v === false) continue;
-      if (k === "text") text = esc(v); else attributes += v === true ? ` ${k}` : ` ${k}="${esc(v)}"`;
-    }
-    const inner = [].concat(children).filter(Boolean).map((c) => (typeof c === "string" ? esc(c) : c.html)).join("");
-    return { html: `<${tag}${attributes}>${text}${inner}</${tag}>` };
-  };
-  const context = { document: { querySelector: () => null }, window: {} };
-  context.window = Object.assign(context.window, { bh: { el: fakeEl, settle() {}, unlisted: { visible: false } }, bhModules: {} });
+  const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  const fakeEl = makeFakeEl((s) => String(s).replace(/[&<>"']/g, (ch) => entities[ch]));
+  const context: CardsContext = { document: { querySelector: () => null }, window: { bh: { el: fakeEl, settle() {}, unlisted: { visible: false } }, bhModules: {} } };
   vm.runInNewContext(f.read("theme/modules/unlisted-cards.js"), context);
-  const flat = (html) => html.replace(/>\s+</g, "><").trim();
+  const flat = (html: string): string => html.replace(/>\s+</g, "><").trim();
   // The unlisted card is the same card with the page's own label and flag.
   const expected = flat(card[0])
     .replace('class="card doc-card"', 'class="card doc-card" data-unlisted')
     .replace('<span class="eyebrow">Explainer</span>', '<span class="eyebrow">Unlisted · Explainer</span>');
-  assert.equal(flat(context.window.bh.cards.build(record).html), expected);
+  assert.equal(flat(cardBuilder(context)(record).html), expected);
 });
 
 test("a card for an example page and a replaced page carry their labels", () => {
-  const context = { document: { querySelector: () => null }, window: {} };
-  const esc = (s) => String(s);
-  const fakeEl = (tag, attrs = {}, children = []) => {
-    let attributes = "", text = "";
-    for (const [k, v] of Object.entries(attrs)) { if (v == null || v === false) continue; if (k === "text") text = esc(v); else attributes += v === true ? ` ${k}` : ` ${k}="${esc(v)}"`; }
-    return { html: `<${tag}${attributes}>${text}${[].concat(children).filter(Boolean).map((c) => (typeof c === "string" ? c : c.html)).join("")}</${tag}>` };
-  };
-  context.window = { bh: { el: fakeEl, settle() {}, unlisted: { visible: false } }, bhModules: {} };
+  const context: CardsContext = { document: { querySelector: () => null }, window: { bh: { el: makeFakeEl(String), settle() {}, unlisted: { visible: false } }, bhModules: {} } };
   vm.runInNewContext(fs.readFileSync(path.join(source, "theme/modules/unlisted-cards.js"), "utf8"), context);
-  const html = context.window.bh.cards.build({ href: "docs/a.html", title: "A", description: "d", kind: "decision", kindLabel: "Decision", status: "Accepted", date: "2026-01-02", tags: ["examples", "x"], example: true, unlisted: true, replacedBy: { href: "docs/b.html", title: "B" } }).html;
+  const html = cardBuilder(context)({ href: "docs/a.html", title: "A", description: "d", kind: "decision", kindLabel: "Decision", status: "Accepted", date: "2026-01-02", tags: ["examples", "x"], example: true, unlisted: true, replacedBy: { href: "docs/b.html", title: "B" } }).html;
   assert.match(html, /class="card doc-card is-superseded" data-example data-unlisted data-kind="decision" data-tags="examples,x"/);
   assert.match(html, /<span class="eyebrow">Example · Unlisted · Decision<\/span>/);
   assert.match(html, /<span class="badge accepted">Accepted<\/span><time datetime="2026-01-02">2026-01-02<\/time>/);
@@ -306,8 +354,8 @@ test("bundle --all leaves out an unlisted page, and naming it bundles it", (t) =
 
 // ---- check ----------------------------------------------------------------------------------------
 
-const errors = (run) => run.stdout.split("\n").map((l) => l.replace(/\x1b\[\d+m/g, "")).filter((l) => /^\s+(error|warn)\s/.test(l));
-const complaint = (run, pattern) => errors(run).some((l) => pattern.test(l));
+const errors = (run: SpawnSyncReturns<string>): string[] => run.stdout.split("\n").map((l) => l.replace(/\x1b\[\d+m/g, "")).filter((l) => /^\s+(error|warn)\s/.test(l));
+const complaint = (run: SpawnSyncReturns<string>, pattern: RegExp): boolean => errors(run).some((l) => pattern.test(l));
 
 test("check accepts a well-formed unlisted page, and fails or warns on each fault", (t) => {
   const f = fixture(t);

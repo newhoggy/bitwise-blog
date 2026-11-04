@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import type http from "node:http";
 import { test } from "node:test";
-import { findChrome, launchChrome, serveStatic, sleep } from "../scripts/chrome.mts";
+import { findChrome, launchChrome, serveStatic, sleep, type ChromeHandle } from "../scripts/chrome.mts";
 import { site } from "./support/private-site.mts";
 
 // The home page, with real sealed fixture pages, in a real Chrome. Keys are throwaway: the fake
@@ -8,11 +9,19 @@ import { site } from "./support/private-site.mts";
 // (and without the global WebSocket, Node >= 22, that scripts/chrome.mts drives it with).
 const skip = !findChrome() || typeof WebSocket === "undefined" ? "needs Chrome and Node >= 22" : false;
 
+interface TabOptions { width?: number; height?: number; mobile?: boolean; noDecompression?: boolean }
+
+function portOf(server: http.Server): number {
+  const address = server.address();
+  assert.ok(address && typeof address !== "string", "the server is listening");
+  return address.port;
+}
+
 /** A tab: navigate, evaluate, and see what the page did. Every tab has its own sessionStorage. */
-async function openTab(chrome, { width = 1100, height = 900, mobile = false, noDecompression = false } = {}) {
+async function openTab(chrome: ChromeHandle, { width = 1100, height = 900, mobile = false, noDecompression = false }: TabOptions = {}) {
   const { targetId } = await chrome.send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await chrome.send("Target.attachToTarget", { targetId, flatten: true });
-  const s = (method, params) => chrome.send(method, params, sessionId);
+  const s = (method: string, params?: object) => chrome.send(method, params, sessionId);
   await s("Page.enable");
   await s("Page.bringToFront");
   await s("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
@@ -22,7 +31,7 @@ async function openTab(chrome, { width = 1100, height = 900, mobile = false, noD
     addEventListener("error", (e) => window.__errors.push(String(e.message)));
     addEventListener("unhandledrejection", (e) => window.__errors.push(String(e.reason)));
     ${noDecompression ? "delete window.DecompressionStream;" : ""}` });
-  const evaluate = async (expression) => {
+  const evaluate = async (expression: string) => {
     const r = await s("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
     return r.result.value;
@@ -34,7 +43,7 @@ async function openTab(chrome, { width = 1100, height = 900, mobile = false, noD
     }
     throw new Error("the page never became ready");
   };
-  const goto = async (url) => { await s("Page.navigate", { url }); await sleep(150); await ready(); };
+  const goto = async (url: string) => { await s("Page.navigate", { url }); await sleep(150); await ready(); };
   return { evaluate, goto, ready, close: () => chrome.send("Target.closeTarget", { targetId }).catch(() => {}) };
 }
 
@@ -51,16 +60,16 @@ test("the home page shows the private cards a key opens", { skip, timeout: 24000
   s.setMeta("solo-note", "bh:date", "2026-10-01");
   assert.equal(s.run(["seal"]).code, 0);
   assert.equal(s.run(["index"]).code, 0);
-  const group = s.field("beautiful-html private group: kin-circle", "password");
-  const solo = s.field("beautiful-html private page: solo-note", "password");
+  const group = s.field("beautiful-html private group: kin-circle", "password")!;
+  const solo = s.field("beautiful-html private page: solo-note", "password")!;
   const wrong = "A".repeat(43);
 
   const server = await serveStatic(s.root);
-  t.after(() => new Promise((resolve) => server.close(resolve)));
-  const base = `http://127.0.0.1:${server.address().port}/`;
+  t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+  const base = `http://127.0.0.1:${portOf(server)}/`;
   const chrome = await launchChrome();
   t.after(() => chrome.close());
-  const tab = async (opts) => { const x = await openTab(chrome, opts); t.after(() => x.close()); return x; };
+  const tab = async (opts?: TabOptions) => { const x = await openTab(chrome, opts); t.after(() => x.close()); return x; };
 
   await t.test("no fragment: the public home page, and no request for the cards", async () => {
     const p = await tab();

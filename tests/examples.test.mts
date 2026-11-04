@@ -5,39 +5,55 @@ import path from "node:path";
 import vm from "node:vm";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const script = fs.readFileSync(path.join(source, "theme/examples.js"), "utf8");
 
-/** Run theme/examples.js as a browser would, in a fresh context. Returns what it decided and wrote. */
-function load(url, { bundled = false, example = false, store = {}, storageThrows = false } = {}) {
-  const u = new URL(url);
-  const attrs = new Map(bundled ? [["data-bundled", ""]] : []);
-  const storage = storageThrows ? null : {
-    getItem: (k) => (k in store ? store[k] : null),
-    setItem: (k, v) => { store[k] = String(v); },
-    removeItem: (k) => { delete store[k]; },
+/** What theme/examples.js publishes as `window.bhExamples`. */
+interface ExamplesApi { visible: boolean; local: boolean; page: boolean; source: string; parseOverride(query: string): string | null }
+interface LoadOptions { bundled?: boolean; example?: boolean; store?: Record<string, string>; storageThrows?: boolean }
+/** The slice of a browser that theme/examples.js touches. */
+interface Sandbox {
+  URLSearchParams: typeof URLSearchParams;
+  location: { protocol: string; hostname: string; search: string };
+  document: {
+    documentElement: { hasAttribute(k: string): boolean; setAttribute(k: string, v: string): void };
+    querySelector(sel: string): object | null;
   };
-  const context = {
+  sessionStorage?: { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void } | null;
+  window?: Sandbox;
+  bhExamples?: ExamplesApi;
+}
+
+/** Run theme/examples.js as a browser would, in a fresh context. Returns what it decided and wrote. */
+function load(url: string, { bundled = false, example = false, store = {}, storageThrows = false }: LoadOptions = {}) {
+  const u = new URL(url);
+  const attrs = new Map<string, string>(bundled ? [["data-bundled", ""]] : []);
+  const storage = storageThrows ? null : {
+    getItem: (k: string) => (k in store ? store[k] : null),
+    setItem: (k: string, v: string) => { store[k] = String(v); },
+    removeItem: (k: string) => { delete store[k]; },
+  };
+  const context: Sandbox = {
     URLSearchParams,
     location: { protocol: u.protocol, hostname: u.hostname, search: u.search },
     document: {
       documentElement: {
-        hasAttribute: (k) => attrs.has(k),
-        setAttribute: (k, v) => attrs.set(k, v),
+        hasAttribute: (k: string) => attrs.has(k),
+        setAttribute: (k: string, v: string) => attrs.set(k, v),
       },
-      querySelector: (sel) => (example && sel === 'meta[name="bh:example"]' ? {} : null),
+      querySelector: (sel: string) => (example && sel === 'meta[name="bh:example"]' ? {} : null),
     },
   };
   if (storageThrows) Object.defineProperty(context, "sessionStorage", { get() { throw new Error("blocked"); } });
   else context.sessionStorage = storage;
   context.window = context;
   vm.runInNewContext(script, context);
-  return { api: context.bhExamples, attrs, store };
+  return { api: context.bhExamples as ExamplesApi, attrs, store };
 }
 
-const visible = (url, opts) => load(url, opts).api.visible;
+const visible = (url: string, opts?: LoadOptions) => load(url, opts).api.visible;
 
 const LOCAL = [
     "http://localhost:8000/",
@@ -99,7 +115,7 @@ test("the early script marks the document before first paint", () => {
 });
 
 test("?examples overrides the default and is remembered for the session", () => {
-  const store = {};
+  const store: Record<string, string> = {};
   assert.equal(visible("https://bitwise.john-ky.io/?examples", { store }), true);
   assert.equal(store["bh-examples"], "on");
   // A later page without the parameter keeps the choice.
@@ -118,9 +134,10 @@ test("?examples overrides the default and is remembered for the session", () => 
 });
 
 test("override spellings", () => {
-  for (const [q, want] of [["?examples", "on"], ["?examples=", "on"], ["?examples=on", "on"], ["?examples=1", "on"], ["?examples=TRUE", "on"],
+  const spellings: [string, string | null][] = [["?examples", "on"], ["?examples=", "on"], ["?examples=on", "on"], ["?examples=1", "on"], ["?examples=TRUE", "on"],
     ["?examples=off", "off"], ["?examples=0", "off"], ["?examples=false", "off"], ["?examples=auto", "auto"],
-    ["?examples=maybe", null], ["?other=1", null], ["", null]]) {
+    ["?examples=maybe", null], ["?other=1", null], ["", null]];
+  for (const [q, want] of spellings) {
     assert.equal(load("http://localhost/").api.parseOverride(q), want, q);
   }
 });
@@ -142,7 +159,10 @@ test("a bundled single file always shows its own content", () => {
 
 // ---- the generated data follows the marker ------------------------------------------------------
 
-const read = (f) => fs.readFileSync(path.join(source, f), "utf8");
+/** An entry of the generated site or search data. */
+interface PageRef { href: string; kind?: string; example?: boolean }
+
+const read = (f: string) => fs.readFileSync(path.join(source, f), "utf8");
 const marked = fs.readdirSync(path.join(source, "docs")).filter((f) => f.endsWith(".html"))
   .filter((f) => /<meta\s+name="bh:example"\s+content="true"/.test(read(`docs/${f}`)))
   .map((f) => `docs/${f}`).sort();
@@ -157,17 +177,17 @@ test("index cards, site data and the search index flag exactly the marked pages"
   assert.equal(cards.length >= marked.length, true);
   assert.deepEqual(cards.filter((m) => m[1]).map((m) => m[2]).sort(), marked);
 
-  const site = {}; vm.runInNewContext(read("theme/site.js"), { window: site });
-  assert.deepEqual(Array.from(site.BH_SITE.pages, (p) => p).filter((p) => p.example).map((p) => p.href).sort(), marked);
-  const search = {}; vm.runInNewContext(read("theme/search-index.js"), { window: search });
-  assert.deepEqual(Array.from(search.BH_SEARCH, (p) => p).filter((p) => p.example).map((p) => p.href).sort(), marked);
+  const site: Record<string, any> = {}; vm.runInNewContext(read("theme/site.js"), { window: site });
+  assert.deepEqual(Array.from<PageRef>(site.BH_SITE.pages).filter((p) => p.example).map((p) => p.href).sort(), marked);
+  const search: Record<string, any> = {}; vm.runInNewContext(read("theme/search-index.js"), { window: search });
+  assert.deepEqual(Array.from<PageRef>(search.BH_SEARCH).filter((p) => p.example).map((p) => p.href).sort(), marked);
   // Every page and glossary entry that is not an example stays searchable.
-  assert.equal(search.BH_SEARCH.some((p) => !p.example && p.kind === "glossary"), true);
+  assert.equal(search.BH_SEARCH.some((p: PageRef) => !p.example && p.kind === "glossary"), true);
 });
 
 // ---- `new --example` and the checker ---------------------------------------------------------------
 
-function scratchRepo(t) {
+function scratchRepo(t: TestContext) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bh-examples-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   for (const f of ["scripts", "templates", "theme", "docs", "reviews", "package.json", "index.html", "feed.xml"]) {
@@ -176,7 +196,7 @@ function scratchRepo(t) {
   return dir;
 }
 
-const bh = (dir, ...args) => spawnSync(process.execPath, [path.join(dir, "scripts/bh.mts"), ...args], { cwd: dir, encoding: "utf8" });
+const bh = (dir: string, ...args: string[]) => spawnSync(process.execPath, [path.join(dir, "scripts/bh.mts"), ...args], { cwd: dir, encoding: "utf8" });
 
 test("`new --example` writes the marker, and a plain `new` does not", (t) => {
   const dir = scratchRepo(t);
@@ -194,7 +214,7 @@ test("`new --example` writes the marker, and a plain `new` does not", (t) => {
 
 test("check rejects the `examples` tag, a bad marker value and a missing examples.js", (t) => {
   const dir = scratchRepo(t);
-  const edit = (file, from, to) => {
+  const edit = (file: string, from: string, to: string) => {
     const p = path.join(dir, file), text = fs.readFileSync(p, "utf8");
     assert.ok(text.includes(from), `${file} should contain ${from}`);
     fs.writeFileSync(p, text.replace(from, to));
@@ -202,7 +222,7 @@ test("check rejects the `examples` tag, a bad marker value and a missing example
   };
   const errors = () => bh(dir, "check").stdout;
   // Cards are checked against the machine's Chrome render, which is not under test here.
-  const others = (out) => out.split("\n").filter((l) => l.includes("  error  ") && !/social card/.test(l));
+  const others = (out: string) => out.split("\n").filter((l) => l.includes("  error  ") && !/social card/.test(l));
 
   assert.deepEqual(others(errors()), []);
   edit("docs/glossary.html", '<meta name="bh:tags" content="glossary, reference">', '<meta name="bh:tags" content="glossary, examples">');

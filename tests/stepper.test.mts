@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type http from "node:http";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -9,6 +10,11 @@ import { findChrome, launchChrome, serveStatic, sleep } from "../scripts/chrome.
 // before anyone presses "Next". It once showed the whole diagram until the reader engaged, so
 // "Next" jumped to step 2 and step 1's highlight was only ever seen after "Back".
 const skip = !findChrome() || typeof WebSocket === "undefined" ? "needs Chrome and Node >= 22" : false;
+function portOf(server: http.Server): number {
+  const address = server.address();
+  assert.ok(address && typeof address !== "string", "the server is listening");
+  return address.port;
+}
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Pages whose source has a stepper bound to a diagram that has `data-id` parts. */
@@ -43,18 +49,18 @@ const probe = `(() => [...document.querySelectorAll("bh-stepper[for]")].map((s) 
 test("every stepper starts on step 1 with step 1's parts lit, and its bar stays put", { skip, timeout: 120000 }, async (t) => {
   assert.ok(pages.length > 0, "found pages with a stepper");
   const server = await serveStatic(root);
-  t.after(() => new Promise((resolve) => server.close(resolve)));
-  const base = `http://127.0.0.1:${server.address().port}/docs/`;
+  t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+  const base = `http://127.0.0.1:${portOf(server)}/docs/`;
   const chrome = await launchChrome();
   t.after(() => chrome.close());
 
   const { targetId } = await chrome.send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await chrome.send("Target.attachToTarget", { targetId, flatten: true });
   t.after(() => chrome.send("Target.closeTarget", { targetId }).catch(() => {}));
-  const s = (method, params) => chrome.send(method, params, sessionId);
+  const s = (method: string, params?: object) => chrome.send(method, params, sessionId);
   await s("Page.enable");
   await s("Page.bringToFront");
-  const evaluate = async (expression) => {
+  const evaluate = async (expression: string) => {
     const r = await s("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
     return r.result.value;
@@ -70,7 +76,7 @@ test("every stepper starts on step 1 with step 1's parts lit, and its bar stays 
       // The steps differ in height. The bar must not move with them, or "Next" is awkward to click repeatedly.
       for (const p of await evaluate(barProbe)) {
         assert.ok(p.first, `${p.id}: the bar comes before the steps`);
-        assert.ok(p.offsets.every((o) => o === p.offsets[0]), `${p.id}: the bar stays put across steps (offsets: ${p.offsets})`);
+        assert.ok(p.offsets.every((o: number) => o === p.offsets[0]), `${p.id}: the bar stays put across steps (offsets: ${p.offsets})`);
       }
       // A figure a page animates itself (it listens for "bh-step") must also open on step 1. It once
       // opened on its full picture, because the stepper announced step 1 before the page was listening.
@@ -86,7 +92,7 @@ test("every stepper starts on step 1 with step 1's parts lit, and its bar stays 
         assert.equal(p.index, 0, `${p.id} starts on step 1`);
         if (p.ids.length) {
           // A part is several nodes (a shape and its text), so compare the ids, not the nodes.
-          const lit = [...new Set(p.lit)];
+          const lit: string[] = [...new Set<string>(p.lit)];
           assert.ok(lit.length > 0, `${p.id}: step 1's parts are lit before "Next" is pressed`);
           assert.ok(lit.every((id) => p.ids.includes(id)), `${p.id}: only step 1's parts are lit (lit: ${lit}, step 1: ${p.ids})`);
         }
