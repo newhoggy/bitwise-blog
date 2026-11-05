@@ -239,3 +239,13 @@ John Ky and Bitwise Engineering; every page footer carries a generated link back
 repo to make that easy (see CLAUDE.md, "Attribution link"). The logo in `theme/logo/` is all rights reserved. The root
 [LICENSE](LICENSE) has the exact scope.
 Review files submitted to `reviews/inbox/` are accepted under the same CC BY 4.0 terms.
+
+## Acknowledgements
+
+The way the explainers teach comes from Grant Sanderson's
+[3Blue1Brown](https://www.3blue1brown.com/). Make the reader want an idea before
+giving it. Let the obvious approach be tried, show where it breaks, and only then
+give the fix and its name. Flag every simplification, and come back to correct it.
+The [pedagogical-writing skill](.claude/skills/pedagogical-writing/SKILL.md)
+distils these teaching moves from his videos and quotes short examples from them,
+each cited by video. This blog is not affiliated with 3Blue1Brown.
