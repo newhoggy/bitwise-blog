@@ -1,4 +1,4 @@
-// Shared by scripts/visual.mjs and scripts/cards.mjs: find a local Chrome and drive it over the
+// Shared by scripts/visual.mts and scripts/cards.mts: find a local Chrome and drive it over the
 // DevTools protocol (Node >= 22 for the global WebSocket). No dependencies.
 
 import fs from "node:fs";
@@ -7,11 +7,11 @@ import path from "node:path";
 import http from "node:http";
 import { spawn, execSync } from "node:child_process";
 
-const dim = (s) => `\x1b[2m${s}\x1b[0m`;
-export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** Path of a local Chrome/Chromium, or null (CHROME_PATH overrides the search). */
-export function findChrome() {
+export function findChrome(): string | null {
   if (process.env.CHROME_PATH) return fs.existsSync(process.env.CHROME_PATH) ? process.env.CHROME_PATH : null;
   const mac = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/Applications/Chromium.app/Contents/MacOS/Chromium"];
   for (const p of mac) if (fs.existsSync(p)) return p;
@@ -21,7 +21,13 @@ export function findChrome() {
   return null;
 }
 
-export async function launchChrome() {
+/** A running headless Chrome. `send` is a DevTools protocol call (results are protocol payloads, so `any`); `close` is idempotent. */
+export interface ChromeHandle {
+  send: (method: string, params?: object, sessionId?: string) => Promise<any>;
+  close: () => Promise<void>;
+}
+
+export async function launchChrome(): Promise<ChromeHandle> {
   const exe = findChrome();
   if (!exe) throw new Error("Chrome not found: set CHROME_PATH");
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "bh-chrome-"));
@@ -37,10 +43,10 @@ export async function launchChrome() {
     ...(process.env.CI ? ["--no-sandbox"] : []),
     "about:blank",
   ], { stdio: ["ignore", "ignore", "pipe"] });
-  let ws, closing;
-  const pending = new Map();
+  let ws: WebSocket | undefined, closing: Promise<void> | undefined;
+  const pending = new Map<number, { resolve: (result: unknown) => void; reject: (error: Error) => void }>();
   // "close" includes drained stdio, unlike "exit". Register before startup can fail.
-  const closed = new Promise((resolve) => proc.once("close", resolve));
+  const closed = new Promise<void>((resolve) => proc.once("close", () => resolve()));
   const close = () => closing ??= (async () => {
     for (const { reject } of pending.values()) reject(new Error("Chrome closed"));
     pending.clear();
@@ -61,25 +67,25 @@ export async function launchChrome() {
     }
     // Chrome's helpers can briefly keep writing even after the browser closes.
     try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); }
-    catch (e) { console.warn(dim(`(could not remove Chrome profile ${profile}: ${e.code})`)); }
+    catch (e) { console.warn(dim(`(could not remove Chrome profile ${profile}: ${(e as NodeJS.ErrnoException).code})`)); }
   })();
   try {
-    const wsUrl = await new Promise((resolve, reject) => {
+    const wsUrl = await new Promise<string>((resolve, reject) => {
       let buf = "";
-      const finish = (error, url) => {
+      const finish = (error: Error | null, url?: string) => {
         clearTimeout(timer);
         proc.stderr.off("data", onData);
         proc.off("exit", onExit);
         proc.off("error", onError);
-        error ? reject(error) : resolve(url);
+        error ? reject(error) : resolve(url!);
       };
-      const onData = (d) => {
+      const onData = (d: Buffer) => {
         buf += d;
         const m = buf.match(/DevTools listening on (ws:\/\/\S+)/);
-        if (m) finish(null, m[1]);
+        if (m) finish(null, m[1]!);
       };
-      const onExit = (code) => finish(new Error(`Chrome exited (${code})`));
-      const onError = (error) => finish(error);
+      const onExit = (code: number | null) => finish(new Error(`Chrome exited (${code})`));
+      const onError = (error: Error) => finish(error);
       const timer = setTimeout(() => finish(new Error("Chrome did not start")), 15000);
       proc.stderr.on("data", onData);
       proc.once("exit", onExit);
@@ -88,38 +94,40 @@ export async function launchChrome() {
     // Drain Chrome diagnostics after startup without retaining the startup buffer.
     proc.stderr.resume();
     ws = new WebSocket(wsUrl);
-    await new Promise((resolve, reject) => {
-      const finish = (error) => {
+    const socket = ws;
+    await new Promise<void>((resolve, reject) => {
+      const finish = (error?: Error) => {
         clearTimeout(timer);
-        ws.onopen = ws.onerror = ws.onclose = null;
+        socket.onopen = socket.onerror = socket.onclose = null;
         error ? reject(error) : resolve();
       };
       const timer = setTimeout(() => finish(new Error("Chrome WebSocket did not open")), 15000);
-      ws.onopen = () => finish();
-      ws.onerror = () => finish(new Error("Chrome WebSocket failed"));
-      ws.onclose = () => finish(new Error("Chrome WebSocket closed during startup"));
+      socket.onopen = () => finish();
+      socket.onerror = () => finish(new Error("Chrome WebSocket failed"));
+      socket.onclose = () => finish(new Error("Chrome WebSocket closed during startup"));
     });
   } catch (error) {
     await close();
     throw error;
   }
   let nextId = 0;
-  ws.onclose = () => {
+  const sock: WebSocket = ws; // `ws` is only reassigned above; a const keeps the narrowing inside the closures
+  sock.onclose = () => {
     for (const { reject } of pending.values()) reject(new Error("Chrome WebSocket closed"));
     pending.clear();
   };
-  ws.onmessage = (ev) => {
+  sock.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (!msg.id || !pending.has(msg.id)) return;
-    const { resolve, reject } = pending.get(msg.id);
+    const { resolve, reject } = pending.get(msg.id)!;
     pending.delete(msg.id);
     msg.error ? reject(new Error(`${msg.error.message}`)) : resolve(msg.result);
   };
-  const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
-    if (closing || ws.readyState !== WebSocket.OPEN) { reject(new Error("Chrome closed")); return; }
+  const send = (method: string, params: object = {}, sessionId?: string) => new Promise<any>((resolve, reject) => {
+    if (closing || sock.readyState !== WebSocket.OPEN) { reject(new Error("Chrome closed")); return; }
     const id = ++nextId;
     pending.set(id, { resolve, reject });
-    try { ws.send(JSON.stringify({ id, method, params, sessionId })); }
+    try { sock.send(JSON.stringify({ id, method, params, sessionId })); }
     catch (error) { pending.delete(id); reject(error); }
   });
   return { send, close };
@@ -129,17 +137,17 @@ export async function launchChrome() {
  * Symlinked roots and in-root targets are supported; targets outside the canonical root return 403.
  * Unresolvable paths return 404. Directories do not automatically select index.html.
  */
-export function serveStatic(root, routes = new Map()) {
+export function serveStatic(root: string, routes: Map<string, { type: string; body: string | Buffer }> = new Map()): Promise<http.Server> {
   root = fs.realpathSync(root);
-  const contains = (file) => file === root || file.startsWith(root + path.sep);
-  const types = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png" };
+  const contains = (file: string) => file === root || file.startsWith(root + path.sep);
+  const types: Record<string, string> = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png" };
   const server = http.createServer((req, res) => {
-    let pathname;
-    try { pathname = decodeURIComponent(new URL(req.url, "http://x").pathname); } catch { res.writeHead(400).end(); return; }
-    if (routes.has(pathname)) { const r = routes.get(pathname); res.writeHead(200, { "content-type": r.type }).end(r.body); return; }
+    let pathname: string;
+    try { pathname = decodeURIComponent(new URL(req.url!, "http://x").pathname); } catch { res.writeHead(400).end(); return; }
+    if (routes.has(pathname)) { const r = routes.get(pathname)!; res.writeHead(200, { "content-type": r.type }).end(r.body); return; }
     const file = path.join(root, pathname);
     if (!contains(file)) { res.writeHead(403).end(); return; }
-    let target;
+    let target: string;
     try { target = fs.realpathSync(file); }
     catch { res.writeHead(404).end(); return; }
     if (!contains(target)) { res.writeHead(403).end(); return; }
@@ -148,5 +156,5 @@ export function serveStatic(root, routes = new Map()) {
       res.writeHead(200, { "content-type": types[path.extname(file)] || "application/octet-stream" }).end(data);
     });
   });
-  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
+  return new Promise<http.Server>((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
 }

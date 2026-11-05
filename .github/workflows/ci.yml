@@ -19,10 +19,19 @@ jobs:
         with:
           node-version: 22
 
+      # The tooling is TypeScript that Node runs by stripping types (Node 22.18 or later has
+      # this on by default), so the only install is the compiler. Pinned in package-lock.json.
+      - name: Install the type-checker
+        run: npm ci
+
       - name: Syntax-check scripts
         run: |
           node --check theme/bh.js
-          for f in theme/examples.js theme/unlisted.js theme/modules/*.js scripts/*.mjs .claude/skills/*/scripts/*.mjs; do node --check "$f"; done
+          for f in theme/examples.js theme/unlisted.js theme/modules/*.js .claude/skills/*/scripts/*.mjs; do node --check "$f"; done
+
+      # Types of the Node tooling (scripts/ and tests/). The browser JS in theme/ stays plain.
+      - name: Type-check the tooling
+        run: npm run typecheck
 
       # Links, ids, arrows, labels, contrast, glossary, decision links, and that the
       # generated files (index, glossary, site data, search index) are up to date.
@@ -41,7 +50,7 @@ jobs:
         run: |
           mkdir -p _site
           cp -r index.html docs theme _site/
-          node scripts/publish.mjs
+          node scripts/publish.mts
 
       - name: Bundle every document into a single file
         run: npm run bundle:all

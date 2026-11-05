@@ -8,32 +8,33 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const uncomment = (html) => html.replace(/<!--[\s\S]*?-->/g, "");
-function examples(root) {
+const uncomment = (html: string) => html.replace(/<!--[\s\S]*?-->/g, "");
+function examples(root: string): string[] {
   return fs.readdirSync(path.join(root, "docs")).filter((name) => name.endsWith(".html"))
     .filter((name) => {
       const head = uncomment(fs.readFileSync(path.join(root, "docs", name), "utf8")).match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || "";
       return /<meta\s+name="bh:example"\s+content="true"/i.test(head);
     }).map((name) => `docs/${name}`).sort();
 }
-const readData = (root, file, global) => {
-  const window = {};
+/** The value a generated `window.<global> = …` file assigns: dynamic JSON-like data, so `any`. */
+const readData = (root: string, file: string, global: string): any => {
+  const window: Record<string, any> = {};
   vm.runInNewContext(fs.readFileSync(path.join(root, file), "utf8"), { window });
   return window[global];
 };
-const writeData = (root, file, global, data) => fs.writeFileSync(path.join(root, file),
-  `/* GENERATED for publication by scripts/publish.mjs. Do not edit. */\nwindow.${global} = ${JSON.stringify(data, null, 1)};\n`);
+const writeData = (root: string, file: string, global: string, data: unknown) => fs.writeFileSync(path.join(root, file),
+  `/* GENERATED for publication by scripts/publish.mts. Do not edit. */\nwindow.${global} = ${JSON.stringify(data, null, 1)};\n`);
 
 // GoatCounter page-view counting is added to the staged copy only (never to sources, templates,
 // theme or bundles), so a sealed page's decrypted title cannot reach a third party.
 const GOATCOUNTER_CODE = /^[a-z0-9-]+$/;
-const goatcounterTag = (code) => `<script data-goatcounter="https://${code}.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>`;
-const publishedPages = (stage) => ["index.html", ...fs.readdirSync(path.join(stage, "docs")).filter((f) => f.endsWith(".html")).map((f) => `docs/${f}`)];
+const goatcounterTag = (code: string) => `<script data-goatcounter="https://${code}.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>`;
+const publishedPages = (stage: string) => ["index.html", ...fs.readdirSync(path.join(stage, "docs")).filter((f) => f.endsWith(".html")).map((f) => `docs/${f}`)];
 // A sealed shell holds the encrypted payload and the sealed meta; either one marks it.
-const isSealedShell = (html) => /<script\b[^>]*\bid="sealed-payload"/i.test(html) || /<meta\s+name="bh:sealed"/i.test(html);
-function addGoatcounter(stage, code) {
+const isSealedShell = (html: string) => /<script\b[^>]*\bid="sealed-payload"/i.test(html) || /<meta\s+name="bh:sealed"/i.test(html);
+function addGoatcounter(stage: string, code: string): { tagged: string[]; sealed: string[] } {
   const tag = goatcounterTag(code);
-  const tagged = [], sealed = [];
+  const tagged: string[] = [], sealed: string[] = [];
   for (const page of publishedPages(stage)) {
     const file = path.join(stage, page), html = fs.readFileSync(file, "utf8");
     if (page.endsWith(".private.html")) throw new Error(`Refusing to publish the plaintext private page ${page}`);
@@ -46,7 +47,8 @@ function addGoatcounter(stage, code) {
   return { tagged, sealed };
 }
 
-export function preparePublishedSite(stage, source = ROOT, { goatcounter = "" } = {}) {
+/** Prune example pages from the assembled `stage`, rebuild the generated data without them and (with a GoatCounter site code) add the counting tag. Returns the example pages removed. */
+export function preparePublishedSite(stage: string, source: string = ROOT, { goatcounter = "" }: { goatcounter?: string } = {}): string[] {
   // Validate before anything is deleted or written, so a bad value publishes nothing.
   if (goatcounter && !GOATCOUNTER_CODE.test(goatcounter)) {
     throw new Error("GOATCOUNTER_CODE must contain only lowercase letters, digits and hyphens (a-z, 0-9, -)");
@@ -64,19 +66,19 @@ export function preparePublishedSite(stage, source = ROOT, { goatcounter = "" } 
     if (!fs.existsSync(path.join(stage, card))) throw new Error(`Expected example card is missing: ${card}`);
   }
   const removed = new Set(marked);
-  const homepage = new URL(String(process.env.BH_SITE_URL || JSON.parse(fs.readFileSync(path.join(source, "package.json"))).homepage).replace(/\/*$/, "/"));
-  const isRemoved = (href, page) => {
+  const homepage = new URL(String(process.env.BH_SITE_URL || JSON.parse(fs.readFileSync(path.join(source, "package.json"), "utf8")).homepage).replace(/\/*$/, "/"));
+  const isRemoved = (href: string, page: string) => {
     try {
       const url = new URL(href.replace(/&amp;/g, "&"), new URL(page, homepage));
       if (url.origin !== homepage.origin || !url.pathname.startsWith(homepage.pathname)) return false;
       return removed.has(decodeURIComponent(url.pathname.slice(homepage.pathname.length)));
     } catch { return false; }
   };
-  const sanitize = (html, page) => html.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (whole, attrs, inner) => {
+  const sanitize = (html: string, page: string) => html.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (whole: string, attrs: string, inner: string) => {
     const href = attrs.match(/(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
-    return href && isRemoved(href[1] ?? href[2], page) ? inner : whole;
+    return href && isRemoved((href[1] ?? href[2])!, page) ? inner : whole;
   }).replace(/<meta\s+name="bh:(?:supersedes|superseded-by)"\s+content="([^"]*)"[^>]*>/gi,
-    (whole, href) => isRemoved(href, page) ? "" : whole);
+    (whole: string, href: string) => isRemoved(href, page) ? "" : whole);
   for (const href of marked) {
     fs.unlinkSync(path.join(stage, href));
     fs.unlinkSync(path.join(stage, href.replace(/\.html$/, ".png").replace(/^docs\//, "docs/assets/og/")));
@@ -90,7 +92,7 @@ export function preparePublishedSite(stage, source = ROOT, { goatcounter = "" } 
   try {
     for (const entry of ["index.html", "docs", "theme"]) fs.cpSync(path.join(stage, entry), path.join(temp, entry), { recursive: true });
     for (const entry of ["scripts", "package.json", "reviews"]) fs.cpSync(path.join(source, entry), path.join(temp, entry), { recursive: true });
-    execFileSync(process.execPath, [path.join(temp, "scripts/bh.mjs"), "index"], { cwd: temp, stdio: "pipe" });
+    execFileSync(process.execPath, [path.join(temp, "scripts/bh.mts"), "index"], { cwd: temp, stdio: "pipe" });
     for (const entry of ["index.html", "feed.xml", "theme/glossary.js", "theme/site.js", "theme/search-index.js", "theme/reviews.js", "theme/unlisted-pages.js", "theme/unlisted-slugs.js", "theme/unlisted-reviews.js"]) {
       fs.copyFileSync(path.join(temp, entry), path.join(stage, entry));
     }
@@ -112,5 +114,5 @@ export function preparePublishedSite(stage, source = ROOT, { goatcounter = "" } 
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { preparePublishedSite(path.join(ROOT, "_site"), ROOT, { goatcounter: (process.env.GOATCOUNTER_CODE || "").trim() }); }
-  catch (error) { console.error(`Publication failed: ${error.message}`); process.exitCode = 1; }
+  catch (error) { console.error(`Publication failed: ${error instanceof Error ? error.message : error}`); process.exitCode = 1; }
 }

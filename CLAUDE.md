@@ -34,6 +34,22 @@ generated files by hand. `theme/private-cards.js` is generated too, but by `npm 
 Run `npm run cards` after changing a page's title, kind, date, or its first diagram or image
 (or the card layout, or the theme tokens): it re-renders every card that `check` calls stale.
 
+## Tooling
+
+The Node tooling (`scripts/*.mts`, `tests/**/*.mts`) is TypeScript, type-checked with TypeScript 7 and run
+by Node itself, which strips the types (on by default from Node 22.18). There is still no build step.
+
+- `npm ci` once, then `npm run typecheck` (`tsc -p .`, `noEmit`, `strict`). It must report 0 errors; CI runs it.
+- **Erasable syntax only**: no enums, namespaces or constructor parameter properties. Import types with
+  `import type` (`verbatimModuleSyntax`), and write relative imports with the real extension
+  (`./chrome.mts`, not `./chrome.mjs`).
+- Shared data shapes (a page, its `bh:*` metas, the records passed between `index`, `check`, `cards`,
+  `publish` and `bundle`) are named types, not inline objects. Prefer `unknown` and narrow it; `any` only for genuinely dynamic data (JSON, code run in `vm`, DevTools payloads), at the narrowest point.
+- The browser code stays plain JavaScript, because TypeScript there would need a build step:
+  `theme/bh.js`, `theme/modules/*.js`, and the per-page `<script>` blocks. So do `.claude/skills/**` and `figures/**`.
+- `scripts/cards.mts` is a social-card staleness input, so editing it (types included) makes every card stale:
+  re-run `npm run cards`.
+
 ## Brand assets
 
 The logo is a "B" made of two bits: a solid upper bowl (1) over a hollow lower bowl (0).
@@ -89,7 +105,7 @@ nothing for this; two generated things do the work.
 - **Staleness.** Each PNG records a hash (a `tEXt` chunk named `bh-card`) of the chosen
   visual's source and image files, the title, kind, date, site name, the page's `<style>`,
   `theme/{tokens,base,layout,components,diagrams}.css`, `theme/bh.js`, the logo and
-  `scripts/cards.mjs` (plus `theme/modules/*.js` when the visual is a `<bh-…>` component).
+  `scripts/cards.mts` (plus `theme/modules/*.js` when the visual is a `<bh-…>` component).
   So a theme change makes every card stale: re-run `npm run cards` along with
   `npm run visual`. `check` recomputes the hash with no browser and fails on a missing,
   wrong-sized or stale card, and on a card whose page is gone or private. `npm run cards`
@@ -108,7 +124,7 @@ nothing for this; two generated things do the work.
   name is `bh.siteName` in `package.json`. Changing either makes the block and every sealed
   shell stale: run `npm run index`, `npm run cards` and `npm run seal -- --reshell`.
 - **Private pages** unfurl as one generic "Private page" card: see below.
-- Render the cards and look at them when you change `scripts/cards.mjs`, the theme tokens or
+- Render the cards and look at them when you change `scripts/cards.mts`, the theme tokens or
   a diagram's colours. `docs/assets/og/` holds only cards, one per public page.
 
 ## Private pages
@@ -221,7 +237,7 @@ example.
   result; no "Referenced by" entry; links to the page become plain text (also inside glossary
   popups); and opening the page's address shows a short "This is an example page" notice with a
   link to the posts. Review threads on the page go with the page. This describes the source
-  copy. **On deployed Pages**, `scripts/publish.mjs` removes the
+  copy. **On deployed Pages**, `scripts/publish.mts` removes the
   example HTML and social cards, strips links to examples while keeping their text/markup,
   and rebuilds the index, glossary, search, backlinks and review data in the artifact only.
   Example URLs return 404. Publication fails on zero examples or missing expected files.
@@ -294,13 +310,13 @@ private.
   (text only, never `innerHTML`), labelled "Unlisted · <Kind>" in words, before `<bh-filter>`
   re-reads the list (`BhFilter.refresh()`), so chips and the search box cover them.
   `data-bh-ready` waits for it. The card builder is `bh.cards.build`; keep its markup equal to
-  `cardHtml` in `scripts/bh.mjs` (`tests/unlisted.test.mjs` compares them).
+  `cardHtml` in `scripts/bh.mts` (`tests/unlisted.test.mts` compares them).
 - **Links.** A listed page that links to an unlisted one gets a `check` warning: the link is inert
   by default. An unlisted page (and the glossary) may link to one freely; on an unlisted page
   links to other unlisted pages stay live, so a series can be shared as one. Without JavaScript
   every `href` still works: the neutralising is script-only. A decision chain
   (`bh:supersedes` / `bh:superseded-by`) must be all listed or all unlisted.
-- **The published site.** `scripts/publish.mjs` keeps unlisted pages and their cards, and applies
+- **The published site.** `scripts/publish.mts` keeps unlisted pages and their cards, and applies
   the same rules when it rebuilds the index, search, backlinks and the two data files.
 - **Prefer a non-guessable slug** (for example a random suffix) for a page meant to be shared by
   link: it is the only protection against guessing.
@@ -327,7 +343,7 @@ The site publishes an Atom 1.0 feed at `feed.xml` in the site root
   not `bh:kind` `reference` (the glossary and the component gallery are the `reference` pages),
   newest first by `bh:date`. Left out, so the feed can never reveal them: example pages
   (`bh:example`), unlisted pages (`bh:unlisted`), private and sealed pages, and `reference`
-  pages. A new kind of non-post page is added to `FEED_NON_POST_KINDS` in `scripts/bh.mjs`.
+  pages. A new kind of non-post page is added to `FEED_NON_POST_KINDS` in `scripts/bh.mts`.
   `bh:status` does not filter: the home page lists drafts, so the feed does too. A page whose
   `bh:date` is not a real calendar date is left out.
 - **Each entry** has `id` and `link` = the page's canonical URL, `title`, `summary` = the page's
@@ -349,7 +365,7 @@ The site publishes an Atom 1.0 feed at `feed.xml` in the site root
 - **`check`** also parses `feed.xml` (tags balance, no stray `<`, no unescaped `&`), compares it
   with a fresh build, and fails if an entry is not an eligible page: a private, sealed, unlisted,
   example or `reference` page, or no page at all.
-- **Publishing.** `scripts/publish.mjs` rebuilds `feed.xml` in the Pages artifact together with
+- **Publishing.** `scripts/publish.mts` rebuilds `feed.xml` in the Pages artifact together with
   the index and the other generated data, from the pages that remain after example pages are
   removed. The workflows copy no feed themselves. The site should be validated once it is live
   (the W3C Feed Validation Service needs a public URL).
@@ -379,7 +395,7 @@ The published site counts page views with [GoatCounter](https://www.goatcounter.
 no consent banner. It is **added at deploy time and nowhere else**.
 
 - **Switch.** The repository variable `GOATCOUNTER_CODE` (Settings → Secrets and variables →
-  Actions → Variables; a variable, not a secret) is passed to `scripts/publish.mjs` by
+  Actions → Variables; a variable, not a secret) is passed to `scripts/publish.mts` by
   `pages.yml`. Unset or empty means no tag, and the published artifact is byte-identical to one
   built without this feature. A value that is not `[a-z0-9-]+` fails the publish before anything
   is written.
@@ -407,7 +423,7 @@ no consent banner. It is **added at deploy time and nowhere else**.
 ### Reading the numbers: `npm run stats`
 
 `npm run stats` exports the hits from GoatCounter and prints views per page, sorted by views,
-joined with each page's title, kind and tags from `docs/*.html` (`scripts/stats.mjs`; no
+joined with each page's title, kind and tags from `docs/*.html` (`scripts/stats.mts`; no
 dependencies, nothing written to disk).
 
 - **Needs** `GOATCOUNTER_CODE` (the site code) and an API token. Create the token in
@@ -435,7 +451,7 @@ dependencies, nothing written to disk).
 
 ## Page contract
 
-- Pages are flat files in `docs/` and link `../theme/bh.css` and `../theme/bh.js`. Don't add a build step.
+- Pages are flat files in `docs/` and link `../theme/bh.css` and `../theme/bh.js`. Don't add a build step (the Node tooling is type-stripped TypeScript; see [Tooling](#tooling)).
 - Keep the `<head>` from the template:
   - `title` and `description`
   - `bh:kind`, `bh:status`, `bh:date` (YYYY-MM-DD), `bh:authors`, `bh:tags`
@@ -712,7 +728,7 @@ Theme files (`theme/*`) are shared by every page. These rules come from bugs alr
   `check` now enforces this order and that imported files exist.
 - **Token contrast is checked.** `check` computes WCAG contrast for every
   text/background token pair, from the `light-dark()` values, in both themes
-  (`CONTRAST_PAIRS` in `scripts/bh.mjs`). Add a pair there whenever a new token is
+  (`CONTRAST_PAIRS` in `scripts/bh.mts`). Add a pair there whenever a new token is
   used as text on a new background.
 - **`!important` reverses inside cascade layers:** an important declaration in an *earlier*
   layer beats one in a later layer. Prefer specificity or layer order; use `!important`
@@ -742,7 +758,7 @@ Theme files (`theme/*`) are shared by every page. These rules come from bugs alr
   stroke rule in `components.css` loses to `.node.cN` in the later diagrams layer.
   `data-change` marks once rendered in the wrong colour for exactly this reason.
 - **Keep geometry constants in sync.** The arrowhead size in `bh.js` markers must equal
-  `ARROW_LEN` in `scripts/bh.mjs`. The popup's `--gap` in `glossary.css` must equal
+  `ARROW_LEN` in `scripts/bh.mts`. The popup's `--gap` in `glossary.css` must equal
   `GAP` in `bh.js`.
 - **Moving focus fires focus handlers synchronously.** Code that closes a popup and then
   focuses its trigger must stop the trigger's focus handler from reopening it. Esc once

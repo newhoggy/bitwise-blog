@@ -4,20 +4,39 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import vm from "node:vm";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { fileURLToPath } from "node:url";
-import { test } from "node:test";
-import { serveStatic } from "../scripts/chrome.mjs";
+import { test, type TestContext } from "node:test";
+import { serveStatic } from "../scripts/chrome.mts";
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-async function fixture(t, { shared = false, symlinkRoot = false } = {}) {
+interface Response { status: number | undefined; headers: http.IncomingHttpHeaders; body: string }
+
+/** The TCP port a listening server was given. */
+function portOf(server: http.Server): number {
+  const address = server.address();
+  assert.ok(address && typeof address !== "string", "the server listens on a TCP port");
+  return address.port;
+}
+
+/** What theme/build.js sets: the build record `serve` writes for review comments. */
+interface BuildWindow { BH_BUILD?: { repo: string; builtAt: string } }
+const buildOf = (js: string): NonNullable<BuildWindow["BH_BUILD"]> => {
+  const window: BuildWindow = {};
+  vm.runInNewContext(js, { window });
+  assert.ok(window.BH_BUILD, "theme/build.js sets BH_BUILD");
+  return window.BH_BUILD;
+};
+
+async function fixture(t: TestContext, { shared = false, symlinkRoot = false } = {}): Promise<(requestPath: string) => Promise<Response>> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bh-serve-"));
-  let proc, server;
+  let proc: ChildProcess | undefined;
+  let server: http.Server | undefined;
   t.after(async () => {
     try {
-      if (server) await new Promise((resolve) => server.close(resolve));
+      if (server) await new Promise((resolve) => server!.close(resolve));
       if (proc?.pid && proc.exitCode === null && proc.signalCode === null) {
         const exited = once(proc, "exit");
         proc.kill();
@@ -29,7 +48,7 @@ async function fixture(t, { shared = false, symlinkRoot = false } = {}) {
   });
   let root = path.join(dir, "repo");
   fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-  for (const file of ["bh.mjs", "private-cards.mjs"]) fs.copyFileSync(path.join(source, "scripts", file), path.join(root, "scripts", file));
+  for (const file of ["bh.mts", "private-cards.mts"]) fs.copyFileSync(path.join(source, "scripts", file), path.join(root, "scripts", file));
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ repository: "github:example/blog" }));
   fs.writeFileSync(path.join(root, "index.html"), "<h1>Home</h1>");
   fs.mkdirSync(path.join(root, "docs"));
@@ -60,37 +79,38 @@ async function fixture(t, { shared = false, symlinkRoot = false } = {}) {
     root = alias;
   }
 
-  let port;
+  let port: number;
   if (shared) {
     server = await serveStatic(root, new Map([["/dynamic.js", { type: "text/javascript", body: "dynamic route" }]]));
-    port = server.address().port;
+    port = portOf(server);
   } else {
     // Allocate an available port before launching the actual CLI, which accepts a port argument.
     const reservation = http.createServer();
     reservation.listen(0, "127.0.0.1");
     await once(reservation, "listening");
-    port = reservation.address().port;
+    port = portOf(reservation);
     await new Promise((resolve) => reservation.close(resolve));
-    proc = spawn(process.execPath, [path.join(root, "scripts/bh.mjs"), "serve", String(port)], { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(process.execPath, [path.join(root, "scripts/bh.mts"), "serve", String(port)], { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+    proc = child;
     let output = "";
-    proc.stderr.on("data", (data) => { output += data; });
-    await new Promise((resolve, reject) => {
+    child.stderr.on("data", (data) => { output += data; });
+    await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => finish(new Error(`Server startup timed out: ${output}`)), 5000);
       const onExit = () => finish(new Error(`Server exited during startup: ${output}`));
-      const onData = (data) => { output += data; if (output.includes("Serving ")) finish(); };
-      const finish = (error) => {
+      const onData = (data: Buffer) => { output += data; if (output.includes("Serving ")) finish(); };
+      const finish = (error?: Error) => {
         clearTimeout(timer);
-        proc.off("exit", onExit);
-        proc.off("error", finish);
-        proc.stdout.off("data", onData);
-        error ? reject(error) : resolve();
+        child.off("exit", onExit);
+        child.off("error", finish);
+        child.stdout.off("data", onData);
+        if (error) reject(error); else resolve();
       };
-      proc.once("exit", onExit);
-      proc.once("error", finish);
-      proc.stdout.on("data", onData);
+      child.once("exit", onExit);
+      child.once("error", finish);
+      child.stdout.on("data", onData);
     });
   }
-  return (requestPath) => new Promise((resolve, reject) => {
+  return (requestPath: string) => new Promise<Response>((resolve, reject) => {
     // Pass the path directly: URL-based clients normalize literal traversal segments.
     const req = http.get({ hostname: "127.0.0.1", port, path: requestPath }, (res) => {
       let body = "";
@@ -129,10 +149,9 @@ test("serve rejects malformed URLs and traversal while preserving pages and buil
   assert.equal(build.status, 200);
   assert.equal(build.headers["content-type"], "text/javascript");
   assert.equal(build.headers["cache-control"], "no-cache");
-  const window = {};
-  vm.runInNewContext(build.body, { window });
-  assert.equal(window.BH_BUILD.repo, "example/blog");
-  assert.ok(Number.isFinite(Date.parse(window.BH_BUILD.builtAt)));
+  const record = buildOf(build.body);
+  assert.equal(record.repo, "example/blog");
+  assert.ok(Number.isFinite(Date.parse(record.builtAt)));
 });
 
 for (const shared of [false, true]) {
@@ -166,9 +185,7 @@ for (const shared of [false, true]) {
       assert.equal(dynamic.headers["content-type"], "text/javascript");
       if (shared) assert.equal(dynamic.body, "dynamic route");
       else {
-        const window = {};
-        vm.runInNewContext(dynamic.body, { window });
-        assert.equal(window.BH_BUILD.repo, "example/blog");
+        assert.equal(buildOf(dynamic.body).repo, "example/blog");
       }
     });
   }

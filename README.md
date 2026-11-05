@@ -84,15 +84,17 @@ npm run bundle -- docs/consistent-hashing.html      # → dist/consistent-hashin
 npm run seal                                        # encrypt docs/*.private.html (keys in 1Password)
 npm run unseal                                      # recreate docs/*.private.html from sealed pages
 npm run visual                                      # screenshot diff vs your baselines (Node ≥ 22 + Chrome)
+npm run typecheck                                   # type-check scripts/ and tests/ (TypeScript 7, needs npm ci)
 ```
 
-Node ≥ 20 is the only requirement. There are no npm dependencies. (`cards` and `visual` also
-need Node ≥ 22 and a local Chrome.)
+Node ≥ 22.18 is the requirement: it runs the TypeScript tooling by stripping types, so there is no build step.
+The only npm dependencies are dev ones (`typescript` and `@types/node`), used by `npm run typecheck`; run
+`npm ci` once to get them. (`cards` and `visual` also need a local Chrome.)
 
 ## Continuous integration & publishing
 
 - **CI** (`.github/workflows/ci.yml`) runs on every push and pull request. It
-  syntax-checks every script, runs `npm run check` (which also verifies each page's social
+  syntax-checks the browser scripts, type-checks the Node tooling (`npm run typecheck`), runs `npm run check` (which also verifies each page's social
   meta and card), uploads all documents bundled as single files, and renders every page in
   Chrome (light, dark and phone layouts).
 - **GitHub Pages** (`.github/workflows/pages.yml`) publishes a copy of the repo to
@@ -148,12 +150,12 @@ theme/
 theme/modules/          On-demand components (loaded only by pages that use them)
 reviews/schema.json     Format of exported review files (bh-review/1)
 reviews/inbox/          Where review files arrive, via pull request
-scripts/bh.mjs          CLI: new · index · check · cards · bundle · seal · unseal · serve
-scripts/private-cards.mjs  Encrypted card blobs for private pages, and the home-page card markup
-scripts/cards.mjs       Social card renderer (used by `bh cards`): visual screenshot + branded frame
-scripts/chrome.mjs      Finds and drives a local Chrome over the DevTools protocol (visual, cards)
-scripts/stats.mjs       `npm run stats`: views per page from GoatCounter's export, joined with titles and tags
-scripts/visual.mjs      Visual regression: Chrome via DevTools protocol, PNG diff, HTML report
+scripts/bh.mts          CLI: new · index · check · cards · bundle · seal · unseal · serve
+scripts/private-cards.mts  Encrypted card blobs for private pages, and the home-page card markup
+scripts/cards.mts       Social card renderer (used by `bh cards`): visual screenshot + branded frame
+scripts/chrome.mts      Finds and drives a local Chrome over the DevTools protocol (visual, cards)
+scripts/stats.mts       `npm run stats`: views per page from GoatCounter's export, joined with titles and tags
+scripts/visual.mts      Visual regression: Chrome via DevTools protocol, PNG diff, HTML report
 dist/                   Bundled single-file outputs (git-ignored)
 ```
 

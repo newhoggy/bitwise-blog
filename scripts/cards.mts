@@ -1,7 +1,7 @@
-// Social card renderer for beautiful-html — zero dependencies, Node ≥ 22, local Chrome.
+// Social card renderer for beautiful-html — no runtime dependencies, Node ≥ 22, local Chrome.
 //
-// Called by `bh cards` (scripts/bh.mjs), which decides what to render: the job list carries the
-// page, the visual chosen from it (bh.mjs `chooseVisual`) and the staleness key. This file only
+// Called by `bh cards` (scripts/bh.mts), which decides what to render: the job list carries the
+// page, the visual chosen from it (bh.mts `chooseVisual`) and the staleness key. This file only
 // draws. It is also part of that key, so editing the layout below makes every card stale.
 //
 // Two phases per page, both in Chrome:
@@ -13,23 +13,41 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
-import { launchChrome, findChrome, serveStatic, sleep } from "./chrome.mjs";
+import { launchChrome, findChrome, serveStatic, sleep, type ChromeHandle } from "./chrome.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const c = { red: (s) => `\x1b[31m${s}\x1b[0m`, green: (s) => `\x1b[32m${s}\x1b[0m`, yellow: (s) => `\x1b[33m${s}\x1b[0m`, dim: (s) => `\x1b[2m${s}\x1b[0m` };
+const c = { red: (s: string) => `\x1b[31m${s}\x1b[0m`, green: (s: string) => `\x1b[32m${s}\x1b[0m`, yellow: (s: string) => `\x1b[33m${s}\x1b[0m`, dim: (s: string) => `\x1b[2m${s}\x1b[0m` };
+
+/** A DevTools protocol call (results are protocol payloads, so `any`), either browser-wide or bound to one tab. */
+type Send = ChromeHandle["send"];
+type TabSend = (method: string, params?: object) => Promise<any>;
+
+/** Which part of the page the card shows: an element (`css` + `index` among its matches) or an image file. `tier` says how it was chosen. */
+export interface CardSelection { tier: string; css?: string | null; index?: number; image?: string | null }
+
+/** The text and date `frameHtml` puts on the card. */
+export interface CardFrame { title: string; kind: string; date?: string; siteName: string }
+
+/** One card for `renderCards` to draw: `out` is the PNG, `key` the staleness hash recorded in it. */
+export interface CardJob { slug: string; href: string; out: string; key: string; selection: CardSelection; frame: CardFrame }
+
+/** What `renderCards` did; `failed` lists the hrefs it could not draw. */
+export interface RenderResult { rendered: number; fallback: number; failed: string[] }
 
 export const CARD_W = 1200, CARD_H = 630;
 const FAMILIES = ["Fraunces", "IBM Plex Sans"];
 const FONT_CSS = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=IBM+Plex+Sans:wght@400;600&display=swap";
-const MIME = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp", ".avif": "image/avif" };
+const MIME: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp", ".avif": "image/avif" };
 // The picture itself, not what wraps it (a chart element also holds its "Show data" table).
 const VISUAL = "svg, img";
 // The brand's fixed card colours (tokens.css dark values): a PNG has no theme.
 const BG = "#0c0e12", TEXT = "#e7e9ee", MUTED = "#9ba3b4", ACCENT = "#a5a8ff";
 
-const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-const dataUrl = (file) => `data:${MIME[path.extname(file).toLowerCase()] || "application/octet-stream"};base64,${fs.readFileSync(file).toString("base64")}`;
+const ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const esc = (s: unknown) => String(s).replace(/[&<>"']/g, (ch) => ENTITIES[ch]!);
+const dataUrl = (file: string) => `data:${MIME[path.extname(file).toLowerCase()] || "application/octet-stream"};base64,${fs.readFileSync(file).toString("base64")}`;
 
 // ---- PNG text chunk: where a card records the key it was rendered for --------------------------
 
@@ -38,14 +56,14 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   for (let k = 0; k < 8; k++) v = v & 1 ? 0xedb88320 ^ (v >>> 1) : v >>> 1;
   return v >>> 0;
 });
-function crc32(buf) {
+function crc32(buf: Buffer): number {
   let v = 0xffffffff;
-  for (const b of buf) v = CRC_TABLE[(v ^ b) & 0xff] ^ (v >>> 8);
+  for (const b of buf) v = CRC_TABLE[(v ^ b) & 0xff]! ^ (v >>> 8);
   return (v ^ 0xffffffff) >>> 0;
 }
 
 /** The PNG with a `bh-card` tEXt chunk right after IHDR (Chrome's own output has none). */
-export function tagPng(png, value) {
+export function tagPng(png: Buffer, value: string): Buffer {
   const body = Buffer.concat([Buffer.from("tEXt"), Buffer.from(`bh-card\0${value}`, "latin1")]);
   const len = Buffer.alloc(4), crc = Buffer.alloc(4);
   len.writeUInt32BE(body.length - 4);
@@ -56,7 +74,7 @@ export function tagPng(png, value) {
 
 // ---- Phase 1: the chosen visual ---------------------------------------------------------------
 
-async function waitFor(s, expression, ms, what) {
+async function waitFor(s: TabSend, expression: string, ms: number, what: string): Promise<void> {
   const deadline = Date.now() + ms;
   for (;;) {
     if ((await s("Runtime.evaluate", { expression, returnByValue: true })).result.value) return;
@@ -66,7 +84,7 @@ async function waitFor(s, expression, ms, what) {
 }
 
 /** Resolves once every family is declared by the page's stylesheet and loaded; throws offline. */
-async function loadFonts(s, faces) {
+async function loadFonts(s: TabSend, faces: string[]): Promise<void> {
   const families = JSON.stringify(FAMILIES), list = JSON.stringify(faces);
   const r = await s("Runtime.evaluate", { awaitPromise: true, returnByValue: true, expression: `(async () => {
     const families = ${families};
@@ -79,11 +97,11 @@ async function loadFonts(s, faces) {
   if (!r.result.value) throw new Error("the web fonts (IBM Plex Sans, Fraunces) did not load: are you offline? Pass --system-fonts to render with fallback fonts anyway");
 }
 
-async function withTab(send, fn) {
+async function withTab<T>(send: Send, fn: (s: TabSend) => Promise<T>): Promise<T> {
   const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
   try {
-    const s = (m, p) => send(m, p, sessionId);
+    const s: TabSend = (m, p) => send(m, p, sessionId);
     await s("Page.enable");
     await s("Page.bringToFront"); // a background tab can be captured from a stale frame
     return await fn(s);
@@ -93,7 +111,7 @@ async function withTab(send, fn) {
 }
 
 /** The chosen element of a real page as { src, bg }: a PNG data URL and the page background it sat on. */
-async function captureVisual(send, base, job, systemFonts) {
+async function captureVisual(send: Send, base: string, job: CardJob, systemFonts: boolean): Promise<{ src: string; bg: string; tile?: boolean }> {
   return withTab(send, async (s) => {
     await s("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
     await s("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }, { name: "prefers-reduced-motion", value: "reduce" }] });
@@ -135,12 +153,12 @@ function markPaths() {
   return [...svg.matchAll(/<path\b[^>]*>/g)].map((m) => m[0].replace(/\sclass="[^"]*"/, ` fill="${ACCENT}"`)).join("");
 }
 
-function titleSize(title) {
+function titleSize(title: string): number {
   const n = title.length;
   return n <= 28 ? 68 : n <= 48 ? 58 : n <= 72 ? 50 : 42;
 }
 
-export function frameHtml({ title, kind, date, siteName, visual, bg, tile }) {
+export function frameHtml({ title, kind, date, siteName, visual, bg, tile }: CardFrame & { visual: string; bg: string; tile?: boolean }): string {
   return `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${FONT_CSS}"><style>
   * { box-sizing: border-box; margin: 0; }
   body { width: ${CARD_W}px; height: ${CARD_H}px; background: ${BG}; color: ${TEXT}; font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; display: flex; flex-direction: column; padding: 40px 56px 40px; position: relative; overflow: hidden; }
@@ -161,7 +179,7 @@ export function frameHtml({ title, kind, date, siteName, visual, bg, tile }) {
 </body></html>`;
 }
 
-async function composeCard(send, base, routes, job, visual, systemFonts) {
+async function composeCard(send: Send, base: string, routes: Map<string, { type: string; body: string }>, job: CardJob, visual: { src: string; bg: string; tile?: boolean }, systemFonts: boolean): Promise<Buffer> {
   const route = `/__card/${job.slug}.html`;
   routes.set(route, { type: "text/html; charset=utf-8", body: frameHtml({ ...job.frame, visual: visual.src, bg: visual.bg, tile: visual.tile }) });
   return withTab(send, async (s) => {
@@ -188,7 +206,7 @@ async function composeCard(send, base, routes, job, visual, systemFonts) {
  * Render `jobs` ({ slug, href, out, key, selection, frame:{title,kind,date,siteName} }).
  * `sharedCard` is the file used when Chrome is missing.
  */
-export async function renderCards(jobs, { sharedCard, systemFonts = false }) {
+export async function renderCards(jobs: CardJob[], { sharedCard, systemFonts = false }: { sharedCard: string; systemFonts?: boolean }): Promise<RenderResult> {
   if (!findChrome()) {
     console.log(c.yellow("Chrome not found (set CHROME_PATH): using the shared site card for these pages."));
     for (const j of jobs) {
@@ -199,20 +217,20 @@ export async function renderCards(jobs, { sharedCard, systemFonts = false }) {
     return { rendered: 0, fallback: jobs.length, failed: [] };
   }
   if (typeof WebSocket === "undefined") throw new Error("rendering cards needs Node >= 22 (global WebSocket); this is Node " + process.versions.node);
-  const routes = new Map();
+  const routes = new Map<string, { type: string; body: string }>();
   const server = await serveStatic(ROOT, routes);
-  const base = `http://127.0.0.1:${server.address().port}/`;
-  let chrome;
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+  let chrome: ChromeHandle | undefined;
   let rendered = 0;
-  const failed = [];
+  const failed: string[] = [];
   try {
     chrome = await launchChrome();
     for (const j of jobs) {
       const sel = j.selection;
       try {
-        let visual;
+        let visual: { src: string; bg: string; tile?: boolean };
         if (sel.css) visual = await captureVisual(chrome.send, base, j, systemFonts);
-        else visual = { src: dataUrl(sel.image), bg: "#f6f7f9", tile: sel.tier === "logo" || sel.tier === "glyph" };
+        else visual = { src: dataUrl(sel.image!), bg: "#f6f7f9", tile: sel.tier === "logo" || sel.tier === "glyph" };
         const png = await composeCard(chrome.send, base, routes, j, visual, systemFonts);
         fs.mkdirSync(path.dirname(j.out), { recursive: true });
         fs.writeFileSync(j.out, tagPng(png, j.key));
@@ -221,12 +239,12 @@ export async function renderCards(jobs, { sharedCard, systemFonts = false }) {
       } catch (e) {
         // One page that can't be drawn must not stop the rest.
         failed.push(j.href);
-        console.log(c.red("✗ ") + path.relative(ROOT, j.out) + c.dim(` ${e.message}`));
+        console.log(c.red("✗ ") + path.relative(ROOT, j.out) + c.dim(` ${e instanceof Error ? e.message : e}`));
       }
     }
   } finally {
     try { await chrome?.close(); }
-    finally { await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
+    finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
   }
   return { rendered, fallback: 0, failed };
 }

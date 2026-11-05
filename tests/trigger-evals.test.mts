@@ -52,7 +52,10 @@ fs.writeFileSync(out, JSON.stringify({ costUsd: 0.12, cases }));
 const SHOULD = "explain this to a newcomer";
 const QUIET = "rebase my branch";
 
-function setup(plan) {
+/** What the fake `claude` does on one run of a query. */
+interface FakeRun { fire?: boolean; error?: string; end?: string; tools?: { name: string; error?: boolean }[]; noTrace?: boolean }
+
+function setup(plan: Record<string, FakeRun[]>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "trigger-evals-test-"));
   const repo = path.join(root, "repo");
   const evals = path.join(repo, ".claude", "skills", "demo", "evals");
@@ -71,7 +74,7 @@ function setup(plan) {
     ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, TMPDIR: path.join(root, "tmp"),
     FAKE_RUNS: JSON.stringify(plan), FAKE_TMP: path.join(root, "scratch"), FAKE_LOG: path.join(root, "log.json"),
   };
-  const run = (...flags) => {
+  const run = (...flags: string[]) => {
     const res = spawnSync(process.execPath, [runner, "demo", ...flags], { cwd: repo, env, encoding: "utf8" });
     return { ...res, log: JSON.parse(fs.readFileSync(env.FAKE_LOG, "utf8")), scratch: fs.readdirSync(env.FAKE_TMP) };
   };
@@ -79,8 +82,8 @@ function setup(plan) {
 }
 
 // The fake's read-only scratch directories survive a plain rm -rf when the runner fails to remove them.
-function remove(dir) {
-  const writable = d => {
+function remove(dir: string) {
+  const writable = (d: string): void => {
     fs.chmodSync(d, 0o700);
     for (const e of fs.readdirSync(d, { withFileTypes: true })) if (e.isDirectory()) writable(path.join(d, e.name));
   };
@@ -121,7 +124,7 @@ test("--keep copies every trace, removes the scratch directories and lists each 
   assert.deepEqual(res.log.maxTurns, [3, 3]);
   assert.deepEqual(res.scratch, [], "a read-only scratch directory was left behind");
 
-  const kept = /^kept (\S+)/m.exec(res.stdout)[1];
+  const kept = /^kept (\S+)/m.exec(res.stdout)![1];
   assert.deepEqual(fs.readdirSync(path.join(kept, "traces")).sort(),
     ["q1-run1.jsonl", "q1-run2.jsonl", "q1-run3.jsonl", "q2-run2.jsonl", "q2-run3.jsonl"]);
   assert.match(res.stdout, /FAIL #1 fired 1\/3 expected=fire/);

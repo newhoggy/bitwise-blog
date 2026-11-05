@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Authoring-time helper for docs/how-deflate-works.html: every number that page quotes about
-// zlib comes from here, and tests/how-deflate-works.test.mjs checks the page against it.
+// zlib comes from here, and tests/how-deflate-works.test.mts checks the page against it.
 //
-//   node scripts/deflate-example.mjs            print the worked example, bit by bit, the zlib sizes,
+//   node scripts/deflate-example.mts            print the worked example, bit by bit, the zlib sizes,
 //                                               and whether this Node's zlib reproduces REFERENCE
 //
 // It needs nothing beyond Node's own zlib. The page's interactive has its own small encoder
@@ -29,16 +29,16 @@ export const REFERENCE = {
 };
 /** A gzip file wraps the DEFLATE stream in a 10-byte header and an 8-byte CRC-32 + length trailer (no file name). */
 export const GZIP_OVERHEAD = 18;
-const live = (data) => zlib.deflateRawSync(data, { level: 9 });
+const live = (data: Uint8Array) => zlib.deflateRawSync(data, { level: 9 });
 /** Whether this Node's zlib writes exactly the recorded streams. */
-export function isReferenceZlib() {
+export function isReferenceZlib(): boolean {
   return live(Buffer.from(EXAMPLE)).toString("hex") === REFERENCE.example
     && live(Buffer.from(PARAGRAPH)).toString("hex") === REFERENCE.paragraph
     && live(noise()).length === REFERENCE.noise;
 }
 
 /** 1 KiB of reproducible noise for the "incompressible" column (mulberry32, seed 40). */
-export function noise(length = 1024, seed = 40) {
+export function noise(length = 1024, seed = 40): Uint8Array {
   let a = seed >>> 0;
   return Uint8Array.from({ length }, () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -57,13 +57,34 @@ const DBASE = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 3
 const DEXT = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
 const CL_ORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
 
+/** One field the decoder read: `bits` as they arrived, and what they mean. Which of the optional properties are set depends on `kind`. */
+export interface TraceField {
+  kind: string;
+  bits: string;
+  value: number;
+  symbol?: number;
+  extraBits?: string;
+  base?: number;
+  length?: number;
+  distance?: number;
+  count?: number;
+  at?: number;
+  hlit?: number;
+}
+
+/** One DEFLATE block: where it starts (in bits), how long it is, and for a dynamic block its header counts. */
+export interface TraceBlock { type: string; start: number; bits: number; hlit?: number; hdist?: number; hclen?: number; headerBits?: number }
+
+/** What `trace` returns: the fields in order, the blocks, the bits used and the inflated bytes. */
+export interface Trace { fields: TraceField[]; blocks: TraceBlock[]; bitsUsed: number; bytes: number; output: Uint8Array }
+
 /** Canonical decoding table: "bits as read" → symbol, for code lengths `lengths`. */
-function decoder(lengths) {
-  const max = Math.max(0, ...lengths), count = new Array(max + 1).fill(0), next = [];
+function decoder(lengths: number[]): Map<string, number> {
+  const max = Math.max(0, ...lengths), count: number[] = new Array(max + 1).fill(0), next: number[] = [];
   lengths.forEach((l) => { if (l) count[l]++; });
   for (let bits = 1, code = 0; bits <= max; bits++) { code = (code + (count[bits - 1] || 0)) << 1; next[bits] = code; }
-  const map = new Map();
-  lengths.forEach((l, s) => { if (l) map.set((next[l]++).toString(2).padStart(l, "0"), s); });
+  const map = new Map<string, number>();
+  lengths.forEach((l, s) => { if (l) map.set((next[l]!++).toString(2).padStart(l, "0"), s); });
   return map;
 }
 
@@ -71,19 +92,19 @@ function decoder(lengths) {
  * Inflate a raw DEFLATE stream and describe every field the decoder reads, in order, with
  * the bits exactly as they arrive. Fields: { kind, bits, ... }.
  */
-export function trace(buf) {
+export function trace(buf: Uint8Array): Trace {
   let pos = 0;
-  const bit = () => (buf[pos >> 3] >> (pos++ & 7)) & 1;
-  const num = (n) => { let v = 0, s = ""; for (let i = 0; i < n; i++) { const b = bit(); v |= b << i; s += b; } return { v, s }; };
-  const sym = (map) => { let s = ""; while (s.length < 16) { s += bit(); if (map.has(s)) return { v: map.get(s), s }; } throw new Error("bad code"); };
-  const fields = [], out = [];
-  const blocks = [];
+  const bit = () => (buf[pos >> 3]! >> (pos++ & 7)) & 1;
+  const num = (n: number) => { let v = 0, s = ""; for (let i = 0; i < n; i++) { const b = bit(); v |= b << i; s += b; } return { v, s }; };
+  const sym = (map: Map<string, number>) => { let s = ""; while (s.length < 16) { s += bit(); if (map.has(s)) return { v: map.get(s)!, s }; } throw new Error("bad code"); };
+  const fields: TraceField[] = [], out: number[] = [];
+  const blocks: TraceBlock[] = [];
   for (let last = 0; !last;) {
     const start = pos;
     const f = num(1), t = num(2);
     last = f.v;
     fields.push({ kind: "bfinal", bits: f.s, value: f.v }, { kind: "btype", bits: t.s, value: t.v });
-    const block = { type: ["stored", "fixed", "dynamic"][t.v], start };
+    const block: Omit<TraceBlock, "bits"> = { type: ["stored", "fixed", "dynamic"][t.v]!, start };
     if (t.v === 0) {
       pos = (pos + 7) & ~7;
       const len = num(16).v;
@@ -92,7 +113,7 @@ export function trace(buf) {
       blocks.push({ ...block, bits: pos - start });
       continue;
     }
-    let lit, dist;
+    let lit: Map<string, number>, dist: Map<string, number>;
     if (t.v === 1) {
       lit = decoder(Array.from({ length: 288 }, (_, s) => (s < 144 ? 8 : s < 256 ? 9 : s < 280 ? 7 : 8)));
       dist = decoder(new Array(30).fill(5));
@@ -106,13 +127,13 @@ export function trace(buf) {
         clLengths[CL_ORDER[i]] = f.v;
         fields.push({ kind: "cllen", bits: f.s, symbol: CL_ORDER[i], value: f.v });
       }
-      const cl = decoder(clLengths), lengths = [];
+      const cl = decoder(clLengths), lengths: number[] = [];
       // Each code-length symbol, with the run of alphabet positions it fills (literal/length first, then distance).
       while (lengths.length < hlit + hdist) {
         const at = lengths.length, c = sym(cl);
-        let extra = { s: "" }, value, count;
+        let extra = { s: "", v: 0 }, value: number, count: number;
         if (c.v < 16) { value = c.v; count = 1; }
-        else if (c.v === 16) { extra = num(2); value = lengths[lengths.length - 1]; count = 3 + extra.v; }
+        else if (c.v === 16) { extra = num(2); value = lengths[lengths.length - 1]!; count = 3 + extra.v; }
         else if (c.v === 17) { extra = num(3); value = 0; count = 3 + extra.v; }
         else { extra = num(7); value = 0; count = 11 + extra.v; }
         for (let n = count; n--;) lengths.push(value);
@@ -140,7 +161,7 @@ export function trace(buf) {
 /** zlib's sizes for one input. `best` (level 9) is the chart's "zlib -9" column; `fixed` (Z_FIXED) still
     falls back to a stored block when that is smaller, which is why the chart's own block columns come from
     the page's encoder instead. */
-export function sizes(data) {
+export function sizes(data: Uint8Array): { input: number; stored: number; fixed: number; best: number } {
   return {
     input: data.length,
     stored: zlib.deflateRawSync(data, { level: 0 }).length,
@@ -150,7 +171,7 @@ export function sizes(data) {
 }
 
 /** The recorded example stream, traced field by field. */
-export function example() {
+export function example(): Trace & { raw: Buffer; gzipBytes: number } {
   const raw = Buffer.from(REFERENCE.example, "hex");
   return { raw, gzipBytes: raw.length + GZIP_OVERHEAD, ...trace(raw) };
 }

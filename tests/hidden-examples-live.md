@@ -84,7 +84,7 @@ in the PR, and this acceptance item remains open.
 
 ## Reproduction
 
-The optional `scripts/verify-hidden-examples.mjs` harness uses Playwright supplied
+The optional `scripts/verify-hidden-examples.mts` harness uses Playwright supplied
 outside the site, so no package dependency or lockfile is added. It checks Chrome
 and Firefox only. For example, with an existing Playwright installation:
 
@@ -92,7 +92,7 @@ and Firefox only. For example, with an existing Playwright installation:
 export BH_PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs
 export PLAYWRIGHT_BROWSERS_PATH=/absolute/path/to/playwright-browsers
 export BH_LIVE_OUTPUT=/absolute/path/to/scratch/evidence
-node /absolute/path/to/worktree/scripts/verify-hidden-examples.mjs
+node /absolute/path/to/worktree/scripts/verify-hidden-examples.mts
 ```
 
 Install Playwright's Firefox into that browser directory before running. Chrome
@@ -112,7 +112,7 @@ not committed baselines or a claim of manual inspection of every browser case.
 - `npm test`: **21 passed**.
 - `npm run check`: **13 files, 0 errors, 0 warnings**.
 - `node --check theme/bh.js` and every `theme/examples.js`, `theme/modules/*.js`,
-  `scripts/*.mjs`: passed.
+  `scripts/*.mts`: passed.
 - `npm run bundle:all`: **7 public bundles**.
 - `npm run visual -- --system-fonts`: **18 cases rendered**. No baselines existed,
   so this established baselines rather than comparing against a prior rendering.
