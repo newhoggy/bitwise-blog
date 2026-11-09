@@ -172,6 +172,8 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
       const last = r.tokens[r.tokens.length - 1]!;
       const ov = win.match(/data-id="ov"><rect x="(\d+)" y="\d+" width="(\d+)"/)!;
       assert.deepEqual([Number(ov[1]), Number(ov[2])], [(start - last.len!) * 20, (last.len! - last.dist!) * 20], "the stripe covers the bytes copy reads after writing");
+      assert.match(PAGE, /<bh-step highlight="[^"]*\bov\b[^"]*">/, "a stepper step lights the stripe");
+      assert.match(PAGE, /data-ref="window:ov"/, "the caption points at the stripe");
     }
     if (series) assert.match(PAGE, /you will have read, bit by bit, a stream that does it in 13, and seen why the two differ\./);
     else assert.match(PAGE, /seen an encoder that does it in 13\./);
