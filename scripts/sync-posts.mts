@@ -1,27 +1,25 @@
 #!/usr/bin/env node
-// Pull a writer's posts from their platforms into corpus/<name>/posts/.
+// Pull a writer's posts from their platforms into the private data: corpus/private/<name>/posts/.
 //
 //   npm run sync-posts -- duncan-sabien          one writer
 //   npm run sync-posts -- --all                  every writer with a sources.yaml
 //   npm run sync-posts -- duncan-sabien --full   no early exit: try every post (catch-up)
 //
 // Reads corpus/<name>/sources.yaml, runs each configured ingester and writes each new post as
-// <platform>-<slug>.md. Idempotent: a post already on disk is skipped, and each ingester stops
-// once it has seen five already-ingested posts in a row. The posts are git-ignored (they are
-// other people's writing); only sources.yaml is committed. See corpus/README.md.
+// <platform>-<slug>.md under dataDir(name). Idempotent: a post already on disk is skipped, and each
+// ingester stops once it has seen five already-ingested posts in a row. The posts are git-ignored
+// (they are other people's writing); only sources.yaml is committed. See corpus/README.md.
 //
 // A port of scripts/update_advisor.py in the shoulder-advisors repo.
 
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
+import { CORPUS_DIR, dataDir } from "./advisor/corpus.mts";
 import { describeError, reportSummary, type IngesterOptions, type SourceConfig } from "./ingest/base.mts";
 import { getIngester } from "./ingest/index.mts";
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-export const CORPUS_DIR = path.join(ROOT, "corpus");
 
 /** The two output streams `main` writes to (the console, or a test's sink). */
 export interface Output { log: (...args: any[]) => void; error: (...args: any[]) => void }
@@ -34,13 +32,20 @@ export interface SyncOptions extends IngesterOptions {
   out?: Output;
 }
 
-/** Sync one writer. Returns 0 on success, 1 if there is no sources.yaml, 2 if any source or post failed. */
+/** Sync one writer. Returns 0 on success, 1 if there is no sources.yaml or posts are in the old place, 2 if any source or post failed. */
 export async function syncWriter(name: string, options: SyncOptions = {}): Promise<number> {
   const { full = false, corpusRoot = CORPUS_DIR, out = console, ...ingesterOptions } = options;
-  const writerDir = path.join(corpusRoot, name);
-  const sourcesFile = path.join(writerDir, "sources.yaml");
+  const sourcesFile = path.join(corpusRoot, name, "sources.yaml");
   if (!fs.existsSync(sourcesFile)) {
     out.error(`error: ${sourcesFile} not found`);
+    return 1;
+  }
+
+  // Posts synced before the private data existed. Going on would fetch them all again, and a re-fetched
+  // post can differ from the copy of record (see corpus/README.md).
+  const oldPosts = path.join(corpusRoot, name, "posts");
+  if (fs.existsSync(oldPosts) && fs.readdirSync(oldPosts).length > 0) {
+    out.error(`error: ${oldPosts} holds posts from before the private data; move them to ${path.join(dataDir(name, corpusRoot), "posts")} first`);
     return 1;
   }
 
@@ -57,7 +62,7 @@ export async function syncWriter(name: string, options: SyncOptions = {}): Promi
     const platform = source.platform ?? "?";
     let ingester;
     try {
-      ingester = getIngester(source, writerDir, ingesterOptions);
+      ingester = getIngester(source, dataDir(name, corpusRoot), ingesterOptions);
     } catch (e) {
       out.log(`  ${platform}: skipped (${describeError(e)})`);
       totalErrors++;

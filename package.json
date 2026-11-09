@@ -23,6 +23,7 @@
     "visual": "node scripts/visual.mts",
     "stats": "node scripts/stats.mts",
     "sync-posts": "node scripts/sync-posts.mts",
+    "advisor": "node scripts/advisor.mts",
     "lint-skills": "node .claude/skills/skill-authoring/scripts/lint-skill.mjs --all",
     "trigger-evals": "node .claude/skills/skill-authoring/scripts/run-trigger-evals.mjs"
   },

@@ -1,0 +1,53 @@
+# Corpus metadata for a made-up writer, keyed by post filename stem.
+#
+# category      meta-function
+# atlas         include | exclude (+ atlas_reason)
+posts:
+  lesswrong-anchor-watch:
+    atlas: include
+    category: seamanship
+  lesswrong-fog-signals:
+    atlas: include
+    category: seamanship
+  lesswrong-reading-the-swell:
+    atlas: include
+    category: navigation
+  lesswrong-standing-orders:
+    atlas: include
+    category: seamanship
+  medium-crew-meetup-987fed:
+    atlas: exclude
+    atlas_reason: 'event announcement: nothing to learn'
+    category: logistics
+  medium-harbour-fees-def456:
+    atlas: include
+    atlas_reason: it states a position on fees
+    category: logistics
+  medium-knots-abc123:
+    atlas: include
+    category: seamanship
+    partial: mostly 15 diagrams the ingester can't read
+  substack-pilot-boats:
+    atlas: include
+    category: navigation
+  substack-pilot-boats-at-night:
+    atlas: include
+    category: navigation
+  substack-pilot-boats-copy:
+    atlas: exclude
+    atlas_reason: duplicate copy
+    category: navigation
+    duplicate_of: substack-pilot-boats
+  substack-slack-water:
+    atlas: include
+    byline: Ash Mercer
+    category: navigation
+  substack-the-bar-crossing:
+    atlas: include
+    category: seamanship
+  substack-unquoted-colon:
+    atlas: include
+    category: navigation
+  substack-why-tugs-push:
+    atlas: include
+    category: seamanship
