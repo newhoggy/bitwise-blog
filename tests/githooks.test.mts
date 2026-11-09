@@ -72,7 +72,7 @@ test("pre-push: a push with an injected run is rejected without printing its wor
   const blocked = git(repo, "push", "origin", "main");
   assert.notEqual(blocked.code, 0, blocked.text);
   assert.match(blocked.text, /leak\.html:2: 12-word run from an atlas quote/);
-  assert.match(blocked.text, /push blocked by leak-check/);
+  assert.match(blocked.text, /leak-check failed, so the push is blocked/);
   for (const word of ["harbour", "pilot", "chart", "morning"]) assert.equal(blocked.text.toLowerCase().includes(word), false, `printed "${word}"`);
   assert.equal(pushed(remote), false, "nothing reached the remote");
 
