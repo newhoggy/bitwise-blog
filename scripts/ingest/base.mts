@@ -1,4 +1,4 @@
-// Base class for syncing a writer's posts from an external platform into corpus/<name>/posts/.
+// Base class for syncing a writer's posts from an external platform into <data dir>/posts/.
 //
 // A subclass implements `listPosts` (yields metadata newest-first, lazily) and `fetchPostBody`
 // (returns one post's body as markdown). `run` here does the rest: it skips posts already on

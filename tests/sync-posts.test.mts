@@ -6,6 +6,7 @@ import { test, type TestContext } from "node:test";
 import { parse as parseYaml } from "yaml";
 import { htmlToMarkdown, renderPost, retryDelayMs, yamlScalar, type FetchFn, type PostMetadata } from "../scripts/ingest/base.mts";
 import { getIngester } from "../scripts/ingest/index.mts";
+import { dataDir } from "../scripts/advisor/corpus.mts";
 import { main, syncAll, syncWriter, type Output } from "../scripts/sync-posts.mts";
 
 // ---- helpers ------------------------------------------------------------------------
@@ -404,7 +405,8 @@ test("syncWriter: runs every source of the writer's sources.yaml and reports", a
   assert.equal(await syncWriter("duncan", { corpusRoot, out, fetch: fetchFn, delayMs: 0 }), 0);
   assert.deepEqual(lines, ["Syncing: duncan", "  substack: +1 new, 0 skipped, 0 errors"]);
   assert.deepEqual(errors, []);
-  assert.deepEqual(posts(path.join(corpusRoot, "duncan")), ["substack-one.md"]);
+  assert.deepEqual(posts(dataDir("duncan", corpusRoot)), ["substack-one.md"]);
+  assert.equal(fs.existsSync(path.join(corpusRoot, "duncan", "posts")), false, "posts go to the private data, not beside sources.yaml");
 
   const second = sink();
   assert.equal(await syncWriter("duncan", { corpusRoot, out: second.out, fetch: fetchFn, delayMs: 0, full: true }), 0);
@@ -449,7 +451,7 @@ test("syncAll: syncs each writer that has a sources.yaml, in name order, and ign
   const { out, lines } = sink();
   assert.equal(await syncAll({ corpusRoot, out, fetch: fetchFn, delayMs: 0 }), 0);
   assert.deepEqual(lines.filter((l) => l.startsWith("Syncing")), ["Syncing: a", "Syncing: b"]);
-  assert.equal(fs.existsSync(path.join(corpusRoot, "notes", "posts")), false);
+  assert.equal(fs.existsSync(dataDir("notes", corpusRoot)), false);
 
   const missing = sink();
   assert.equal(await syncAll({ corpusRoot: path.join(corpusRoot, "nope"), out: missing.out }), 0);
