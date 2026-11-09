@@ -38,13 +38,20 @@ Guards, because a rule that must hold every time belongs in a check:
   `voice_negatives.jsonl` and `evals/authored.jsonl`. It prints file names, lines, lengths and which of those the
   run came from, never the words. A page that quotes on purpose needs an entry in `LEAK_ALLOWED` in
   `scripts/advisor/guards.mts`, with a reason and a cap on the shared words, so quoting more still fails.
-- `.githooks/pre-push` runs `leak-check` before every push, so it runs without anyone remembering. Enable it once
-  per clone with `npm run hooks` (`git config core.hooksPath .githooks`; worktrees share the setting). With no
+- `.githooks/pre-push` runs `leak-check --pushed` before every push, so it runs without anyone remembering. Enable it
+  once per clone with `npm run hooks` (`git config core.hooksPath .githooks`; worktrees share the setting). With no
   private data in the checkout it does not block the push: it says nothing was checked and how to `link`.
+  It checks what is being pushed, not what is checked out: it reads the lines git gives a pre-push hook and scans
+  the blobs those commits add, meaning the objects reachable from the pushed refs but not from the remote's
+  remote-tracking refs or its current value for each ref. So pushing a branch that is not checked out is checked,
+  a leaky file in the working tree blocks nothing, and a deleted ref or a ref with nothing new adds no blobs. A
+  blob is held to its path's `LEAK_ALLOWED` cap, as in `--history`, and since only new blobs are read, text already
+  in older history does not block a push that doesn't add it. A leak removed by a later commit is still in the
+  pushed history, so it is still caught: drop or rewrite the commit. When the remote is given as a URL rather than
+  a remote name there are no tracking refs, so everything reachable from the pushed refs is read.
   It is local and per clone: `git push --no-verify`, a clone that never ran `npm run hooks`, and merges made on
-  GitHub skip it, and it reads the tracked files as checked out, not the commits being pushed. CI can't do better
-  without committing something derived from the private text (hashes of 8-word runs are guessable), which this
-  repo's rule forbids; `tests/githooks.test.mts` pins the hook with real pushes.
+  GitHub skip it. CI can't do better without committing something derived from the private text (hashes of 8-word
+  runs are guessable), which this repo's rule forbids; `tests/githooks.test.mts` pins the hook with real pushes.
 - `npm run advisor -- leak-check --history` does the same for every text blob reachable from any ref, so it finds
   text that was committed once and later removed. A blob is held to its own path's `LEAK_ALLOWED` cap. It only
   reports: removing text from history means rewriting it, which is the owner's decision, and it keeps failing

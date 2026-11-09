@@ -6,7 +6,7 @@
 // quotes and statements, voice negatives, authored samples). Its output is meant to be safe to paste:
 // file names, line numbers and run lengths, never the matched words.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { CORPUS_DIR, dataDir, markdownFiles } from "./corpus.mts";
@@ -216,35 +216,39 @@ const HISTORY_BATCH_BYTES = 32 * 1024 * 1024;
 interface HistoryStats { tooLarge: number }
 
 /**
- * Every path each blob has been committed at. A blob can be at several (a copy of a page), and an allowance
- * is per path, so a copy must not be judged by the path that happens to be listed first. `rev-list --objects`
- * names each object once, so the paths come from the diffs of every commit, and `rev-list` fills in a blob
- * that no commit's diff names (one only a tag or a tree points at).
+ * Every path each blob reachable from `revs` has been committed at. A blob can be at several (a copy of a page),
+ * and an allowance is per path, so a copy must not be judged by the path that happens to be listed first.
+ * `rev-list --objects` names each object once, so the paths come from the diffs of every commit, and `rev-list`
+ * fills in a blob that no commit's diff names (one only a tag or a tree points at). Only objects `rev-list`
+ * reports for `revs` count, so for a range, a blob a merge's diff shows against an excluded parent is left out.
  */
-function blobPaths(gitOut: (args: string[], input?: string) => Buffer): Map<string, Set<string>> {
+function blobPaths(gitOut: (args: string[], input?: string) => Buffer, revs: string[]): Map<string, Set<string>> {
+  const listed = gitOut(["rev-list", "--objects", ...revs]).toString("utf8").split("\n");
+  const reachable = new Set(listed.map((line) => line.split(" ", 1)[0]).filter(Boolean));
   const paths = new Map<string, Set<string>>();
   const note = (sha: string, file: string) => {
-    if (/^0+$/.test(sha)) return;
+    if (/^0+$/.test(sha) || !reachable.has(sha)) return;
     const known = paths.get(sha);
     if (known) known.add(file);
     else paths.set(sha, new Set([file]));
   };
-  const tokens = gitOut(["log", "--all", "--root", "--no-renames", "-m", "--format=", "--raw", "--no-abbrev", "-z"]).toString("utf8").split("\0");
+  const tokens = gitOut(["log", ...revs, "--root", "--no-renames", "-m", "--format=", "--raw", "--no-abbrev", "-z"]).toString("utf8").split("\0");
   for (let i = 0; i + 1 < tokens.length; i++) {
     if (!tokens[i].startsWith(":")) continue;
     note(tokens[i].split(" ")[3], tokens[++i]);
   }
-  for (const line of gitOut(["rev-list", "--objects", "--all"]).toString("utf8").split("\n")) {
+  for (const line of listed) {
     const space = line.indexOf(" ");
     if (space !== -1 && !paths.has(line.slice(0, space))) note(line.slice(0, space), line.slice(space + 1));
   }
   return paths;
 }
 
-/** Every text blob reachable from any ref, read once and yielded once per path it has been committed at. */
-function* historyTexts(repoRoot: string, stats: HistoryStats): Generator<Text> {
+/** Every text blob reachable from `revs`, read once and yielded once per path it has been committed at. */
+function* historyTexts(repoRoot: string, stats: HistoryStats, revs: string[]): Generator<Text> {
   const gitOut = (args: string[], input?: string) => execFileSync("git", ["-C", repoRoot, ...args], { input, maxBuffer: 1024 * 1024 * 1024 });
-  const paths = blobPaths(gitOut);
+  const paths = blobPaths(gitOut, revs);
+  if (paths.size === 0) return;
   const sizes = gitOut(["cat-file", "--batch-check=%(objectname) %(objecttype) %(objectsize)"], [...paths.keys()].join("\n") + "\n").toString("utf8");
   const blobs: [sha: string, size: number][] = [];
   for (const line of sizes.split("\n")) {
@@ -360,6 +364,45 @@ export function leakCheckHistory(repoRoot: string, corpusRoot: string = CORPUS_D
   const found = privateRuns(corpusRoot);
   if (!found) return { status: "skipped", reason: SKIPPED };
   const stats: HistoryStats = { tooLarge: 0 };
-  const compared = compare(historyTexts(repoRoot, stats), found.runs, allowances);
+  const compared = compare(historyTexts(repoRoot, stats, ["--all"]), found.runs, allowances);
+  return { status: "done", sources: found.sources, unread: stats.tooLarge, ...compared };
+}
+
+/** One line git gives a pre-push hook: what is being pushed to which ref, and what the remote has there. */
+export interface PushUpdate { localRef: string; localSha: string; remoteRef: string; remoteSha: string }
+
+const ZERO_SHA = /^0+$/;
+
+/** The lines of a pre-push hook's stdin: `<local ref> <local sha> <remote ref> <remote sha>`. */
+export function parsePushUpdates(stdin: string): PushUpdate[] {
+  const updates: PushUpdate[] = [];
+  for (const line of stdin.split("\n")) {
+    if (!line.trim()) continue;
+    const fields = line.trim().split(/\s+/);
+    // A ref name may not hold whitespace, so anything but four fields is not what git sends.
+    if (fields.length !== 4 || !/^[0-9a-f]{40,64}$/.test(fields[1]) || !/^[0-9a-f]{40,64}$/.test(fields[3])) throw new Error("unexpected pre-push input: expected `<local ref> <local sha> <remote ref> <remote sha>` lines");
+    updates.push({ localRef: fields[0], localSha: fields[1], remoteRef: fields[2], remoteSha: fields[3] });
+  }
+  return updates;
+}
+
+/**
+ * The same comparison for the blobs a push would add: those reachable from the pushed commits but not from what
+ * `remote` already has (its remote-tracking refs, and each ref's current value when this repo knows that commit).
+ * A new branch has no remote value, so its base is the tracking refs; a delete adds nothing. A `remote` that is a
+ * URL has no tracking refs, so everything reachable from the pushed refs is read: more than needed, never less.
+ * A blob is judged by each path it was committed at, as in `leakCheckHistory`, so text already in older history
+ * (and the allowances that cover it) does not block a push that doesn't add it.
+ */
+export function leakCheckPushed(repoRoot: string, updates: PushUpdate[], remote: string, corpusRoot: string = CORPUS_DIR, allowances: Record<string, LeakAllowance> = LEAK_ALLOWED): LeakCheckResult {
+  const found = privateRuns(corpusRoot);
+  if (!found) return { status: "skipped", reason: SKIPPED };
+  const stats: HistoryStats = { tooLarge: 0 };
+  const pushed = [...new Set(updates.filter((u) => !ZERO_SHA.test(u.localSha)).map((u) => u.localSha))];
+  if (pushed.length === 0) return { status: "done", sources: found.sources, unread: 0, files: 0, hits: [], allowed: [] };
+  const known = (sha: string) => spawnSync("git", ["-C", repoRoot, "cat-file", "-e", `${sha}^{commit}`], { stdio: "ignore" }).status === 0;
+  const onRemote = [...new Set(updates.map((u) => u.remoteSha).filter((sha) => !ZERO_SHA.test(sha) && known(sha)))];
+  const revs = [...pushed, "--not", ...(remote ? [`--remotes=${remote}`] : []), ...onRemote];
+  const compared = compare(historyTexts(repoRoot, stats, revs), found.runs, allowances);
   return { status: "done", sources: found.sources, unread: stats.tooLarge, ...compared };
 }
