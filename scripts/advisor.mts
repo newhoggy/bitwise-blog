@@ -4,7 +4,7 @@
 //   npm run advisor -- link <path>                 point corpus/private at a clone of the data repo
 //   npm run advisor -- index [<writer>]            regenerate the INDEX.md catalogues
 //   npm run advisor -- holdout <writer> [--check]  choose (or check) the eval holdout
-//   npm run advisor -- leak-check                  does any tracked file hold a run of atlas quote words?
+//   npm run advisor -- leak-check [--history]      does a tracked file (or any blob in history) hold a run of words from the private text?
 //   npm run advisor -- parity                      does the port still agree with the Python reference?
 //
 // Exit code: 0 on success, 1 if a check or a command failed, 2 on a usage error.
@@ -15,7 +15,7 @@ import { parseArgs } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import { CORPUS_DIR, atlasEligible, danglingLink, loadMeta, loadPosts, privateDir, validate, writeMeta } from "./advisor/corpus.mts";
-import { leakCheck, LEAK_RUN_WORDS } from "./advisor/guards.mts";
+import { describeSources, leakCheck, leakCheckHistory, LEAK_RUN_WORDS } from "./advisor/guards.mts";
 import { applyHoldout, computeHoldout, DEFAULT_FRACTION, DEFAULT_SEED } from "./advisor/holdout.mts";
 import { buildIndexes, writers } from "./advisor/index.mts";
 import { parity } from "./advisor/parity.mts";
@@ -27,7 +27,8 @@ const USAGE = `usage: npm run advisor -- <command>
   index [<writer>]                       regenerate the INDEX.md catalogues
   holdout <writer> [--check] [--fraction F] [--seed N]
                                          choose the eval holdout, or check it is current
-  leak-check                             fail if a tracked file holds a run of words from an atlas quote
+  leak-check [--history]                 fail if a tracked file holds a run of words from the private posts, atlas, voice
+                                         negatives or authored samples; --history checks every text blob in any ref instead
   parity                                 compare with the Python reference; skips without private data`;
 
 /** The two output streams a command writes to (the console, or a test's sink). */
@@ -110,20 +111,22 @@ function cmdHoldout(slug: string, options: { check: boolean; fraction: number; s
   return 0;
 }
 
-function cmdLeakCheck(repoRoot: string, corpusRoot: string, out: Output): number {
-  const result = leakCheck(repoRoot, corpusRoot);
+function cmdLeakCheck(repoRoot: string, corpusRoot: string, history: boolean, out: Output): number {
+  const name = history ? "leak-check --history" : "leak-check";
+  const result = history ? leakCheckHistory(repoRoot, corpusRoot) : leakCheck(repoRoot, corpusRoot);
   if (result.status === "skipped") {
-    out.log(`leak-check skipped: ${result.reason}`);
+    out.log(`${name} skipped: ${result.reason}`);
     return 0;
   }
   // Only places and lengths, never the words: this output may end up somewhere public.
-  for (const hit of result.hits) out.error(`${hit.file}:${hit.line}: ${hit.words}-word run from an atlas quote`);
+  const where = (item: { file: string; blob?: string }) => (item.blob ? `${item.file}@${item.blob}` : item.file);
+  for (const hit of result.hits) out.error(`${where(hit)}:${hit.line}: ${hit.words}-word run from ${hit.source ?? "the private data"}`);
   if (result.hits.length) {
-    out.error(`leak-check FAILED: ${result.hits.length} run(s) of ${LEAK_RUN_WORDS}+ words in tracked files`);
+    out.error(`${name} FAILED: ${result.hits.length} run(s) of ${LEAK_RUN_WORDS}+ words in ${history ? "blobs in history" : "tracked files"}`);
     return 1;
   }
-  for (const { file, words, reason } of result.allowed) out.log(`allowed: ${file} (${words} words): ${reason}`);
-  out.log(`leak-check passed: ${result.quotes} quotes, ${result.files} tracked files`);
+  for (const item of result.allowed) out.log(`allowed: ${where(item)} (${item.words} words): ${item.reason}`);
+  out.log(`${name} passed: ${describeSources(result.sources)}; ${result.files} ${history ? "blobs" : "tracked files"}`);
   return 0;
 }
 
@@ -148,7 +151,7 @@ export async function main(argv: string[] = process.argv.slice(2), context: Advi
     parsed = parseArgs({
       args: argv,
       allowPositionals: true,
-      options: { check: { type: "boolean" }, force: { type: "boolean" }, fraction: { type: "string" }, seed: { type: "string" } },
+      options: { check: { type: "boolean" }, force: { type: "boolean" }, history: { type: "boolean" }, fraction: { type: "string" }, seed: { type: "string" } },
     });
   } catch (e) {
     return usageError((e as Error).message);
@@ -170,7 +173,7 @@ export async function main(argv: string[] = process.argv.slice(2), context: Advi
 }
 
 interface Dispatch { out: Output; corpusRoot: string; repoRoot: string; usageError: (message?: string) => number }
-interface Flags { check?: boolean; force?: boolean; fraction?: string; seed?: string }
+interface Flags { check?: boolean; force?: boolean; history?: boolean; fraction?: string; seed?: string }
 
 function dispatch(command: string | undefined, args: string[], values: Flags, { out, corpusRoot, repoRoot, usageError }: Dispatch): number {
   switch (command) {
@@ -197,7 +200,7 @@ function dispatch(command: string | undefined, args: string[], values: Flags, { 
     }
     case "leak-check":
       if (args.length) return usageError();
-      return cmdLeakCheck(repoRoot, corpusRoot, out);
+      return cmdLeakCheck(repoRoot, corpusRoot, values.history ?? false, out);
     case "parity":
       if (args.length) return usageError();
       return cmdParity(repoRoot, corpusRoot, out);
