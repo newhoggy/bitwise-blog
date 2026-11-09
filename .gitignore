@@ -15,5 +15,8 @@ figures/*/*.html
 .claude/skills/anatomy/examples/**/*.html
 .claude/skills/anatomy/examples/**/*.pdf
 
-# Synced posts: other people's writing, fetched by `npm run sync-posts`. Only each writer's sources.yaml is committed.
+# Everything derived from a writer's text: a symlink to a clone of the private data repo, or a plain directory.
+# No trailing slash: `corpus/private/` would not match a symlink, and git would then track it.
+corpus/private
+# Only each writer's sources.yaml is committed. Posts synced before the private data existed stay ignored too.
 corpus/*/posts/
