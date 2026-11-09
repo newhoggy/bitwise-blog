@@ -24,6 +24,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-10-30: `anatomy` gets a "Not for" clause and trigger evals (#92)
 - 2026-10-30: the comparison snapshot holds the whole repo (#96)
 - 2026-10-30: three `pedagogical-writing` graders that passed in few or unstable runs (#97)
+- 2026-11-10: `pedagogical-diagrams` added, and the boundary with `pedagogical-writing` (#80)
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -610,3 +611,52 @@ keep a replacement only if the with-skill arm passes at least two more of five t
   run hit the timeout) is the #83 question and is left open.
 - **Cost.** $6.64 for the old wording ($4.68 `review`, $1.10 `plan`, $0.86 `outline`), $6.29 for the
   reworded ($4.32, $1.06, $0.91): $12.93 in all.
+
+## 2026-11-10: `pedagogical-diagrams` added, and the boundary with `pedagogical-writing` (#80)
+
+Claude Code as in the runs above, agent `claude-sonnet-5-5`, three runs per query or per case per arm.
+
+**Trigger evals** (`npm run trigger-evals`, every skill in the temporary plugin):
+
+| Suite | Result | Cost |
+| --- | --- | --- |
+| `pedagogical-diagrams` (24 queries: 15 train, 9 held-out; 14 should-fire, 10 should-stay-quiet) | 24 of 24 both times (train 15 of 15, held-out 9 of 9) | $4.14, $4.15 |
+| `pedagogical-writing`, with the new neighbour present (38 queries: 8 added for this boundary) | first run 36 of 38; after one description edit 37 of 38 | $6.93, $7.11 |
+
+- **One boundary leak, fixed.** The new query "the step captions under my stepper just narrate motion"
+  (should fire `pedagogical-writing`) loaded `pedagogical-diagrams` in 3 of 3 runs, because that
+  description claimed "stepper steps". The edit removed "stepper steps" from the claims and added
+  "the wording of step captions" to its "Not for"; the same query then passed 3 of 3. The query was not
+  changed.
+- **#25 ("a better running example for the arithmetic coding explainer") is not a regression.** It
+  missed 0 of 3, then 1 of 3 with the new skill present. A snapshot of `origin/main` without it also
+  scored 0 of 5. The traces show runs searching with Grep and Glob for the explainer file, which the
+  empty sandbox lacks, until the turn cap: no skill was called, and none of them was
+  `pedagogical-diagrams`. Earlier runs moved it between 1 of 3 and 2 of 3 (see the 2026-10-28 section).
+- Both skills' near-miss queries on each side of the boundary are in their trigger-eval files. The
+  `pedagogical-writing` head-room check: its description is 934 of 1,024 characters after the edit.
+
+**Output evals**, four cases for `pedagogical-diagrams`. The first version of the cases scored a mean
+Δ of −0.03 (Haiku judge) and +0.03 (Sonnet judge). Reading the answers showed why: on an explicit
+"design this figure" prompt the baseline answer already chooses a form, names what it leaves out and
+writes a caption, so a grader asking for those cannot separate the arms. Where the with-skill
+answers differed was in what the skill adds: the repo's components and `data-ref`, naming the one
+point before listing elements, saying what the figure simplifies, an explicit check for what a
+newcomer would misread, and the cut-or-integrate condition for text that restates a figure. The
+graders were rewritten to ask for those, which the baseline cannot meet by luck for two of them (the
+regexes for `bh-stepper` and `data-ref`).
+
+| Case | With | Without | Δ |
+| --- | --- | --- | --- |
+| `design-lz77-figure` | 0.94 | 0.11 | +0.83 |
+| `fix-confusing-figure` | 0.78 | 0.50 | +0.28 |
+| `review-deflate-figures` | 0.90 | 0.76 | +0.14 |
+| `review-stepper-boundary` | 0.93 | 0.73 | +0.20 |
+
+Mean Δ +0.36, Sonnet judge, $6.37. **Read this with two cautions.** The graders were written after the
+with-skill answers had been read, so the gap is partly the skill's rules grading themselves; and
+`design-lz77-figure` is the only case with a large gap, helped by the two regex graders. The `review-`
+cases keep the small gaps the `pedagogical-writing` review case also has (+0.06 to +0.14). With the
+Haiku judge the same answers scored lower and scattered widely (one answer of the boundary case got 0.2
+for a response that addressed every point), which is why the Sonnet judge was used for the table.
+

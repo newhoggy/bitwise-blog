@@ -1,6 +1,10 @@
 # Figures and interactives
 
-How to design the figures, steppers, codewalks and playgrounds that carry a page. The
+How to design the interactives, steppers, codewalks and playgrounds that carry a page, and
+whether a figure earns its place. The design of the picture itself (its form, what it leaves
+out, labels, colour, arrows, the frames of a process) is in the `pedagogical-diagrams` skill
+([form-and-content.md](../../pedagogical-diagrams/references/form-and-content.md)); the rules
+that moved there leave a pointer where they were. The
 rules come from people who build interactive explanations (Bret Victor, Nicky Case, Amit
 Patel, Bartosz Ciechanowski, Sam Rose, Steven Wittens, Jay Alammar, Michael Nielsen),
 from video educators (Welch Labs, Freya Holmér, Ben Eater, Josh Starmer, Steve Mould,
@@ -18,7 +22,7 @@ reads correctly without JavaScript, and the diagram, colour and motion rules.
 - Guiding the reader through an interactive
 - Centrepieces that teach
 - Steppers and persistent figures
-- Words in and around figures
+- Words around figures (step text; the rest moved)
 - Codewalks
 - The sandbox goes last
 - In this repo
@@ -77,19 +81,7 @@ skimmers, print, Present mode and readers without JavaScript.
   normal text." The interaction is for the reader who wants to go deeper.
 
 ### Show all the variants when the reader must compare
-Comparing from memory is a memory test. When the reader must compare states (before and
-after an insert, three encodings of one string), show them side by side in one fixed frame.
-Use a stepper when the reader must follow a process.
-- Patel: "It's often better to show all the variants than to ask the reader to interact with
-  the diagram to see the variants." His order of preference: "show all > show interactivity
-  > show less".
-- Tufte: "constancy of design puts the emphasis on changes in data, not changes in data
-  frames" (secondary quote).
-- Page: `<bh-versions>` in Compare mode, or small multiples with identical layouts.
-- Tie-break with "the reader is the mechanism" (below): when the point is that the reader
-  should try and fail, let them try first, then show every variant in the reveal. When there
-  is nothing to try by hand, the table of variants is the whole job and no interactive is
-  needed.
+Moved to `pedagogical-diagrams` ([process-diagrams.md](../../pedagogical-diagrams/references/process-diagrams.md)): show every state in one fixed frame, side by side.
 
 ### One centrepiece, staged across sections
 The house allows one centrepiece, but a page may need it in several sections. Keep it where
@@ -200,37 +192,18 @@ Change one thing per step.
   each number…", "Next, we reset the grid back to neutral", "Now we add c to each point".
 
 ### Leave a trace of earlier states
-When a stepper advances, the state the next step depends on must not vanish: grey out the
-previous position, keep a running table of outputs, show consumed bits as consumed. Allow
-stepping back.
-- Victor: "she's peeking through a pinhole, only seeing a single point in time at any
-  instant." His fix: "all frames are lightly overlaid, in order to give context to the active
-  frame."
-- Sweller (transient information): information that disappears forces the reader to hold it
-  in working memory.
+Moved to `pedagogical-diagrams` ([process-diagrams.md](../../pedagogical-diagrams/references/process-diagrams.md)): keep the state the next step depends on.
 
 ### Remove scaffolding out loud
-A step may remove construction lines that have done their job, and its text says so.
-- Holmér: "for clarity let's just remove the middle line it's getting in the way".
+Moved to `pedagogical-diagrams` ([process-diagrams.md](../../pedagogical-diagrams/references/process-diagrams.md)): say when a step removes a construction line.
 
 ### Crack the picture, not only the idea
-When the current picture hides the mechanism, say so and switch pictures, or run the
-process backwards.
-- Wittens: "by picturing numbers as points, it's not clear how they act upon each other … A
-  better solution is to represent our numbers using arrows instead". And: "it's very hard to
-  see what's going on while iterating forwards … So we're going to go backwards instead."
+Moved to `pedagogical-diagrams` ([process-diagrams.md](../../pedagogical-diagrams/references/process-diagrams.md)): switch pictures when the current one hides the mechanism.
 
-## Words in and around figures
+## Words around figures
 
 ### Labels in the figure, text with the state
-Put each label next to its part, not in a legend. Put a step's text with the state it
-describes, in the same step. When prose explains a figure part by part, keep the figure on
-screen with that prose, repeating a cropped copy if needed.
-- Mayer: "People learn better when corresponding words and pictures are presented near
-  rather than far from each other". An independent meta-analysis finds g = 0.63. The effect
-  is largest when neither picture nor text makes sense alone.
-- Tufte: figures "are usually not substantively separate from the text; so they need not be
-  divorced from the text".
+Moved to `pedagogical-diagrams` ([text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md)): label parts where they are, and keep a step's text with its state.
 
 ### Step text presents meaning; it does not narrate motion
 A caption or step says what the step means for the argument and where the reader now
@@ -244,37 +217,16 @@ stands, not what moved. Give each step its reason.
   rank(3), so only one word is left to scan (by the block count)".
 
 ### One colour vocabulary, spent on one concept per step
-Use the same colour for a thing in the prose, the code, the formula, the figure and the
-controls, and keep each colour's meaning for the whole page. In any one step, colour only
-the concept being taught. Emphasise by the smallest difference that is reliably visible:
-dim the rest rather than shouting the part.
-- Patel: "In the code, instead of using standard colorizations for strings, keywords, etc., I
-  use the same colors that I used in the diagram. I use the same colors in the text." And: "In
-  each step, I would use color only for the one concept I am trying to explain."
-- Wittens colours formula terms with the diagram's colours for the whole essay (blue operand,
-  green multiplier, red result).
-- Tufte (via Casselman): "Produce emphasis by using the smallest possible effective
-  distinctions."
-- Colour is never the only carrier of meaning (CLAUDE.md): pair it with the label.
-- The house colours `c1`–`c6` have fixed meanings (our system, data, external…), so in a
-  data-structure figure most parts share one colour. Tell parts within a colour apart by
-  position, shape and label (a row for superblock counts, a row for block counts), not by
-  borrowing another meaning's colour.
+Moved to `pedagogical-diagrams` ([text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md)): one colour per thing across prose, code and figure.
 
 ### Each arrow style means one thing
-Arrows can mean data flow, a pointer, "becomes", "calls" or "is followed by". Use one meaning
-per line style in a figure, and say in the caption what an arrow means.
-- Tufte: links and arrows "bring with them many implicit but powerful assumptions".
+Moved to `pedagogical-diagrams` ([text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md)): one meaning per arrow style.
 
 ### Say what a schematic's scale is
-When a figure draws 512 numbers as four boxes, say so.
-- Alammar: "the embedding vector (512, or 4 boxes in the figure)".
+Moved to `pedagogical-diagrams` ([text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md)): say what a schematic's scale is.
 
 ### Say what you changed in the figure, and why
-When a figure takes a liberty (a transparent rim, a rotated map), name it and its purpose.
-This complements saying what the figure does not show.
-- Ciechanowski, *Bicycle*: "I made the rim semitransparent, so that you can see how these parts
-  interact."
+Moved to `pedagogical-diagrams` ([text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md)): say what liberty a figure takes, and why.
 
 ## Codewalks
 
@@ -338,8 +290,7 @@ values to try, including ones that break things.
 | Component | Rules that apply |
 | --- | --- |
 | `<bh-playground>` | default state teaches; controls introduced and labelled first; one control unlocked at a time; by hand, then automated; ablation switches; the final open one goes last |
-| `<bh-stepper>` | one persistent figure; one change per step; step text presents meaning and reason; trace of earlier states |
-| `<bh-versions>` | side-by-side comparison in a fixed frame; naive version labelled as such |
+| `<bh-stepper>` | one persistent figure; one change per step; step text presents meaning and reason; the frames and the trace of earlier states are `pedagogical-diagrams` |
+| `<bh-versions>` | naive version labelled as such; side-by-side comparison in a fixed frame is `pedagogical-diagrams` |
 | `<bh-codewalk>` | Knuth's rules; values beside lines; shape before code |
-| `data-ref` | the hover link from prose to part; one colour vocabulary is the link that survives print and no-JS |
-| `figcaption` | what to notice, what not to read into it, what each arrow means, any liberty taken |
+| `data-ref`, `figcaption` | `pedagogical-diagrams`: the link from prose to part, one colour vocabulary, and what a caption says |

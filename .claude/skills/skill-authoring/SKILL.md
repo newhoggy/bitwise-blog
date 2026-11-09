@@ -91,8 +91,8 @@ script that is run, not read.
   `SKILL.md` with a note on *when* to read it. References are one level deep, and a file
   over 100 lines opens with a contents list.
 - **Neighbouring skills divide territory in their descriptions.** `pedagogical-writing`
-  covers teaching prose, and the planned `pedagogical-diagrams` (#80) and the `dataviz`
-  skill cover figures and charts. Each names the others as "Not for…".
+  covers teaching prose, and `pedagogical-diagrams` and the `dataviz` skill cover
+  figures and charts. Each names the others as "Not for…".
 - **A skill that makes evidence-based claims keeps `references/sources.md`**, marking what
   was read in full, what was only summarised, and what is the author's synthesis.
 - **Time-sensitive guidance** goes in a collapsed "old patterns" section, not inline.

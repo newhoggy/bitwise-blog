@@ -28,5 +28,13 @@
   {"query": "turn docs/how-deflate-works.html into a standalone file I can email to a colleague", "should_trigger": false, "heldout": true},
   {"query": "shorten this error message: 'Unable to complete the requested operation because the specified file could not be located'", "should_trigger": false, "heldout": true},
   {"query": "draw an isometric figure of the token bucket for the rate-limiting page, like a little machine with a hopper and a valve", "should_trigger": false, "heldout": true},
-  {"query": "chart the gpu-deflate throughput numbers from the optimization study as a bar chart per kernel", "should_trigger": false, "heldout": true}
+  {"query": "chart the gpu-deflate throughput numbers from the optimization study as a bar chart per kernel", "should_trigger": false, "heldout": true},
+  {"query": "this figure in the huffman section is confusing, people say they don't know where to look. it has 14 boxes, 9 arrows and 5 colours. what should I cut?", "should_trigger": false},
+  {"query": "for showing how a bloom filter insert changes the bits, should I use an animation, a stepper or one static figure?", "should_trigger": false},
+  {"query": "I'm drawing a stepper for how LZ77 copies bytes out of a sliding window. how many frames should it have and what should change between them?", "should_trigger": false},
+  {"query": "the step captions under my stepper just narrate motion ('the pointer moves right, the counter goes up'). rewrite them so each one says what the step means and why it is taken", "should_trigger": true},
+  {"query": "is the token bucket playground worth building at all, or would plain prose do? the page explains refill rate and burst size", "should_trigger": true},
+  {"query": "my diagram shows the same code as a tree and as a table side by side, and readers keep asking which one to look at. how do I tie them together?", "should_trigger": false, "heldout": true},
+  {"query": "the arrows in my pipeline figure point both ways and nobody can tell which are data and which are control. help me redesign it", "should_trigger": false, "heldout": true},
+  {"query": "after the stepper on the rank page, what question should I ask the reader to check they got it, before I reveal the answer?", "should_trigger": true, "heldout": true}
 ]

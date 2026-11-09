@@ -162,6 +162,9 @@ softeners are not.
   need.
 
 ### Example and figure audit
+
+This is the page-level pass. For a thorough review of the figures themselves (form, what to
+cut, frames, misreadings), use the `pedagogical-diagrams` skill's review.
 - Is there one running example per concept, with clean numbers first?
 - **The false-model test**: what would a literal reader infer from the toy? If
   it makes the hard part look already solved, that is the finding, ahead of any
