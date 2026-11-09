@@ -6,7 +6,8 @@ named (details and links in [sources.md](sources.md)). Headings match SKILL.md.
 Search with `grep -n "^### " references/moves.md`.
 
 Sentence-level moves are in [sentences.md](sentences.md); figure and interactive design
-is in [figures-and-interactives.md](figures-and-interactives.md).
+is in [figures-and-interactives.md](figures-and-interactives.md); the design of the picture
+itself is the `pedagogical-diagrams` skill.
 
 ## Contents
 

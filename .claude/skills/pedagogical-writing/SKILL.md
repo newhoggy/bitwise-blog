@@ -1,6 +1,6 @@
 ---
 name: pedagogical-writing
-description: Guidelines for writing and revising explanations whose purpose is teaching, distilled from 3Blue1Brown's scripts and from other explainers, writing guides and learning research. Covers ordering ideas, pacing, example choice, vocabulary, sentence and paragraph flow, figures and interactives, checks for the reader, voice, and scoping a page, a series, or a video. Use when drafting, outlining, restructuring, rewriting or reviewing an explainer, tutorial, lesson, or technical blog page, or a passage of one, or when asked why a page is hard to follow, even if the request doesn't say "pedagogy". Triggers on requests like "write an explainer", "teach", "tutorial", "make this easier to understand", "the reader gets lost here", "3blue1brown style", "review this page for clarity". Not for explaining code, errors or command output in conversation, ADR or design-doc review (review-adr), charts (dataviz), isometric figures (anatomy), or editing skills, CLAUDE.md or settings (skill-authoring, update-config).
+description: Guidelines for writing and revising explanations whose purpose is teaching. Covers ordering ideas, pacing, example choice, vocabulary, sentence and paragraph flow, interactives, checks for the reader, voice, and scoping a page, a series, or a video. Use when drafting, outlining, restructuring, rewriting or reviewing an explainer, tutorial, lesson, or technical blog page, or a passage of one, or when asked why a page is hard to follow, even if the request doesn't say "pedagogy". Triggers on requests like "write an explainer", "teach", "tutorial", "make this easier to understand", "the reader gets lost here", "3blue1brown style", "review this page for clarity". Not for explaining code, errors or command output in conversation, ADR or design-doc review (review-adr), diagram design (pedagogical-diagrams), charts (dataviz), isometric figures (anatomy), or editing skills, CLAUDE.md or settings (skill-authoring, update-config).
 ---
 
 # Pedagogical writing
@@ -24,8 +24,10 @@ Read the reference file the task needs:
 - [references/sentences.md](references/sentences.md): how sentences and
   paragraphs carry the reader, with diagnostics. Read it when revising prose.
 - [references/figures-and-interactives.md](references/figures-and-interactives.md):
-  designing figures, steppers, codewalks and playgrounds. Read it before
-  building or reviewing one.
+  whether a figure earns its place, and designing interactives, steppers, codewalks
+  and playgrounds. Read it before building or reviewing one. The design of the picture
+  itself (form, what to cut, labels, colour, arrows, the frames of a process) is in
+  the `pedagogical-diagrams` skill.
 - [references/long-pages-and-series.md](references/long-pages-and-series.md):
   keeping the reader oriented past ~3,000 words, and multi-page series.
 - [references/review.md](references/review.md): the review procedure, its audits
@@ -117,8 +119,8 @@ win. Apply the moves (catalogued after Caveats) through the theme's components:
   forward to the section `id` that pays it off.
 - **Depth** goes in `details.disclosure`, with the one-line upshot in the main
   text *before* the fold. Asides go in `.sidenote`.
-- **Formulas and figures.** Point from formula terms and prose to diagram parts
-  with `data-ref`; walk a mechanism with `<bh-stepper>`; build an implementation
+- **Formulas and figures.** Design the diagram itself with `pedagogical-diagrams`. Point from
+  formula terms and prose to diagram parts with `data-ref`; walk a mechanism with `<bh-stepper>`; build an implementation
   a clause at a time with `<bh-codewalk>` (about a dozen lines per step, in the
   order the designer decided things); make the centrepiece a
   `<bh-playground>` on the reader's own input where you can, whose default
@@ -166,7 +168,7 @@ and empty verbs to check. In short, check:
 3. Is every term, formula and fix preceded by the need and the crack?
 4. Is every promise flagged where made and paid off by name?
 5. Do examples come before abstractions, clean numbers first, one running example?
-6. Do labels and captions carry meaning, including what not to read into a figure?
+6. Do labels and captions carry meaning, including what not to read into a figure? (Figure design: `pedagogical-diagrams`.)
 7. Is the voice a companion's, and is reference material out of the narrative?
 8. Is the scope one concept, and does the headline state the takeaway?
 9. Do the sentences carry the reader: known before new, one name per thing, a
@@ -338,32 +340,20 @@ has each with its verbatim example.
 
 ## Visuals
 
-- **Show the mechanism.** The caption says what to notice, and also what not to
-  read into the figure: a view that shows what the algorithm cannot know, an
-  exaggerated scale, slowed time, a one-dimensional slice.
-- **Make the encoding unmistakable** before a figure carries an argument. When
-  labels and data are both bits, style them differently and say which is which.
-- **Let the figure hold a concrete instance** while the prose speaks generally.
-- **Choose the picture from the operation.** When two pictures of one
-  operation reveal different properties, show both and say what each makes
-  obvious.
+The picture itself (its form, what it leaves out, hierarchy, position, labels, colour, arrows,
+the frames of a process, and a review of the figures) is the `pedagogical-diagrams` skill. What
+stays here is how the page uses a figure:
+
 - **An analogy earns its place** if it leads towards the quantitative step or
   defuses a named misconception. An analogy that only makes sense once you know
   the answer goes after it.
 - **Drive interactive figures from the real algorithm.** Where the code and the
   prose disagree (infinity, boundaries), the gap is content.
-- **Put the best intuition in the main line**, not in a fold. Keep colours and
-  shapes consistent so the reader never re-learns the legend; stay in 2D unless
+- **Put the best intuition in the main line**, not in a fold; stay in 2D unless
   the idea is 3D.
-- **Labels in the figure, text with the state.** Label parts where they are,
-  not in a legend; put a step's words in the same step as the state they
-  describe. Use one colour for a thing across prose, code and figure, and
-  colour only the concept of the current step.
-- **Compare side by side, step a process.** When the reader must compare
-  states, show them at once in a fixed frame. Use a stepper for a process: one
-  persistent figure, one change per step, a trace of earlier states.
 - **Step text presents meaning**, not motion: "the counter now holds rank(3)",
-  not "the pointer moves right". Give each step its reason.
+  not "the pointer moves right". Give each step its reason. The caption of a figure
+  says what to notice and what not to read into it (`pedagogical-diagrams`).
 
 **Interactives** (details in
 [references/figures-and-interactives.md](references/figures-and-interactives.md)):
