@@ -1,0 +1,12 @@
+sources:
+  - platform: substack
+    url: https://homosabiens.substack.com
+
+  - platform: lesswrong
+    user: duncan-sabien-inactive
+
+  - platform: lesswrong
+    user: conor-moreton
+
+  - platform: medium
+    user: ThingMaker
