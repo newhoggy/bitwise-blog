@@ -22,7 +22,8 @@ reads correctly without JavaScript, and the diagram, colour and motion rules.
 - Guiding the reader through an interactive
 - Centrepieces that teach
 - Steppers and persistent figures
-- Words around figures (step text; the rest moved)
+- Step text
+- Moved to `pedagogical-diagrams`
 - Codewalks
 - The sandbox goes last
 - In this repo
@@ -79,9 +80,6 @@ skimmers, print, Present mode and readers without JavaScript.
   solution.
 - Victor: "the filter description works as a static explanation -- it can be read like
   normal text." The interaction is for the reader who wants to go deeper.
-
-### Show all the variants when the reader must compare
-Moved to `pedagogical-diagrams` ([process-diagrams.md](../../pedagogical-diagrams/references/process-diagrams.md)): show every state in one fixed frame, side by side.
 
 ### One centrepiece, staged across sections
 The house allows one centrepiece, but a page may need it in several sections. Keep it where
@@ -191,19 +189,7 @@ Change one thing per step.
 - Split a compound operation into visible sub-steps. Wittens's Julia page: "First we square
   each number…", "Next, we reset the grid back to neutral", "Now we add c to each point".
 
-### Leave a trace of earlier states
-Moved to `pedagogical-diagrams` ([process-diagrams.md](../../pedagogical-diagrams/references/process-diagrams.md)): keep the state the next step depends on.
-
-### Remove scaffolding out loud
-Moved to `pedagogical-diagrams` ([process-diagrams.md](../../pedagogical-diagrams/references/process-diagrams.md)): say when a step removes a construction line.
-
-### Crack the picture, not only the idea
-Moved to `pedagogical-diagrams` ([process-diagrams.md](../../pedagogical-diagrams/references/process-diagrams.md)): switch pictures when the current one hides the mechanism.
-
-## Words around figures
-
-### Labels in the figure, text with the state
-Moved to `pedagogical-diagrams` ([text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md)): label parts where they are, and keep a step's text with its state.
+## Step text
 
 ### Step text presents meaning; it does not narrate motion
 A caption or step says what the step means for the argument and where the reader now
@@ -216,17 +202,18 @@ stands, not what moved. Give each step its reason.
 - Page: not "the pointer moves to index 3; the counter increments", but "the counter now holds
   rank(3), so only one word is left to scan (by the block count)".
 
-### One colour vocabulary, spent on one concept per step
-Moved to `pedagogical-diagrams` ([text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md)): one colour per thing across prose, code and figure.
+## Moved to `pedagogical-diagrams`
 
-### Each arrow style means one thing
-Moved to `pedagogical-diagrams` ([text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md)): one meaning per arrow style.
+The design of the picture is in the `pedagogical-diagrams` skill. These rules were here and moved
+with their quotes:
 
-### Say what a schematic's scale is
-Moved to `pedagogical-diagrams` ([text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md)): say what a schematic's scale is.
-
-### Say what you changed in the figure, and why
-Moved to `pedagogical-diagrams` ([text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md)): say what liberty a figure takes, and why.
+- In [process-diagrams.md](../../pedagogical-diagrams/references/process-diagrams.md): show all
+  the variants when the reader must compare; leave a trace of earlier states; remove scaffolding
+  out loud; crack the picture, not only the idea.
+- In [text-and-labels.md](../../pedagogical-diagrams/references/text-and-labels.md): labels in
+  the figure, text with the state; one colour vocabulary, spent on one concept per step; each
+  arrow style means one thing; say what a schematic's scale is; say what you changed in the
+  figure, and why.
 
 ## Codewalks
 
