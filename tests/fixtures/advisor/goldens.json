@@ -1,0 +1,2310 @@
+{
+ "after_holdout": {
+  "atlas": [
+   "lesswrong-anchor-watch",
+   "lesswrong-fog-signals",
+   "lesswrong-standing-orders",
+   "medium-harbour-fees-def456",
+   "substack-pilot-boats",
+   "substack-slack-water",
+   "substack-unquoted-colon",
+   "substack-why-tugs-push"
+  ],
+  "eval": [
+   "lesswrong-reading-the-swell",
+   "medium-knots-abc123",
+   "substack-pilot-boats-at-night",
+   "substack-the-bar-crossing"
+  ]
+ },
+ "argsort": {
+  "order": [
+   1,
+   4,
+   0,
+   2,
+   5,
+   3
+  ],
+  "scores": [
+   0.5,
+   0.9,
+   0.5,
+   0.1,
+   0.9,
+   0.5
+  ]
+ },
+ "bisect": [
+  {
+   "a": [
+    0.1,
+    0.2,
+    0.2,
+    0.5
+   ],
+   "out": 0,
+   "x": 0.0
+  },
+  {
+   "a": [
+    0.1,
+    0.2,
+    0.2,
+    0.5
+   ],
+   "out": 0,
+   "x": 0.1
+  },
+  {
+   "a": [
+    0.1,
+    0.2,
+    0.2,
+    0.5
+   ],
+   "out": 1,
+   "x": 0.2
+  },
+  {
+   "a": [
+    0.1,
+    0.2,
+    0.2,
+    0.5
+   ],
+   "out": 3,
+   "x": 0.3
+  },
+  {
+   "a": [
+    0.1,
+    0.2,
+    0.2,
+    0.5
+   ],
+   "out": 3,
+   "x": 0.5
+  },
+  {
+   "a": [
+    0.1,
+    0.2,
+    0.2,
+    0.5
+   ],
+   "out": 4,
+   "x": 0.9
+  }
+ ],
+ "boundaries": [
+  {
+   "matches": [
+    6
+   ],
+   "pattern": "ana",
+   "s": "Ana's ana"
+  },
+  {
+   "matches": [
+    5
+   ],
+   "pattern": "ana",
+   "s": "\u00e9ana ana"
+  },
+  {
+   "matches": [
+    6
+   ],
+   "pattern": "ana",
+   "s": "ana_x ana"
+  },
+  {
+   "matches": [
+    5
+   ],
+   "pattern": "ana",
+   "s": "ana\u0663 ana"
+  },
+  {
+   "matches": [
+    1
+   ],
+   "pattern": "ana",
+   "s": "(ana)"
+  },
+  {
+   "matches": [
+    6
+   ],
+   "pattern": "ana",
+   "s": "na\u00efve ana"
+  }
+ ],
+ "canonical_json": [
+  {
+   "input": {
+    "a": [
+     1,
+     {
+      "$float": "1.0"
+     },
+     {
+      "$float": "-0.0"
+     },
+     {
+      "$float": "0.5"
+     },
+     {
+      "$float": "1e+16"
+     },
+     {
+      "$float": "1e-05"
+     }
+    ],
+    "b": 1,
+    "f": false,
+    "t": true,
+    "z": null,
+    "\u00e9": "\u00e9"
+   },
+   "output": "{\"a\": [1, 1.0, -0.0, 0.5, 1e+16, 1e-05], \"b\": 1, \"f\": false, \"t\": true, \"z\": null, \"\u00e9\": \"\u00e9\"}"
+  },
+  {
+   "input": {
+    "text": "quote \" backslash \\ newline \n tab \t cr \r ff \f bs \b nul \u0000 del \u007f nbsp \u00a0 ls \u2028 emoji \ud83d\ude00",
+    "\ufffd": 2,
+    "\ud83d\ude00": 1
+   },
+   "output": "{\"text\": \"quote \\\" backslash \\\\ newline \\n tab \\t cr \\r ff \\f bs \\b nul \\u0000 del \u007f nbsp \u00a0 ls \u2028 emoji \ud83d\ude00\", \"\ufffd\": 2, \"\ud83d\ude00\": 1}"
+  },
+  {
+   "input": {
+    "big": 9007199254740991,
+    "neg": -7,
+    "nested": {
+     "a": {},
+     "z": {
+      "y": []
+     }
+    },
+    "ratio": {
+     "$float": "0.1"
+    }
+   },
+   "output": "{\"big\": 9007199254740991, \"neg\": -7, \"nested\": {\"a\": {}, \"z\": {\"y\": []}}, \"ratio\": 0.1}"
+  },
+  {
+   "input": [],
+   "output": "[]"
+  },
+  {
+   "input": {},
+   "output": "{}"
+  },
+  {
+   "input": "plain",
+   "output": "\"plain\""
+  },
+  {
+   "input": 0,
+   "output": "0"
+  },
+  {
+   "input": null,
+   "output": "null"
+  }
+ ],
+ "char_classes": [
+  {
+   "ch": "a",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "Z",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "0",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "_",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "-",
+   "space": false,
+   "word": false
+  },
+  {
+   "ch": " ",
+   "space": true,
+   "word": false
+  },
+  {
+   "ch": "\u00e9",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "\u00df",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "\u0131",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "\u0663",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "\u2167",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "\u00b2",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "\u4e00",
+   "space": false,
+   "word": true
+  },
+  {
+   "ch": "\u0301",
+   "space": false,
+   "word": false
+  },
+  {
+   "ch": "\u2019",
+   "space": false,
+   "word": false
+  },
+  {
+   "ch": "\u00a0",
+   "space": true,
+   "word": false
+  },
+  {
+   "ch": "\u0085",
+   "space": true,
+   "word": false
+  },
+  {
+   "ch": "\u001c",
+   "space": true,
+   "word": false
+  },
+  {
+   "ch": "\u2028",
+   "space": true,
+   "word": false
+  },
+  {
+   "ch": "\ufeff",
+   "space": false,
+   "word": false
+  },
+  {
+   "ch": "\u200b",
+   "space": false,
+   "word": false
+  },
+  {
+   "ch": "\ud83d\ude00",
+   "space": false,
+   "word": false
+  },
+  {
+   "ch": "\ud835\udc00",
+   "space": false,
+   "word": true
+  }
+ ],
+ "commit": "af0b407",
+ "era_of": [
+  {
+   "era": "2017-2023",
+   "published": "2023-12-31"
+  },
+  {
+   "era": "2024+",
+   "published": "2024-01-01"
+  },
+  {
+   "era": "2017-2023",
+   "published": "1999"
+  },
+  {
+   "era": "2017-2023",
+   "published": "2023"
+  },
+  {
+   "era": "2017-2023",
+   "published": "+200"
+  },
+  {
+   "era": "2017-2023",
+   "published": " 202"
+  }
+ ],
+ "era_of_bad": [
+  {
+   "problem": "unparseable published date ''",
+   "published": ""
+  },
+  {
+   "problem": "unparseable published date 'abcd'",
+   "published": "abcd"
+  },
+  {
+   "problem": "unparseable published date '20x1-01-01'",
+   "published": "20x1-01-01"
+  }
+ ],
+ "float_repr": [
+  {
+   "out": "1.0",
+   "x": "1.0"
+  },
+  {
+   "out": "-0.0",
+   "x": "-0.0"
+  },
+  {
+   "out": "0.0",
+   "x": "0.0"
+  },
+  {
+   "out": "0.1",
+   "x": "0.1"
+  },
+  {
+   "out": "1e+16",
+   "x": "1e16"
+  },
+  {
+   "out": "1000000000000000.0",
+   "x": "1e15"
+  },
+  {
+   "out": "9999999999999998.0",
+   "x": "9999999999999998.0"
+  },
+  {
+   "out": "1e+22",
+   "x": "1e22"
+  },
+  {
+   "out": "1.5e+300",
+   "x": "1.5e300"
+  },
+  {
+   "out": "0.0001",
+   "x": "1e-4"
+  },
+  {
+   "out": "1e-05",
+   "x": "1e-5"
+  },
+  {
+   "out": "1.5e-07",
+   "x": "1.5e-7"
+  },
+  {
+   "out": "0.0001",
+   "x": "0.0001"
+  },
+  {
+   "out": "123.456",
+   "x": "123.456"
+  },
+  {
+   "out": "-2.5",
+   "x": "-2.5"
+  },
+  {
+   "out": "5e-324",
+   "x": "5e-324"
+  },
+  {
+   "out": "1.7976931348623157e+308",
+   "x": "1.7976931348623157e308"
+  },
+  {
+   "out": "inf",
+   "x": "inf"
+  },
+  {
+   "out": "-inf",
+   "x": "-inf"
+  },
+  {
+   "out": "nan",
+   "x": "nan"
+  },
+  {
+   "out": "100.0",
+   "x": "100.0"
+  },
+  {
+   "out": "12345678.9",
+   "x": "12345678.9"
+  }
+ ],
+ "generator": "tools/generate_goldens.py in the private data repo",
+ "holdout": [
+  {
+   "chosen": [
+    "substack-pilot-boats",
+    "substack-the-bar-crossing"
+   ],
+   "fraction": 0.15,
+   "seed": 6
+  },
+  {
+   "chosen": [
+    "lesswrong-reading-the-swell",
+    "medium-knots-abc123",
+    "substack-pilot-boats-at-night",
+    "substack-the-bar-crossing"
+   ],
+   "fraction": 0.34,
+   "seed": 1
+  },
+  {
+   "chosen": [
+    "lesswrong-anchor-watch",
+    "lesswrong-reading-the-swell",
+    "medium-knots-abc123",
+    "substack-pilot-boats-at-night"
+   ],
+   "fraction": 0.34,
+   "seed": 2
+  },
+  {
+   "chosen": [
+    "lesswrong-reading-the-swell",
+    "medium-harbour-fees-def456",
+    "medium-knots-abc123",
+    "substack-pilot-boats-at-night",
+    "substack-the-bar-crossing",
+    "substack-unquoted-colon"
+   ],
+   "fraction": 0.5,
+   "seed": 1
+  },
+  {
+   "chosen": [
+    "lesswrong-fog-signals",
+    "lesswrong-standing-orders",
+    "substack-pilot-boats-at-night"
+   ],
+   "fraction": 0.25,
+   "seed": 10
+  },
+  {
+   "chosen": [
+    "lesswrong-reading-the-swell"
+   ],
+   "fraction": 0.1,
+   "seed": 3
+  },
+  {
+   "chosen": [
+    "lesswrong-anchor-watch",
+    "lesswrong-fog-signals",
+    "lesswrong-standing-orders",
+    "medium-harbour-fees-def456",
+    "medium-knots-abc123",
+    "substack-pilot-boats",
+    "substack-pilot-boats-at-night",
+    "substack-slack-water",
+    "substack-the-bar-crossing",
+    "substack-unquoted-colon",
+    "substack-why-tugs-push"
+   ],
+   "fraction": 0.9,
+   "seed": 4
+  }
+ ],
+ "index": {
+  "ash-mercer": "# ash-mercer \u2014 post index\n\n_2 post(s). Regenerated by `scripts/build_index.py`._\n\n| Date | Platform | Title | Source |\n| --- | --- | --- | --- |\n| 2020-01-02 | ghost | [Salt](posts/ghost-salt.md) | [link](https://ash.example/salt) |\n|  |  | [ghost-a-note](posts/ghost-a-note.md) |  |\n",
+  "library": "# library \u2014 source index\n\n_2 source(s). Regenerated by `scripts/build_index.py`._\n\n| Added | Type | Agreement | Weight | Title | Author | Source |\n| --- | --- | --- | --- | --- | --- | --- |\n| 2024-01-01 | article | partly | low | [On Fog](articles/on-fog.md) |  |  |\n| 2023-01-01 | book | mostly | high | [The Pilot Handbook](books/the-pilot-handbook.md) | A. Nonymous | [link](https://example.org/handbook) |\n",
+  "thoughts": "# thoughts \u2014 topic index\n\n_2 topic(s). Regenerated by `scripts/build_index.py`._\n\n| Updated | Status | Confidence | Title | Tags |\n| --- | --- | --- | --- | --- |\n| 2025-05-06 | settled | high | [Rope \\| splices](rope-splices/README.md) |  |\n| 2024-02-03 | draft | low | [Tide tables](tide-tables/README.md) | tides, charts |\n",
+  "wren-talavera": "# wren-talavera \u2014 post index\n\n_14 post(s). Regenerated by `scripts/build_index.py`._\n\n_Corpus: 8 in atlas, 4 eval holdout, 2 excluded (see `corpus_meta.yaml`)._\n\n| Date | Platform | Title | Source | Corpus |\n| --- | --- | --- | --- | --- |\n| 2025-06-01 | lesswrong | [Standing orders](posts/lesswrong-standing-orders.md) | [link](https://wren.example/lesswrong-standing-orders) |  |\n| 2025-02-02 | medium | [Crew meetup in Fj\u00f6r\u00f0r](posts/medium-crew-meetup-987fed.md) | [link](https://wren.example/medium-crew-meetup-987fed) | excluded: event announcement: nothing to learn |\n| 2024-12-12 | medium | [Harbour fees for 2025](posts/medium-harbour-fees-def456.md) | [link](https://wren.example/medium-harbour-fees-def456) |  |\n| 2024-09-09 | medium | [Knots, briefly](posts/medium-knots-abc123.md) | [link](https://wren.example/medium-knots-abc123) | eval |\n| 2024-01-01 | substack | [Why tugs push \\| and rarely pull](posts/substack-why-tugs-push.md) | [link](https://wren.example/substack-why-tugs-push) |  |\n| 2023-12-31 | substack | [The bar crossing](posts/substack-the-bar-crossing.md) | [link](https://wren.example/substack-the-bar-crossing) | eval |\n| 2022-07-19 | substack | [Slack water: a short guide](posts/substack-slack-water.md) | [link](https://wren.example/substack-slack-water) |  |\n| 2021-03-11 | substack | [Pilot boats at night](posts/substack-pilot-boats-at-night.md) | [link](https://wren.example/substack-pilot-boats-at-night) | eval |\n| 2021-03-04 | substack | [Pilot boats](posts/substack-pilot-boats-copy.md) | [link](https://wren.example/substack-pilot-boats-copy) | excluded: duplicate copy |\n| 2021-03-04 | substack | [Pilot boats](posts/substack-pilot-boats.md) | [link](https://wren.example/substack-pilot-boats) |  |\n| 2020-11-30 | lesswrong | [Anchor watch](posts/lesswrong-anchor-watch.md) | [link](https://wren.example/lesswrong-anchor-watch) |  |\n| 2019-05-05 | lesswrong | [Reading the swell](posts/lesswrong-reading-the-swell.md) | [link](https://wren.example/lesswrong-reading-the-swell) | eval |\n| 2018-02-02 | lesswrong | [Fog signals](posts/lesswrong-fog-signals.md) | [link](https://wren.example/lesswrong-fog-signals) |  |\n|  |  | [substack-unquoted-colon](posts/substack-unquoted-colon.md) |  |  |\n"
+ },
+ "no_sidecar_posts": [
+  {
+   "in_atlas": true,
+   "meta": {},
+   "published": "",
+   "stem": "ghost-a-note",
+   "title": "ghost-a-note"
+  },
+  {
+   "in_atlas": true,
+   "meta": {},
+   "published": "2020-01-02",
+   "stem": "ghost-salt",
+   "title": "Salt"
+  }
+ ],
+ "parse_post": [
+  {
+   "body": "No frontmatter here.\n",
+   "fm": {},
+   "text": "No frontmatter here.\n"
+  },
+  {
+   "body": "---\nunterminated: yes\n",
+   "fm": {},
+   "text": "---\nunterminated: yes\n"
+  },
+  {
+   "body": "\nBody.\n",
+   "fm": {
+    "author": "A",
+    "published": {
+     "$date": "2021-02-03"
+    },
+    "title": "Plain"
+   },
+   "text": "---\ntitle: Plain\nauthor: A\npublished: 2021-02-03\n---\n\nBody.\n"
+  },
+  {
+   "body": "Body\n",
+   "fm": {
+    "author": "A",
+    "title": "[Links]"
+   },
+   "text": "---\ntitle: [Links]\nauthor: A\n---\nBody\n"
+  },
+  {
+   "body": "Body\n",
+   "fm": {
+    "author": "A",
+    "title": "[Crosspost] A thing"
+   },
+   "text": "---\ntitle: [Crosspost] A thing\nauthor: A\n---\nBody\n"
+  },
+  {
+   "body": "Body\n",
+   "fm": {
+    "author": "A",
+    "published": {
+     "$date": "2021-02-03"
+    },
+    "title": "Tides: short"
+   },
+   "text": "---\ntitle: Tides: short\nauthor: A\npublished: 2021-02-03\n---\nBody\n"
+  },
+  {
+   "body": "B\n",
+   "fm": {
+    "author": true,
+    "slug": 7,
+    "title": 1984
+   },
+   "text": "---\ntitle: 1984\nauthor: Yes\nslug: 007\n---\nB\n"
+  },
+  {
+   "body": "B\n",
+   "fm": {
+    "title": "Quoted: title"
+   },
+   "text": "---\ntitle: \"Quoted: title\"\n---\nB\n"
+  },
+  {
+   "body": "B\n",
+   "fm": {
+    "title": "It's"
+   },
+   "text": "---\ntitle: 'It''s'\n---\nB\n"
+  },
+  {
+   "body": "B\n",
+   "fm": {
+    "published": {
+     "$date": "2021-02-03 10:00:00"
+    },
+    "title": false
+   },
+   "text": "---\ntitle: No\npublished: 2021-02-03 10:00:00\n---\nB\n"
+  },
+  {
+   "body": "---\n---\nEmpty block\n",
+   "fm": {},
+   "text": "---\n---\nEmpty block\n"
+  },
+  {
+   "body": "Blank block\n",
+   "fm": {},
+   "text": "---\n\n---\nBlank block\n"
+  },
+  {
+   "body": "---\nSource: x\n",
+   "fm": {
+    "title": "A"
+   },
+   "text": "---\ntitle: A\n---\n---\nSource: x\n"
+  },
+  {
+   "body": "B\u2028C\n",
+   "fm": {
+    "author": "A",
+    "title": "Weird"
+   },
+   "text": "---\ntitle: Weird\u2028title\nauthor: A\n---\nB\u2028C\n"
+  },
+  {
+   "body": "B\n",
+   "fm": {
+    "author": "b",
+    "title": "{a}"
+   },
+   "text": "---\ntitle: {a}\nauthor: b\n---\nB\n"
+  },
+  {
+   "body": "B\n",
+   "fm": {
+    "title": "="
+   },
+   "text": "---\ntitle: =\n---\nB\n"
+  },
+  {
+   "body": "B\n",
+   "fm": {
+    "title": "b"
+   },
+   "text": "---\ntitle: a\ntitle: b\n---\nB\n"
+  }
+ ],
+ "parse_post_crlf": {
+  "body": "B\nC\nD\n",
+  "fm": {
+   "title": "Crlf"
+  }
+ },
+ "posts": [
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/lesswrong-anchor-watch\n",
+   "era": "2017-2023",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "category": "seamanship"
+   },
+   "platform": "lesswrong",
+   "published": "2020-11-30",
+   "source": "https://wren.example/lesswrong-anchor-watch",
+   "stem": "lesswrong-anchor-watch",
+   "title": "Anchor watch"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/lesswrong-fog-signals\n",
+   "era": "2017-2023",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "category": "seamanship"
+   },
+   "platform": "lesswrong",
+   "published": "2018-02-02",
+   "source": "https://wren.example/lesswrong-fog-signals",
+   "stem": "lesswrong-fog-signals",
+   "title": "Fog signals"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/lesswrong-reading-the-swell\n",
+   "era": "2017-2023",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "category": "navigation"
+   },
+   "platform": "lesswrong",
+   "published": "2019-05-05",
+   "source": "https://wren.example/lesswrong-reading-the-swell",
+   "stem": "lesswrong-reading-the-swell",
+   "title": "Reading the swell"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/lesswrong-standing-orders\n",
+   "era": "2024+",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "category": "seamanship"
+   },
+   "platform": "lesswrong",
+   "published": "2025-06-01",
+   "source": "https://wren.example/lesswrong-standing-orders",
+   "stem": "lesswrong-standing-orders",
+   "title": "Standing orders"
+  },
+  {
+   "atlas_eligible": false,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/medium-crew-meetup-987fed\n",
+   "era": "2024+",
+   "in_atlas": false,
+   "is_eval": false,
+   "meta": {
+    "atlas": "exclude",
+    "atlas_reason": "event announcement: nothing to learn",
+    "category": "logistics"
+   },
+   "platform": "medium",
+   "published": "2025-02-02",
+   "source": "https://wren.example/medium-crew-meetup-987fed",
+   "stem": "medium-crew-meetup-987fed",
+   "title": "Crew meetup in Fj\u00f6r\u00f0r"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/medium-harbour-fees-def456\n",
+   "era": "2024+",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "atlas_reason": "it states a position on fees",
+    "category": "logistics"
+   },
+   "platform": "medium",
+   "published": "2024-12-12",
+   "source": "https://wren.example/medium-harbour-fees-def456",
+   "stem": "medium-harbour-fees-def456",
+   "title": "Harbour fees for 2025"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/medium-knots-abc123\n",
+   "era": "2024+",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "category": "seamanship",
+    "partial": "mostly 15 diagrams the ingester can't read"
+   },
+   "platform": "medium",
+   "published": "2024-09-09",
+   "source": "https://wren.example/medium-knots-abc123",
+   "stem": "medium-knots-abc123",
+   "title": "Knots, briefly"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water. Night only removes the excuses.\n\n---\nSource: https://wren.example/substack-pilot-boats-at-night\n",
+   "era": "2017-2023",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "category": "navigation"
+   },
+   "platform": "substack",
+   "published": "2021-03-11",
+   "source": "https://wren.example/substack-pilot-boats-at-night",
+   "stem": "substack-pilot-boats-at-night",
+   "title": "Pilot boats at night"
+  },
+  {
+   "atlas_eligible": false,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/substack-pilot-boats-copy\n",
+   "era": "2017-2023",
+   "in_atlas": false,
+   "is_eval": false,
+   "meta": {
+    "atlas": "exclude",
+    "atlas_reason": "duplicate copy",
+    "category": "navigation",
+    "duplicate_of": "substack-pilot-boats"
+   },
+   "platform": "substack",
+   "published": "2021-03-04",
+   "source": "https://wren.example/substack-pilot-boats-copy",
+   "stem": "substack-pilot-boats-copy",
+   "title": "Pilot boats"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/substack-pilot-boats\n",
+   "era": "2017-2023",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "category": "navigation"
+   },
+   "platform": "substack",
+   "published": "2021-03-04",
+   "source": "https://wren.example/substack-pilot-boats",
+   "stem": "substack-pilot-boats",
+   "title": "Pilot boats"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water. Slack water is a schedule, not a promise.\n\n---\nSource: https://wren.example/substack-slack-water\n",
+   "era": "2017-2023",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "byline": "Ash Mercer",
+    "category": "navigation"
+   },
+   "platform": "substack",
+   "published": "2022-07-19",
+   "source": "https://wren.example/substack-slack-water",
+   "stem": "substack-slack-water",
+   "title": "Slack water: a short guide"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/substack-the-bar-crossing\n",
+   "era": "2017-2023",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "category": "seamanship"
+   },
+   "platform": "substack",
+   "published": "2023-12-31",
+   "source": "https://wren.example/substack-the-bar-crossing",
+   "stem": "substack-the-bar-crossing",
+   "title": "The bar crossing"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/substack-unquoted-colon\n",
+   "era": "2017-2023",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "category": "navigation"
+   },
+   "platform": "substack",
+   "published": "2022-01-01",
+   "source": "https://wren.example/substack-unquoted-colon",
+   "stem": "substack-unquoted-colon",
+   "title": "Tides: the short version"
+  },
+  {
+   "atlas_eligible": true,
+   "author": "Wren Talavera",
+   "body": "\nA harbour pilot reads the water before the chart, because the chart is last year's water.\n\n---\nSource: https://wren.example/substack-why-tugs-push\n",
+   "era": "2024+",
+   "in_atlas": true,
+   "is_eval": false,
+   "meta": {
+    "atlas": "include",
+    "category": "seamanship"
+   },
+   "platform": "substack",
+   "published": "2024-01-01",
+   "source": "https://wren.example/substack-why-tugs-push",
+   "stem": "substack-why-tugs-push",
+   "title": "Why tugs push | and rarely pull"
+  }
+ ],
+ "py_round": [
+  {
+   "n": 0,
+   "out": "0.0",
+   "x": "0.5"
+  },
+  {
+   "n": 0,
+   "out": "2.0",
+   "x": "1.5"
+  },
+  {
+   "n": 0,
+   "out": "2.0",
+   "x": "2.5"
+  },
+  {
+   "n": 0,
+   "out": "0.0",
+   "x": "-0.5"
+  },
+  {
+   "n": 0,
+   "out": "-2.0",
+   "x": "-2.5"
+  },
+  {
+   "n": 0,
+   "out": "2.0",
+   "x": "2.4"
+  },
+  {
+   "n": 0,
+   "out": "3.0",
+   "x": "2.6"
+  },
+  {
+   "n": 0,
+   "out": "24.0",
+   "x": "24.45"
+  },
+  {
+   "n": 2,
+   "out": "2.67",
+   "x": "2.675"
+  },
+  {
+   "n": 2,
+   "out": "0.12",
+   "x": "0.125"
+  },
+  {
+   "n": 2,
+   "out": "0.38",
+   "x": "0.375"
+  },
+  {
+   "n": 2,
+   "out": "1.0",
+   "x": "1.005"
+  },
+  {
+   "n": 2,
+   "out": "-1.0",
+   "x": "-1.005"
+  },
+  {
+   "n": 1,
+   "out": "0.1",
+   "x": "0.15"
+  },
+  {
+   "n": 1,
+   "out": "0.2",
+   "x": "0.25"
+  },
+  {
+   "n": 1,
+   "out": "0.3",
+   "x": "0.35"
+  },
+  {
+   "n": 2,
+   "out": "0.0",
+   "x": "1e-20"
+  },
+  {
+   "n": 3,
+   "out": "123456.789",
+   "x": "123456.7891"
+  },
+  {
+   "n": 1,
+   "out": "0.1",
+   "x": "0.1"
+  },
+  {
+   "n": 1,
+   "out": "3.0",
+   "x": "3.0"
+  },
+  {
+   "n": 2,
+   "out": "9.99",
+   "x": "9.995"
+  },
+  {
+   "n": 1,
+   "out": "0.5",
+   "x": "0.5"
+  },
+  {
+   "n": 0,
+   "out": "7.0",
+   "x": "7.0"
+  },
+  {
+   "n": 1,
+   "out": "-0.0",
+   "x": "-0.04"
+  },
+  {
+   "n": 0,
+   "out": "1e+22",
+   "x": "1e+22"
+  },
+  {
+   "n": 5,
+   "out": "3e-05",
+   "x": "2.5e-05"
+  }
+ ],
+ "sort": {
+  "input": [
+   "b",
+   "a",
+   "B",
+   "\u00e9",
+   "z",
+   "\uffff",
+   "\ud800\udc00",
+   "aa",
+   "a-b",
+   "a.b",
+   ""
+  ],
+  "sorted": [
+   "",
+   "B",
+   "a",
+   "a-b",
+   "a.b",
+   "aa",
+   "b",
+   "z",
+   "\u00e9",
+   "\uffff",
+   "\ud800\udc00"
+  ]
+ },
+ "str_repr": [
+  {
+   "out": "''",
+   "s": ""
+  },
+  {
+   "out": "'abc'",
+   "s": "abc"
+  },
+  {
+   "out": "\"it's\"",
+   "s": "it's"
+  },
+  {
+   "out": "'say \"x\"'",
+   "s": "say \"x\""
+  },
+  {
+   "out": "'it\\'s \"x\"'",
+   "s": "it's \"x\""
+  },
+  {
+   "out": "'a\\nb'",
+   "s": "a\nb"
+  },
+  {
+   "out": "'tab\\t'",
+   "s": "tab\t"
+  },
+  {
+   "out": "'back\\\\slash'",
+   "s": "back\\slash"
+  },
+  {
+   "out": "'\u00e9'",
+   "s": "\u00e9"
+  }
+ ],
+ "strings": [
+  {
+   "keepends": [
+    "  a b  "
+   ],
+   "len": 7,
+   "s": "  a b  ",
+   "split": [
+    "a",
+    "b"
+   ],
+   "splitlines": [
+    "  a b  "
+   ],
+   "strip": "a b"
+  },
+  {
+   "keepends": [
+    "a\u0085",
+    "b"
+   ],
+   "len": 3,
+   "s": "a\u0085b",
+   "split": [
+    "a",
+    "b"
+   ],
+   "splitlines": [
+    "a",
+    "b"
+   ],
+   "strip": "a\u0085b"
+  },
+  {
+   "keepends": [
+    "a\u001c",
+    "b\u001d",
+    "c\u001e",
+    "d\u001fe"
+   ],
+   "len": 9,
+   "s": "a\u001cb\u001dc\u001ed\u001fe",
+   "split": [
+    "a",
+    "b",
+    "c",
+    "d",
+    "e"
+   ],
+   "splitlines": [
+    "a",
+    "b",
+    "c",
+    "d\u001fe"
+   ],
+   "strip": "a\u001cb\u001dc\u001ed\u001fe"
+  },
+  {
+   "keepends": [
+    "a\u2028",
+    "b\u2029",
+    "c"
+   ],
+   "len": 5,
+   "s": "a\u2028b\u2029c",
+   "split": [
+    "a",
+    "b",
+    "c"
+   ],
+   "splitlines": [
+    "a",
+    "b",
+    "c"
+   ],
+   "strip": "a\u2028b\u2029c"
+  },
+  {
+   "keepends": [
+    "a\u00a0b"
+   ],
+   "len": 3,
+   "s": "a\u00a0b",
+   "split": [
+    "a",
+    "b"
+   ],
+   "splitlines": [
+    "a\u00a0b"
+   ],
+   "strip": "a\u00a0b"
+  },
+  {
+   "keepends": [
+    "a\ufeffb"
+   ],
+   "len": 3,
+   "s": "a\ufeffb",
+   "split": [
+    "a\ufeffb"
+   ],
+   "splitlines": [
+    "a\ufeffb"
+   ],
+   "strip": "a\ufeffb"
+  },
+  {
+   "keepends": [
+    "\ufeff a \ufeff"
+   ],
+   "len": 5,
+   "s": "\ufeff a \ufeff",
+   "split": [
+    "\ufeff",
+    "a",
+    "\ufeff"
+   ],
+   "splitlines": [
+    "\ufeff a \ufeff"
+   ],
+   "strip": "\ufeff a \ufeff"
+  },
+  {
+   "keepends": [
+    "a\u200bb"
+   ],
+   "len": 3,
+   "s": "a\u200bb",
+   "split": [
+    "a\u200bb"
+   ],
+   "splitlines": [
+    "a\u200bb"
+   ],
+   "strip": "a\u200bb"
+  },
+  {
+   "keepends": [
+    "a\u3000b"
+   ],
+   "len": 3,
+   "s": "a\u3000b",
+   "split": [
+    "a",
+    "b"
+   ],
+   "splitlines": [
+    "a\u3000b"
+   ],
+   "strip": "a\u3000b"
+  },
+  {
+   "keepends": [
+    "line one\n",
+    "line two\n"
+   ],
+   "len": 18,
+   "s": "line one\nline two\n",
+   "split": [
+    "line",
+    "one",
+    "line",
+    "two"
+   ],
+   "splitlines": [
+    "line one",
+    "line two"
+   ],
+   "strip": "line one\nline two"
+  },
+  {
+   "keepends": [
+    "a\r\n",
+    "b\r",
+    "c\n",
+    "\n",
+    "d"
+   ],
+   "len": 9,
+   "s": "a\r\nb\rc\n\nd",
+   "split": [
+    "a",
+    "b",
+    "c",
+    "d"
+   ],
+   "splitlines": [
+    "a",
+    "b",
+    "c",
+    "",
+    "d"
+   ],
+   "strip": "a\r\nb\rc\n\nd"
+  },
+  {
+   "keepends": [
+    "a\u000b",
+    "b\f",
+    "c"
+   ],
+   "len": 5,
+   "s": "a\u000bb\fc",
+   "split": [
+    "a",
+    "b",
+    "c"
+   ],
+   "splitlines": [
+    "a",
+    "b",
+    "c"
+   ],
+   "strip": "a\u000bb\fc"
+  },
+  {
+   "keepends": [],
+   "len": 0,
+   "s": "",
+   "split": [],
+   "splitlines": [],
+   "strip": ""
+  },
+  {
+   "keepends": [
+    "   "
+   ],
+   "len": 3,
+   "s": "   ",
+   "split": [],
+   "splitlines": [
+    "   "
+   ],
+   "strip": ""
+  },
+  {
+   "keepends": [
+    "\n"
+   ],
+   "len": 1,
+   "s": "\n",
+   "split": [],
+   "splitlines": [
+    ""
+   ],
+   "strip": ""
+  },
+  {
+   "keepends": [
+    "\n",
+    "\n"
+   ],
+   "len": 2,
+   "s": "\n\n",
+   "split": [],
+   "splitlines": [
+    "",
+    ""
+   ],
+   "strip": ""
+  },
+  {
+   "keepends": [
+    "x\n",
+    " "
+   ],
+   "len": 3,
+   "s": "x\n ",
+   "split": [
+    "x"
+   ],
+   "splitlines": [
+    "x",
+    " "
+   ],
+   "strip": "x"
+  },
+  {
+   "keepends": [
+    "\u0085",
+    "\u0085",
+    "x\u0085"
+   ],
+   "len": 4,
+   "s": "\u0085\u0085x\u0085",
+   "split": [
+    "x"
+   ],
+   "splitlines": [
+    "",
+    "",
+    "x"
+   ],
+   "strip": "x"
+  }
+ ],
+ "validate": [
+  {
+   "entry": {
+    "atlas": "maybe"
+   },
+   "problems": [
+    "substack-pilot-boats: missing category",
+    "substack-pilot-boats: atlas must be one of ['exclude', 'include']",
+    "substack-pilot-boats: excluded without atlas_reason",
+    "substack-pilot-boats-copy: duplicate_of target substack-pilot-boats is not atlas-eligible"
+   ]
+  },
+  {
+   "entry": {
+    "atlas": "exclude"
+   },
+   "problems": [
+    "substack-pilot-boats: missing category",
+    "substack-pilot-boats: excluded without atlas_reason",
+    "substack-pilot-boats-copy: duplicate_of target substack-pilot-boats is not atlas-eligible"
+   ]
+  },
+  {
+   "entry": {
+    "split": "train"
+   },
+   "problems": [
+    "substack-pilot-boats: missing category",
+    "substack-pilot-boats: split must be one of ['eval']"
+   ]
+  },
+  {
+   "entry": {
+    "atlas": "exclude",
+    "atlas_reason": "x",
+    "split": "eval"
+   },
+   "problems": [
+    "substack-pilot-boats: missing category",
+    "substack-pilot-boats: eval holdout post is excluded from the atlas",
+    "substack-pilot-boats-copy: duplicate_of target substack-pilot-boats is not atlas-eligible"
+   ]
+  },
+  {
+   "entry": {
+    "atlas": "exclude",
+    "atlas_reason": "x",
+    "duplicate_of": "nope"
+   },
+   "problems": [
+    "substack-pilot-boats: missing category",
+    "substack-pilot-boats: duplicate_of names unknown post nope",
+    "substack-pilot-boats-copy: duplicate_of target substack-pilot-boats is not atlas-eligible"
+   ]
+  },
+  {
+   "entry": {
+    "duplicate_of": "substack-pilot-boats-at-night"
+   },
+   "problems": [
+    "substack-pilot-boats: missing category",
+    "substack-pilot-boats: duplicate_of set but post is still atlas-included"
+   ]
+  },
+  {
+   "entry": {
+    "atlas": "exclude",
+    "atlas_reason": "x",
+    "duplicate_of": "substack-pilot-boats"
+   },
+   "problems": [
+    "substack-pilot-boats: missing category",
+    "substack-pilot-boats: duplicate_of target substack-pilot-boats is not atlas-eligible",
+    "substack-pilot-boats-copy: duplicate_of target substack-pilot-boats is not atlas-eligible"
+   ]
+  },
+  {
+   "entry": {
+    "atlas": "exclude",
+    "atlas_reason": "x",
+    "duplicate_of": "substack-pilot-boats-copy"
+   },
+   "problems": [
+    "substack-pilot-boats: missing category",
+    "substack-pilot-boats: duplicate_of target substack-pilot-boats-copy is not atlas-eligible",
+    "substack-pilot-boats-copy: duplicate_of target substack-pilot-boats is not atlas-eligible"
+   ]
+  },
+  {
+   "entry": {
+    "category": "a",
+    "dupliate_of": "x"
+   },
+   "problems": [
+    "substack-pilot-boats: unknown field dupliate_of"
+   ]
+  },
+  {
+   "entry": {
+    "atlas": "include"
+   },
+   "problems": [
+    "substack-pilot-boats: missing category"
+   ]
+  },
+  {
+   "entry": {
+    "category": "logistics"
+   },
+   "problems": [
+    "substack-pilot-boats: logistics post included without atlas_reason"
+   ]
+  },
+  {
+   "entry": {
+    "atlas": "include",
+    "atlas_reason": "states positions",
+    "category": "logistics"
+   },
+   "problems": []
+  },
+  {
+   "entry": {
+    "atlas": "exclude",
+    "atlas_reason": "y",
+    "category": "x",
+    "excerpt_of": "nope"
+   },
+   "problems": [
+    "substack-pilot-boats: excerpt_of names unknown post nope",
+    "substack-pilot-boats-copy: duplicate_of target substack-pilot-boats is not atlas-eligible"
+   ]
+  },
+  {
+   "entry": {},
+   "problems": [
+    "substack-pilot-boats: missing category"
+   ]
+  }
+ ],
+ "validate_orphans": [
+  "substack-pilot-boats: post has no metadata entry",
+  "ghost: metadata entry has no post"
+ ],
+ "written_meta": "# Corpus metadata for a made-up writer, keyed by post filename stem.\n#\n# category      meta-function\n# atlas         include | exclude (+ atlas_reason)\nposts:\n  lesswrong-anchor-watch:\n    atlas: include\n    category: seamanship\n  lesswrong-fog-signals:\n    atlas: include\n    category: seamanship\n  lesswrong-reading-the-swell:\n    atlas: include\n    category: navigation\n    split: eval\n  lesswrong-standing-orders:\n    atlas: include\n    category: seamanship\n  medium-crew-meetup-987fed:\n    atlas: exclude\n    atlas_reason: 'event announcement: nothing to learn'\n    category: logistics\n  medium-harbour-fees-def456:\n    atlas: include\n    atlas_reason: it states a position on fees\n    category: logistics\n  medium-knots-abc123:\n    atlas: include\n    category: seamanship\n    partial: mostly 15 diagrams the ingester can't read\n    split: eval\n  substack-pilot-boats:\n    atlas: include\n    category: navigation\n  substack-pilot-boats-at-night:\n    atlas: include\n    category: navigation\n    split: eval\n  substack-pilot-boats-copy:\n    atlas: exclude\n    atlas_reason: duplicate copy\n    category: navigation\n    duplicate_of: substack-pilot-boats\n  substack-slack-water:\n    atlas: include\n    byline: Ash Mercer\n    category: navigation\n  substack-the-bar-crossing:\n    atlas: include\n    category: seamanship\n    split: eval\n  substack-unquoted-colon:\n    atlas: include\n    category: navigation\n  substack-why-tugs-push:\n    atlas: include\n    category: seamanship\n",
+ "yaml_dump": [
+  {
+   "text": "posts:\n  a:\n    atlas: include\n    category: x\n  b: {}\n  c: null\n  \u00e9:\n    y: 2.5\n    z: 1\n",
+   "value": {
+    "posts": {
+     "a": {
+      "atlas": "include",
+      "category": "x"
+     },
+     "b": {},
+     "c": null,
+     "\u00e9": {
+      "y": {
+       "$float": "2.5"
+      },
+      "z": 1
+     }
+    }
+   }
+  },
+  {
+   "text": "s:\n  date: '2021-01-01'\n  empty: ''\n  eq: '='\n  exp: 1e3\n  fl: '1.5'\n  merge: '<<'\n  n: n\n  'no': 'No'\n  'null': 'null'\n  num: '1984'\n  tilde: '~'\n  'yes': 'yes'\n",
+   "value": {
+    "s": {
+     "date": "2021-01-01",
+     "empty": "",
+     "eq": "=",
+     "exp": "1e3",
+     "fl": "1.5",
+     "merge": "<<",
+     "n": "n",
+     "no": "No",
+     "null": "null",
+     "num": "1984",
+     "tilde": "~",
+     "yes": "yes"
+    }
+   }
+  },
+  {
+   "text": "s:\n  amp: '&a'\n  apos: it's\n  at: '@a'\n  bang: '!a'\n  br: '[a]'\n  c1: :a\n  c2: ': a'\n  colon: 'a: b'\n  comma: a, b\n  cu: '{a}'\n  dash: '- a'\n  docs: '---'\n  dots: '...'\n  dots2: '...a'\n  dq: '\"q\"'\n  gt: '> a'\n  hash: 'a #b'\n  lc: ',a'\n  lead: '#a'\n  nocolon: a:b\n  nodash: -a\n  nohash: a#b\n  pct: '%a'\n  pipe: '| a'\n  q: '''q'''\n  qm: '? a'\n  qm2: ?a\n  star: '*a'\n  tick: '`a`'\n",
+   "value": {
+    "s": {
+     "amp": "&a",
+     "apos": "it's",
+     "at": "@a",
+     "bang": "!a",
+     "br": "[a]",
+     "c1": ":a",
+     "c2": ": a",
+     "colon": "a: b",
+     "comma": "a, b",
+     "cu": "{a}",
+     "dash": "- a",
+     "docs": "---",
+     "dots": "...",
+     "dots2": "...a",
+     "dq": "\"q\"",
+     "gt": "> a",
+     "hash": "a #b",
+     "lc": ",a",
+     "lead": "#a",
+     "nocolon": "a:b",
+     "nodash": "-a",
+     "nohash": "a#b",
+     "pct": "%a",
+     "pipe": "| a",
+     "q": "'q'",
+     "qm": "? a",
+     "qm2": "?a",
+     "star": "*a",
+     "tick": "`a`"
+    }
+   }
+  },
+  {
+   "text": "s:\n  astral: a\ud83d\ude00b\n  bell: \"a\\ab\"\n  bom: \"a\\uFEFFb\"\n  brsp: \"a\\n b\"\n  bs: a\\b\n  bsq: '\"a\\b\"'\n  ctl: \"a\\x01b\"\n  del: \"a\\x7Fb\"\n  esc: \"a\\eb\"\n  lnl: '\n\n    a'\n  ls: 'a\u2028    b'\n  nbsp: a\u00a0b\n  nel: 'a\u0085    b'\n  nl: 'a\n\n    b'\n  nl2: 'a\n\n\n    b'\n  sp: ' a'\n  spbr: \"a \\nb\"\n  tab: \"a\\tb\"\n  tnl: 'a\n\n    '\n  tr: 'a '\n  uni: \u00e9a\n",
+   "value": {
+    "s": {
+     "astral": "a\ud83d\ude00b",
+     "bell": "a\u0007b",
+     "bom": "a\ufeffb",
+     "brsp": "a\n b",
+     "bs": "a\\b",
+     "bsq": "\"a\\b\"",
+     "ctl": "a\u0001b",
+     "del": "a\u007fb",
+     "esc": "a\u001bb",
+     "lnl": "\na",
+     "ls": "a\u2028b",
+     "nbsp": "a\u00a0b",
+     "nel": "a\u0085b",
+     "nl": "a\nb",
+     "nl2": "a\n\nb",
+     "sp": " a",
+     "spbr": "a \nb",
+     "tab": "a\tb",
+     "tnl": "a\n",
+     "tr": "a ",
+     "uni": "\u00e9a"
+    }
+   }
+  },
+  {
+   "text": "s:\n  double: \"tab\\there harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour \u00e9 \\U0001F600\"\n  plain: harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour\n  single: it's harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour\n",
+   "value": {
+    "s": {
+     "double": "tab\there harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour \u00e9 \ud83d\ude00",
+     "plain": "harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour",
+     "single": "it's harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour"
+    }
+   }
+  },
+  {
+   "text": "t:\n  big: 1.0e+22\n  bool: true\n  f: false\n  fl: 1.5\n  inf: .inf\n  int: 7\n  nan: .nan\n  neg: -7\n  ninf: -.inf\n  none: null\n  tiny: 1.0e-07\n  whole: 2.0\n",
+   "value": {
+    "t": {
+     "big": {
+      "$float": "1e+22"
+     },
+     "bool": true,
+     "f": false,
+     "fl": {
+      "$float": "1.5"
+     },
+     "inf": {
+      "$float": "inf"
+     },
+     "int": 7,
+     "nan": {
+      "$float": "nan"
+     },
+     "neg": -7,
+     "ninf": {
+      "$float": "-inf"
+     },
+     "none": null,
+     "tiny": {
+      "$float": "1e-07"
+     },
+     "whole": {
+      "$float": "2.0"
+     }
+    }
+   }
+  },
+  {
+   "text": "l:\n  empty: []\n  list:\n  - a\n  - b\n  maps:\n  - a: 1\n    b: 2\n  - c: 3\n  mixed:\n  - 1\n  - '1'\n  - null\n  - k: []\n  nested:\n  - - x\n    - y\n  - - z\n",
+   "value": {
+    "l": {
+     "empty": [],
+     "list": [
+      "a",
+      "b"
+     ],
+     "maps": [
+      {
+       "a": 1,
+       "b": 2
+      },
+      {
+       "c": 3
+      }
+     ],
+     "mixed": [
+      1,
+      "1",
+      null,
+      {
+       "k": []
+      }
+     ],
+     "nested": [
+      [
+       "x",
+       "y"
+      ],
+      [
+       "z"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "text": "quoted keys:\n  '1984': 4\n  a b: 2\n  'a: b': 3\n  'yes': 1\n  \u00e9: 5\n",
+   "value": {
+    "quoted keys": {
+     "1984": 4,
+     "a b": 2,
+     "a: b": 3,
+     "yes": 1,
+     "\u00e9": 5
+    }
+   }
+  },
+  {
+   "text": "{}\n",
+   "value": {}
+  }
+ ],
+ "yaml_dump_narrow": [
+  {
+   "text": "s:\n  double: \"tab\\there harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour harbour harbour harbour\\\n    \\ harbour harbour \u00e9 \\U0001F600\"\n  plain: harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n  single: it's harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour harbour harbour harbour harbour\n    harbour\n",
+   "value": {
+    "s": {
+     "double": "tab\there harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour \u00e9 \ud83d\ude00",
+     "plain": "harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour",
+     "single": "it's harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour harbour"
+    }
+   }
+  }
+ ],
+ "yaml_load": [
+  {
+   "error": false,
+   "text": "key: Yes",
+   "value": {
+    "key": true
+   }
+  },
+  {
+   "error": false,
+   "text": "key: yes",
+   "value": {
+    "key": true
+   }
+  },
+  {
+   "error": false,
+   "text": "key: YES",
+   "value": {
+    "key": true
+   }
+  },
+  {
+   "error": false,
+   "text": "key: yEs",
+   "value": {
+    "key": "yEs"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: no",
+   "value": {
+    "key": false
+   }
+  },
+  {
+   "error": false,
+   "text": "key: on",
+   "value": {
+    "key": true
+   }
+  },
+  {
+   "error": false,
+   "text": "key: Off",
+   "value": {
+    "key": false
+   }
+  },
+  {
+   "error": false,
+   "text": "key: true",
+   "value": {
+    "key": true
+   }
+  },
+  {
+   "error": false,
+   "text": "key: False",
+   "value": {
+    "key": false
+   }
+  },
+  {
+   "error": false,
+   "text": "key: y",
+   "value": {
+    "key": "y"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: n",
+   "value": {
+    "key": "n"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: Y",
+   "value": {
+    "key": "Y"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: N",
+   "value": {
+    "key": "N"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: ~",
+   "value": {
+    "key": null
+   }
+  },
+  {
+   "error": false,
+   "text": "key: null",
+   "value": {
+    "key": null
+   }
+  },
+  {
+   "error": false,
+   "text": "key: Null",
+   "value": {
+    "key": null
+   }
+  },
+  {
+   "error": false,
+   "text": "key: nULL",
+   "value": {
+    "key": "nULL"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 1984",
+   "value": {
+    "key": 1984
+   }
+  },
+  {
+   "error": false,
+   "text": "key: -12",
+   "value": {
+    "key": -12
+   }
+  },
+  {
+   "error": false,
+   "text": "key: +3",
+   "value": {
+    "key": 3
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 0",
+   "value": {
+    "key": 0
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 010",
+   "value": {
+    "key": 8
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 0o17",
+   "value": {
+    "key": "0o17"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 0x1F",
+   "value": {
+    "key": 31
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 0b101",
+   "value": {
+    "key": 5
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 1_000",
+   "value": {
+    "key": 1000
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 1:30",
+   "value": {
+    "key": 90
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 1e3",
+   "value": {
+    "key": "1e3"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 1.5e3",
+   "value": {
+    "key": "1.5e3"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 1.5e+3",
+   "value": {
+    "key": {
+     "$float": "1500.0"
+    }
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 1.",
+   "value": {
+    "key": {
+     "$float": "1.0"
+    }
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 1.5",
+   "value": {
+    "key": {
+     "$float": "1.5"
+    }
+   }
+  },
+  {
+   "error": false,
+   "text": "key: .5",
+   "value": {
+    "key": {
+     "$float": "0.5"
+    }
+   }
+  },
+  {
+   "error": false,
+   "text": "key: -.inf",
+   "value": {
+    "key": {
+     "$float": "-inf"
+    }
+   }
+  },
+  {
+   "error": false,
+   "text": "key: .NaN",
+   "value": {
+    "key": {
+     "$float": "nan"
+    }
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 2021-01-01",
+   "value": {
+    "key": {
+     "$date": "2021-01-01"
+    }
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 2021-1-1",
+   "value": {
+    "key": "2021-1-1"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 2021-01-01 12:30:45",
+   "value": {
+    "key": {
+     "$date": "2021-01-01 12:30:45"
+    }
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 2021-01-01T12:30:45Z",
+   "value": {
+    "key": {
+     "$date": "2021-01-01 12:30:45+00:00"
+    }
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 2021-01-01 12:30:45.5 +02:00",
+   "value": {
+    "key": {
+     "$date": "2021-01-01 12:30:45.500000+02:00"
+    }
+   }
+  },
+  {
+   "error": "ValueError",
+   "text": "key: 2021-13-45"
+  },
+  {
+   "error": false,
+   "text": "key: [Links]",
+   "value": {
+    "key": [
+     "Links"
+    ]
+   }
+  },
+  {
+   "error": false,
+   "text": "key: {a}",
+   "value": {
+    "key": {
+     "a": null
+    }
+   }
+  },
+  {
+   "error": true,
+   "text": "key: a: b"
+  },
+  {
+   "error": false,
+   "text": "key: a:b",
+   "value": {
+    "key": "a:b"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: 'q'",
+   "value": {
+    "key": "q"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: \"q\"",
+   "value": {
+    "key": "q"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: #x",
+   "value": {
+    "key": null
+   }
+  },
+  {
+   "error": false,
+   "text": "key: x #y",
+   "value": {
+    "key": "x"
+   }
+  },
+  {
+   "error": true,
+   "text": "key: - x"
+  },
+  {
+   "error": false,
+   "text": "key: -x",
+   "value": {
+    "key": "-x"
+   }
+  },
+  {
+   "error": true,
+   "text": "key: *x"
+  },
+  {
+   "error": false,
+   "text": "key: &x y",
+   "value": {
+    "key": "y"
+   }
+  },
+  {
+   "error": true,
+   "text": "key: !x y"
+  },
+  {
+   "error": true,
+   "text": "key: ="
+  },
+  {
+   "error": true,
+   "text": "key: <<"
+  },
+  {
+   "error": true,
+   "text": "key: %x"
+  },
+  {
+   "error": true,
+   "text": "key: @x"
+  },
+  {
+   "error": true,
+   "text": "key: `x`"
+  },
+  {
+   "error": false,
+   "text": "key: |",
+   "value": {
+    "key": ""
+   }
+  },
+  {
+   "error": true,
+   "text": "key: > x"
+  },
+  {
+   "error": true,
+   "text": "key: ? x"
+  },
+  {
+   "error": false,
+   "text": "key: ?x",
+   "value": {
+    "key": "?x"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: :x",
+   "value": {
+    "key": ":x"
+   }
+  },
+  {
+   "error": true,
+   "text": "key: : x"
+  },
+  {
+   "error": false,
+   "text": "key: ...",
+   "value": {
+    "key": "..."
+   }
+  },
+  {
+   "error": false,
+   "text": "key: ---",
+   "value": {
+    "key": "---"
+   }
+  },
+  {
+   "error": false,
+   "text": "key: a, b",
+   "value": {
+    "key": "a, b"
+   }
+  },
+  {
+   "error": true,
+   "text": "key: tab\tinside"
+  },
+  {
+   "error": false,
+   "text": "a: 1\na: 2\n",
+   "value": {
+    "a": 2
+   }
+  },
+  {
+   "error": false,
+   "text": "a:\n  - 1\n  - 2.0\nb: {c: d}\n",
+   "value": {
+    "a": [
+     1,
+     {
+      "$float": "2.0"
+     }
+    ],
+    "b": {
+     "c": "d"
+    }
+   }
+  },
+  {
+   "error": false,
+   "text": "",
+   "value": null
+  },
+  {
+   "error": false,
+   "text": "# only a comment\n",
+   "value": null
+  },
+  {
+   "error": false,
+   "text": "just text\n",
+   "value": "just text"
+  },
+  {
+   "error": false,
+   "text": "- 1\n- 2\n",
+   "value": [
+    1,
+    2
+   ]
+  }
+ ]
+}
