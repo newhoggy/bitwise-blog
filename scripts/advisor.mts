@@ -115,7 +115,7 @@ function cmdLeakCheck(repoRoot: string, corpusRoot: string, history: boolean, ou
   const name = history ? "leak-check --history" : "leak-check";
   const result = history ? leakCheckHistory(repoRoot, corpusRoot) : leakCheck(repoRoot, corpusRoot);
   if (result.status === "skipped") {
-    out.log(`${name} skipped: ${result.reason}`);
+    out.log(`${name} skipped: ${result.reason}. Nothing was checked; \`npm run advisor -- link <path>\` points this checkout at the private data.`);
     return 0;
   }
   // Only places and lengths, never the words: this output may end up somewhere public.
