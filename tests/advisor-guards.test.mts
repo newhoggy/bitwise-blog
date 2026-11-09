@@ -164,6 +164,28 @@ test("findRuns: catches a copied run through case, curly quotes and markup, and 
   assert.deepEqual(twice.map((h) => [h.line, h.words]), [[1, 8], [3, 9]]);
 });
 
+test("findRuns: reads attribute values, tags with no prose breaking, and the escapes of JSON and JS", () => {
+  const runs = quoteRuns(atlas(QUOTE));
+  const words = QUOTE.split(" ").length;
+  const hit = (text: string) => findRuns("f", text, runs).map((h) => h.words);
+  assert.deepEqual(hit(`<meta name="description" content="${QUOTE}">`), [words], "content=");
+  assert.deepEqual(hit(`<img src="x.png" alt="${QUOTE}">`), [words], "alt=");
+  assert.deepEqual(hit(`<p>a harbour <a href="https://x.example/y">pilot</a> reads the water before the chart every single morning</p>`), [words], "attributes don't break prose");
+  assert.deepEqual(hit(JSON.stringify({ body: QUOTE.replace("before ", "before\n") })), [words], "an escaped line break");
+  assert.deepEqual(hit(JSON.stringify({ body: QUOTE }).replaceAll("a", "\\u0061")), [words], "unicode escapes");
+  assert.deepEqual(hit(`'${QUOTE.replace("reads", "reads\\'")}'`), [words], "an escaped apostrophe");
+  const multiline = findRuns("f", `<p>one</p>\n\n<meta\n content="${QUOTE}">\n`, runs);
+  assert.equal(multiline[0].line, 4, "the line of the quote, counting through tags");
+});
+
+test("findRuns and quoteRuns survive bad input, and their errors hold no text", () => {
+  const runs = quoteRuns(atlas(QUOTE));
+  for (const odd of ["&#x110000;", "&#99999999;", "&#xD800;", "&nosuch;", "a < b and c > d", "\\u12", "<"]) assert.deepEqual(findRuns("f", odd, runs), [], odd);
+  const secret = "SECRETWORDS here";
+  assert.throws(() => quoteRuns(`${secret}\n`), (e: Error) => /line 1 is not valid JSON/.test(e.message) && !e.message.includes("SECRET"));
+  assert.throws(() => quoteRuns(`\n${JSON.stringify({ quote: 5 })}\n`), /line 2: quote is not a string/);
+});
+
 test("leak-check: skips with no private data; fails on an injected quote; never prints its words", async (t) => {
   const repoRoot = tmp(t);
   const corpusRoot = path.join(repoRoot, "corpus");
@@ -218,6 +240,15 @@ test("leak-check: skips with no private data; fails on an injected quote; never 
   assert.equal(over.status === "done" && over.hits.length, 1, "quoting more than was reviewed fails");
   const other = leakCheck(repoRoot, corpusRoot, { "other.html": { ...allowance, maxWords: 99 } });
   assert.equal(other.status === "done" && other.hits.length, 1, "an exception for one file doesn't cover another");
+
+  // A broken atlas is a failure with a clean message, not a skip or a stack.
+  const atlasFile = path.join(dataDir("someone", corpusRoot), "ATLAS.jsonl");
+  const goodAtlas = fs.readFileSync(atlasFile, "utf8");
+  fs.writeFileSync(atlasFile, "not json at all\n");
+  const broken = await run();
+  assert.equal(broken.code, 1);
+  assert.deepEqual(broken.errors, ["error: ATLAS.jsonl line 1 is not valid JSON"]);
+  fs.writeFileSync(atlasFile, goodAtlas);
 
   // A file in the index but gone from disk is not an error.
   fs.rmSync(leak);

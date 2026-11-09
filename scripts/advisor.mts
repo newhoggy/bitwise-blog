@@ -14,7 +14,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { CORPUS_DIR, atlasEligible, loadMeta, loadPosts, privateDir, validate, writeMeta } from "./advisor/corpus.mts";
+import { CORPUS_DIR, atlasEligible, danglingLink, loadMeta, loadPosts, privateDir, validate, writeMeta } from "./advisor/corpus.mts";
 import { leakCheck, LEAK_RUN_WORDS } from "./advisor/guards.mts";
 import { applyHoldout, computeHoldout, DEFAULT_FRACTION, DEFAULT_SEED } from "./advisor/holdout.mts";
 import { buildIndexes, writers } from "./advisor/index.mts";
@@ -48,8 +48,10 @@ function cmdLink(target: string, force: boolean, corpusRoot: string, repoRoot: s
     out.error(`error: ${resolved} is not a directory`);
     return 1;
   }
-  const relative = path.relative(repoRoot, resolved);
-  if (relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))) {
+  // Real paths, so a symlink can't hide that the target is inside. Only corpus/private is ignored, so
+  // a directory anywhere else in the repository would be one `git add -A` away from being public.
+  const relative = path.relative(fs.realpathSync(repoRoot), fs.realpathSync(resolved));
+  if (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)) {
     out.error(`error: ${resolved} is inside this repository; the private data must live outside it`);
     return 1;
   }
@@ -153,6 +155,24 @@ export async function main(argv: string[] = process.argv.slice(2), context: Advi
   }
   const { values } = parsed;
   const [command, ...args] = parsed.positionals;
+  // Without this, leak-check would report "skipped" and exit 0 having checked nothing.
+  if (command !== "link" && danglingLink(corpusRoot)) {
+    out.error(`error: corpus/private points at ${fs.readlinkSync(privateDir(corpusRoot))}, which doesn't exist; run \`npm run advisor -- link <path>\``);
+    return 1;
+  }
+  try {
+    return dispatch(command, args, values, { out, corpusRoot, repoRoot, usageError });
+  } catch (e) {
+    // The message only, with no stack, and no command prints text from the corpus in one.
+    out.error(`error: ${(e as Error).message}`);
+    return 1;
+  }
+}
+
+interface Dispatch { out: Output; corpusRoot: string; repoRoot: string; usageError: (message?: string) => number }
+interface Flags { check?: boolean; force?: boolean; fraction?: string; seed?: string }
+
+function dispatch(command: string | undefined, args: string[], values: Flags, { out, corpusRoot, repoRoot, usageError }: Dispatch): number {
   switch (command) {
     case "link":
       if (args.length !== 1) return usageError();

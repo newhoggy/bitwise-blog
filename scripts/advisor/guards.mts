@@ -34,33 +34,50 @@ export const LEAK_ALLOWED: Record<string, LeakAllowance> = {
 const WORD = /[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)*/gu;
 // A quote may elide with "...", "…" or "[...]"; the words either side of one are not a run.
 const ELISION = /\.{3,}|…|\[[\s.…]*\]/;
-const TAG = /<\/?[a-zA-Z][^>]*>/g;
+const TAG = /<\/?[a-zA-Z][^<>]*>/g;
 const ENTITIES: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", rsquo: "'", lsquo: "'", rdquo: '"', ldquo: '"', mdash: "—", ndash: "–", hellip: "…",
 };
 
 const wordsOf = (text: string) => text.toLowerCase().replaceAll("’", "'").match(WORD) ?? [];
 
-/** Text with markup out of the way, so `<em>a</em> b` still reads as two words. Line numbers are kept. */
-function visibleText(text: string): string {
+function codePoint(digits: string, radix: number, whole: string): string {
+  const cp = parseInt(digits, radix);
+  return cp <= 0x10ffff ? String.fromCodePoint(cp) : whole;
+}
+
+/** Text as a reader would see it: HTML entities, and the string escapes of JSON and generated JS. Raw line breaks stay. */
+function decoded(text: string): string {
   return text
-    .replace(TAG, (tag) => " " + "\n".repeat(tag.split("\n").length - 1))
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#([0-9]+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/\\u([0-9a-fA-F]{4})/g, (whole, hex) => codePoint(hex, 16, whole))
+    .replace(/\\[nrt]/g, " ")
+    .replace(/\\(["'\/\\])/g, "$1")
+    .replace(/&#x([0-9a-f]+);/gi, (whole, hex) => codePoint(hex, 16, whole))
+    .replace(/&#([0-9]+);/g, (whole, dec) => codePoint(dec, 10, whole))
     .replace(/&([a-z]+);/gi, (whole, name) => ENTITIES[name.toLowerCase()] ?? whole);
 }
 
-/** Every run of `LEAK_RUN_WORDS` consecutive words in the quotes of an ATLAS.jsonl. */
+/**
+ * Every run of `LEAK_RUN_WORDS` consecutive words in the quotes of an ATLAS.jsonl. An error names the
+ * line only: JSON.parse's own message would repeat the start of the text.
+ */
 export function quoteRuns(atlasText: string): Set<string> {
   const runs = new Set<string>();
-  for (const line of atlasText.split("\n")) {
-    if (!line.trim()) continue;
-    const quote = (JSON.parse(line) as { quote?: string }).quote ?? "";
+  atlasText.split("\n").forEach((line, index) => {
+    if (!line.trim()) return;
+    let quote: unknown;
+    try {
+      quote = (JSON.parse(line) as { quote?: unknown }).quote;
+    } catch {
+      throw new Error(`ATLAS.jsonl line ${index + 1} is not valid JSON`);
+    }
+    if (quote === undefined) return;
+    if (typeof quote !== "string") throw new Error(`ATLAS.jsonl line ${index + 1}: quote is not a string`);
     for (const segment of quote.split(ELISION)) {
       const words = wordsOf(segment);
       for (let i = 0; i + LEAK_RUN_WORDS <= words.length; i++) runs.add(words.slice(i, i + LEAK_RUN_WORDS).join(" "));
     }
-  }
+  });
   return runs;
 }
 
@@ -71,26 +88,53 @@ export interface LeakHit {
   words: number;
 }
 
-/** The runs from `runs` that appear in `text`, merged where they overlap. */
-export function findRuns(file: string, text: string, runs: Set<string>): LeakHit[] {
-  const visible = visibleText(text);
-  const lower = visible.toLowerCase().replaceAll("’", "'");
-  const tokens = [...lower.matchAll(WORD)];
+interface Word { text: string; line: number }
+
+/** The words of consecutive runs found in `words`, merged where they overlap. */
+function scan(file: string, words: Word[], runs: Set<string>): LeakHit[] {
   const hits: LeakHit[] = [];
   let current: LeakHit | null = null;
   let currentEnd = -1;
-  for (let i = 0; i + LEAK_RUN_WORDS <= tokens.length; i++) {
-    const candidate = tokens.slice(i, i + LEAK_RUN_WORDS).map((m) => m[0]).join(" ");
-    if (!runs.has(candidate)) continue;
-    if (current && i <= currentEnd) {
-      current.words = i + LEAK_RUN_WORDS - currentEnd + current.words;
-    } else {
-      current = { file, line: lower.slice(0, tokens[i].index).split("\n").length, words: LEAK_RUN_WORDS };
+  for (let i = 0; i + LEAK_RUN_WORDS <= words.length; i++) {
+    if (!runs.has(words.slice(i, i + LEAK_RUN_WORDS).map((w) => w.text).join(" "))) continue;
+    if (current && i <= currentEnd) current.words += i + LEAK_RUN_WORDS - currentEnd;
+    else {
+      current = { file, line: words[i].line, words: LEAK_RUN_WORDS };
       hits.push(current);
     }
     currentEnd = i + LEAK_RUN_WORDS;
   }
   return hits;
+}
+
+/**
+ * The runs from `runs` that appear in `text`. Prose is read across tags, so `<em>a</em> b` is two
+ * words in a row. Each tag is read on its own, so a quote in a `content=` or `alt=` attribute counts,
+ * without attribute names breaking up the prose around the tag.
+ */
+export function findRuns(file: string, text: string, runs: Set<string>): LeakHit[] {
+  let line = 1;
+  const wordsIn = (segment: string): Word[] => {
+    const lower = decoded(segment).toLowerCase().replaceAll("’", "'");
+    const words: Word[] = [];
+    let at = 0;
+    for (const m of lower.matchAll(WORD)) {
+      for (; at < m.index; at++) if (lower[at] === "\n") line++;
+      words.push({ text: m[0], line });
+    }
+    for (; at < lower.length; at++) if (lower[at] === "\n") line++;
+    return words;
+  };
+  const prose: Word[] = [];
+  const hits: LeakHit[] = [];
+  let last = 0;
+  for (const tag of text.matchAll(TAG)) {
+    prose.push(...wordsIn(text.slice(last, tag.index)));
+    hits.push(...scan(file, wordsIn(tag[0]), runs));
+    last = tag.index + tag[0].length;
+  }
+  prose.push(...wordsIn(text.slice(last)));
+  return [...hits, ...scan(file, prose, runs)].sort((a, b) => a.line - b.line);
 }
 
 /** The files git tracks in `repoRoot`, skipping binaries and symlinks, as [relative path, text]. */
