@@ -131,10 +131,20 @@ test("pyYamlDump writes what safe_dump writes", () => {
   for (const { value, text } of goldens.yaml_dump_narrow) assert.equal(pyYamlDump(untag(value) as Record<string, unknown>, 40), text);
 });
 
-test("pyYamlDump refuses keys it can't write as simple keys, rather than writing something else", () => {
-  assert.throws(() => pyYamlDump({ ["k".repeat(128)]: 1 }), /too complex/);
-  assert.throws(() => pyYamlDump({ "a\nb": 1 }), /too complex/);
-  assert.throws(() => pyYamlDump({ "": 1 }), /too complex/);
+test("pyYamlDump writes keys too long or odd for `key: value` as complex keys", () => {
+  const { text } = goldens.yaml_dump.find((c: { text: string }) => c.text.includes("? ''"));
+  assert.ok(text.includes(`  ${"k".repeat(122)}: 1\n`), "122 characters is the longest simple key");
+  assert.ok(text.includes(`  ? ${"k".repeat(123)}\n  : `), "123 is the shortest complex one, because the tag counts");
+});
+
+test("pyYamlLoad errors don't repeat the text they failed on", () => {
+  const secret = "SECRET";
+  assert.throws(() => pyYamlLoad(`a: b: ${secret}\n`), (e: Error) => e instanceof YamlError && !e.message.includes(secret));
+});
+
+test("pyStr writes collections as str() does", () => {
+  assert.ok(goldens.str_value.length >= 10);
+  for (const { value, out } of goldens.str_value) assert.equal(pyStr(untag(value)), out, out);
 });
 
 test("pyYamlDump output reads back to the same value", () => {

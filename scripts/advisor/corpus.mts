@@ -72,9 +72,14 @@ export function eraOf(published: string): string {
   return Number(head.replaceAll("_", "")) <= EARLY_ERA_LAST_YEAR ? EARLY_ERA : LATE_ERA;
 }
 
+/** `entry.get("atlas", "include")`: a bare `atlas:` is null, which is neither value, not the default. */
+function atlasValue(entry: PostMeta): unknown {
+  return Object.hasOwn(entry, "atlas") ? entry.atlas : "include";
+}
+
 /** Not excluded from the atlas; ignores the holdout split. */
 export function atlasEligible(post: Post): boolean {
-  return (post.meta.atlas ?? "include") === "include";
+  return atlasValue(post.meta) === "include";
 }
 export function isEval(post: Post): boolean {
   return post.meta.split === "eval";
@@ -216,6 +221,12 @@ export function evalPosts(slug: string, corpusRoot: string = CORPUS_DIR): Post[]
   return loadPosts(slug, corpusRoot).filter(isEval);
 }
 
+/** True if corpus/private is a symlink whose target has gone: linked, but not there, which is not the same as no private data. */
+export function danglingLink(corpusRoot: string = CORPUS_DIR): boolean {
+  const link = privateDir(corpusRoot);
+  return fs.lstatSync(link, { throwIfNoEntry: false })?.isSymbolicLink() === true && !fs.existsSync(link);
+}
+
 /** The problems with a writer's sidecar; empty when it is consistent. */
 export function validate(slug: string, corpusRoot: string = CORPUS_DIR): string[] {
   const meta = loadMeta(slug, corpusRoot);
@@ -233,7 +244,7 @@ export function validate(slug: string, corpusRoot: string = CORPUS_DIR): string[
       continue;
     }
     const entry = metaOf(stem);
-    const atlas = entry.atlas ?? "include";
+    const atlas = atlasValue(entry);
     const included = atlas === "include";
     for (const key of Object.keys(entry).filter((k) => !KNOWN_FIELDS.has(k)).sort(codePointCompare)) problems.push(`${stem}: unknown field ${key}`);
     if (!pyTruthy(entry.category)) problems.push(`${stem}: missing category`);
@@ -258,7 +269,7 @@ export function validate(slug: string, corpusRoot: string = CORPUS_DIR): string[
       }
       if (included) problems.push(`${stem}: ${ref} set but post is still atlas-included`);
       // The canonical copy must be the one that feeds the atlas: no self-references, cycles or chains.
-      if ((metaOf(pyStr(target)).atlas ?? "include") !== "include") problems.push(`${stem}: ${ref} target ${pyStr(target)} is not atlas-eligible`);
+      if (atlasValue(metaOf(pyStr(target))) !== "include") problems.push(`${stem}: ${ref} target ${pyStr(target)} is not atlas-eligible`);
     }
   }
   return problems;

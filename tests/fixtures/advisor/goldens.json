@@ -561,6 +561,29 @@
    "title": "Salt"
   }
  ],
+ "null_atlas": {
+  "eligible": [
+   "lesswrong-anchor-watch",
+   "lesswrong-fog-signals",
+   "lesswrong-reading-the-swell",
+   "lesswrong-standing-orders",
+   "medium-harbour-fees-def456",
+   "medium-knots-abc123",
+   "substack-pilot-boats-at-night",
+   "substack-slack-water",
+   "substack-the-bar-crossing",
+   "substack-unquoted-colon",
+   "substack-why-tugs-push"
+  ],
+  "holdout": [
+   "lesswrong-fog-signals",
+   "lesswrong-reading-the-swell",
+   "medium-harbour-fees-def456",
+   "medium-knots-abc123",
+   "substack-pilot-boats-at-night",
+   "substack-the-bar-crossing"
+  ]
+ },
  "parse_post": [
   {
    "body": "No frontmatter here.\n",
@@ -1141,6 +1164,70 @@
    "s": "\u00e9"
   }
  ],
+ "str_value": [
+  {
+   "out": "['Links']",
+   "value": [
+    "Links"
+   ]
+  },
+  {
+   "out": "{'a': 1}",
+   "value": {
+    "a": 1
+   }
+  },
+  {
+   "out": "[1, 2.5, None, True, 'x', \"it's\"]",
+   "value": [
+    1,
+    {
+     "$float": "2.5"
+    },
+    null,
+    true,
+    "x",
+    "it's"
+   ]
+  },
+  {
+   "out": "{'a': [1], 'b': {'c': 'd'}}",
+   "value": {
+    "a": [
+     1
+    ],
+    "b": {
+     "c": "d"
+    }
+   }
+  },
+  {
+   "out": "[]",
+   "value": []
+  },
+  {
+   "out": "{}",
+   "value": {}
+  },
+  {
+   "out": "1.0",
+   "value": {
+    "$float": "1.0"
+   }
+  },
+  {
+   "out": "None",
+   "value": null
+  },
+  {
+   "out": "True",
+   "value": true
+  },
+  {
+   "out": "plain",
+   "value": "plain"
+  }
+ ],
  "strings": [
   {
    "keepends": [
@@ -1575,6 +1662,29 @@
    "problems": [
     "substack-pilot-boats: missing category"
    ]
+  },
+  {
+   "entry": {
+    "atlas": null,
+    "category": "x"
+   },
+   "problems": [
+    "substack-pilot-boats: atlas must be one of ['exclude', 'include']",
+    "substack-pilot-boats: excluded without atlas_reason",
+    "substack-pilot-boats-copy: duplicate_of target substack-pilot-boats is not atlas-eligible"
+   ]
+  },
+  {
+   "entry": {
+    "atlas": null,
+    "atlas_reason": "y",
+    "category": "x",
+    "duplicate_of": "substack-pilot-boats-at-night"
+   },
+   "problems": [
+    "substack-pilot-boats: atlas must be one of ['exclude', 'include']",
+    "substack-pilot-boats-copy: duplicate_of target substack-pilot-boats is not atlas-eligible"
+   ]
   }
  ],
  "validate_orphans": [
@@ -1775,6 +1885,29 @@
      "a: b": 3,
      "yes": 1,
      "\u00e9": 5
+    }
+   }
+  },
+  {
+   "text": "posts:\n  ? ''\n  : empty key\n  ? 'a\n\n    b'\n  : - 1\n    - 2\n  kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk: 1\n  ? kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk\n  : atlas: include\n    category: x\n  ? word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word end\n  : 2\n  z:\n    y:\n      ? mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\n      : []\n",
+   "value": {
+    "posts": {
+     "": "empty key",
+     "a\nb": [
+      1,
+      2
+     ],
+     "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk": 1,
+     "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk": {
+      "atlas": "include",
+      "category": "x"
+     },
+     "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word end": 2,
+     "z": {
+      "y": {
+       "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm": []
+      }
+     }
     }
    }
   },

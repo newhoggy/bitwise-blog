@@ -159,6 +159,15 @@ test("computeHoldout picks the same stems as compute_holdout", () => {
   }
 });
 
+test("a bare `atlas:` is not the default: the post leaves the atlas, as in Python", (t) => {
+  const root = copyOfFixtures(t);
+  writeMeta(WREN, { ...loadMeta(WREN, root), "substack-pilot-boats": { category: "navigation", atlas: null } }, root);
+  const posts = loadPosts(WREN, root);
+  assert.deepEqual(posts.filter(atlasEligible).map((p) => p.stem), goldens.null_atlas.eligible);
+  assert.ok(!goldens.null_atlas.eligible.includes("substack-pilot-boats"), "the case is the one intended");
+  assert.deepEqual([...computeHoldout(posts, 0.5, 1)].sort(), [...goldens.null_atlas.holdout].sort());
+});
+
 test("computeHoldout never holds out an excluded post", () => {
   const posts = loadPosts(WREN, FIXTURES);
   const excluded = posts.filter((p) => !atlasEligible(p)).map((p) => p.stem);
@@ -287,6 +296,12 @@ test("link: makes the symlink, is idempotent, and refuses what it could lose", a
   assert.match((await run(path.join(other, "nope"))).errors[0], /not a directory/);
   fs.mkdirSync(path.join(repoRoot, "inside"));
   assert.match((await run(path.join(repoRoot, "inside"))).errors[0], /inside this repository/);
+  assert.match((await run(repoRoot)).errors[0], /inside this repository/);
+  fs.mkdirSync(path.join(repoRoot, "..foo"));
+  assert.match((await run(path.join(repoRoot, "..foo"))).errors[0], /inside this repository/, "a name that starts with two dots is still inside");
+  const alias = path.join(other, "alias");
+  fs.symlinkSync(path.join(repoRoot, "inside"), alias);
+  assert.match((await run(alias)).errors[0], /inside this repository/, "a symlink into the repository is still inside");
   assert.equal((await run()).code, 2);
 
   fs.unlinkSync(privateDir(corpusRoot));
@@ -307,6 +322,28 @@ test("parity: skips cleanly with no private data", async (t) => {
   const s = sink();
   assert.equal(await main(["parity"], { corpusRoot: tmp(t), repoRoot: tmp(t), out: s.out }), 0);
   assert.match(s.lines[0], /parity skipped/);
+});
+
+test("a dangling corpus/private is an error, not a clean skip", async (t) => {
+  const corpusRoot = tmp(t);
+  fs.symlinkSync(path.join(corpusRoot, "gone"), privateDir(corpusRoot));
+  assert.equal(fs.lstatSync(privateDir(corpusRoot)).isSymbolicLink() && !fs.existsSync(privateDir(corpusRoot)), true, "the link dangles");
+  for (const argv of [["leak-check"], ["parity"], ["index"], ["holdout", WREN]]) {
+    const s = sink();
+    assert.equal(await main(argv, { corpusRoot, repoRoot: tmp(t), out: s.out }), 1, argv[0]);
+    assert.match(s.errors[0], /doesn't exist/, argv[0]);
+  }
+  const relink = sink();
+  assert.equal(await main(["link", "--force", tmp(t)], { corpusRoot, repoRoot: tmp(t), out: relink.out }), 0, "link can repair it");
+});
+
+test("a command that fails prints the message, not a stack", async (t) => {
+  const corpusRoot = copyOfFixtures(t);
+  fs.writeFileSync(path.join(dataDir(WREN, corpusRoot), "corpus_meta.yaml"), "posts: [unclosed\n");
+  const s = sink();
+  assert.equal(await main(["holdout", WREN], { corpusRoot, out: s.out }), 1);
+  assert.match(s.errors[0], /^error: /);
+  assert.equal(s.errors.join("\n").includes("unclosed"), false);
 });
 
 test("parity: passes on data that matches the reference, and fails on data that doesn't", async (t) => {

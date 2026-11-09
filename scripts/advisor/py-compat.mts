@@ -174,13 +174,16 @@ export function pyTruthy(value: unknown): boolean {
   return Boolean(value);
 }
 
-/** `str(value)` for what YAML can produce. */
+/** `str(value)` for what YAML can produce. Inside a collection a date prints as its text, where Python prints `datetime.date(…)`. */
 export function pyStr(value: unknown): string {
   if (value === null || value === undefined) return "None";
   if (value === true) return "True";
   if (value === false) return "False";
   if (value instanceof PyFloat) return floatRepr(value.value);
   if (value instanceof PyDate) return value.text;
+  const repr = (item: unknown) => (typeof item === "string" ? strRepr(item) : pyStr(item));
+  if (Array.isArray(value)) return `[${value.map(repr).join(", ")}]`;
+  if (typeof value === "object") return `{${Object.entries(value).map(([k, v]) => `${strRepr(k)}: ${repr(v)}`).join(", ")}}`;
   return String(value);
 }
 
@@ -325,7 +328,8 @@ const NOT_PLAIN_IN_PYYAML = /[\t\x85\u2028\u2029]/;
  */
 export function pyYamlLoad(text: string): unknown {
   try {
-    const doc = parseDocument(text, { version: "1.1", schema: "failsafe", customTags: PYYAML_TAGS, uniqueKeys: false, logLevel: "silent" });
+    const doc = parseDocument(text, { version: "1.1", schema: "failsafe", customTags: PYYAML_TAGS, uniqueKeys: false, logLevel: "silent", prettyErrors: false });
+    // prettyErrors off: the pretty form quotes the offending line, and this text may be private.
     // An unknown tag is only a warning in the library, and an error from safe_load.
     const problem = doc.errors[0] ?? doc.warnings[0];
     if (problem) throw new YamlError(problem.message);
@@ -404,6 +408,9 @@ const ESCAPES = new Map<string, string>([
   ["\0", "0"], ["\x07", "a"], ["\x08", "b"], ["\t", "t"], ["\n", "n"], ["\v", "v"], ["\f", "f"], ["\r", "r"], ["\x1b", "e"],
   ['"', '"'], ["\\", "\\"], ["\x85", "N"], ["\xa0", "_"], ["\u2028", "L"], ["\u2029", "P"],
 ]);
+
+// The limit in `check_simple_key` is 128, and it also counts the `!!str` tag (5), written or not.
+const MAX_SIMPLE_KEY = 128 - "!!str".length;
 
 /** The block-style subset of PyYAML's `Emitter`: what `safe_dump(value, sort_keys=True, allow_unicode=True, width=…)` writes. */
 class YamlEmitter {
@@ -564,10 +571,17 @@ class YamlEmitter {
     const saved = this.indent;
     this.indent = parentIndent === null ? 0 : parentIndent + 2;
     for (const key of Object.keys(value).sort(codePointCompare)) {
-      if (pyLen(key) >= 128 || key === "" || analyzeScalar(key).multiline) throw new Error(`pyYamlDump: key too complex for a simple key: ${strRepr(key)}`);
       this.writeIndent();
-      this.scalar(key, true);
-      this.indicator(":", false);
+      if (pyLen(key) < MAX_SIMPLE_KEY && key !== "" && !analyzeScalar(key).multiline) {
+        this.scalar(key, true);
+        this.indicator(":", false);
+      } else {
+        // Too long, empty or multi-line for `key: value`, so a complex key: `? key`, then `: value`.
+        this.indicator("?", true, false, true);
+        this.scalar(key, false);
+        this.writeIndent();
+        this.indicator(":", true, false, true);
+      }
       this.node(value[key], true);
     }
     this.indent = saved;
@@ -627,7 +641,7 @@ function yamlScalarText(value: unknown): string {
 /**
  * `yaml.safe_dump(value, sort_keys=True, allow_unicode=True, width=width)` for a mapping of maps,
  * lists and scalars. The `yaml` library's stringifier quotes by other rules, and `corpus_meta.yaml`
- * must stay byte-stable. Keys must be simple ones (under 128 characters, single line, non-empty).
+ * must stay byte-stable.
  */
 export function pyYamlDump(value: Record<string, unknown>, width = 1000): string {
   const emitter = new YamlEmitter(width);
