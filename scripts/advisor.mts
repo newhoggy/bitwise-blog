@@ -126,6 +126,7 @@ function cmdLeakCheck(repoRoot: string, corpusRoot: string, history: boolean, ou
     return 1;
   }
   for (const item of result.allowed) out.log(`allowed: ${where(item)} (${item.words} words): ${item.reason}`);
+  if (result.unread) out.log(`note: ${result.unread} blob(s) over 8 MiB were not read`);
   out.log(`${name} passed: ${describeSources(result.sources)}; ${result.files} ${history ? "blobs" : "tracked files"}`);
   return 0;
 }
@@ -158,6 +159,7 @@ export async function main(argv: string[] = process.argv.slice(2), context: Advi
   }
   const { values } = parsed;
   const [command, ...args] = parsed.positionals;
+  if (values.history && command !== "leak-check") return usageError("--history only applies to leak-check");
   // Without this, leak-check would report "skipped" and exit 0 having checked nothing.
   if (command !== "link" && danglingLink(corpusRoot)) {
     out.error(`error: corpus/private points at ${fs.readlinkSync(privateDir(corpusRoot))}, which doesn't exist; run \`npm run advisor -- link <path>\``);

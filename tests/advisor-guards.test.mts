@@ -332,6 +332,7 @@ test("postRuns and jsonlRuns: markdown link targets are not prose, every string 
   assert.deepEqual(postRuns(linked), postRuns(POST), "a link keeps its text and loses its target");
   assert.ok(postRuns(`![alt text](https://x.example/i.png) ${POST}`).has(words.slice(0, 8).join(" ")));
   assert.equal(postRuns("seven words make no run").size, 0);
+  assert.deepEqual(postRuns(`don&rsquo;t read the chart before you read the water &amp; more`), postRuns("don't read the chart before you read the water & more"), "entities are decoded as on the page side");
 
   const nested = JSON.stringify({ a: 1, list: [{ deep: { text: NEGATIVE } }, null, true] });
   assert.equal(jsonlRuns("x.jsonl", nested).size, NEGATIVE.split(" ").length - LEAK_RUN_WORDS + 1, "a string nested in arrays and objects");
@@ -384,6 +385,40 @@ test("leak-check --history: finds a run in a blob no longer checked out, on any 
     "old.html@blob:2: N-word run from post text",
     "side.md@blob:1: N-word run from an atlas statement",
   ]);
+});
+
+test("leak-check --history: a copy at another path isn't excused by the allowance of the first, and a big blob is counted", async (t) => {
+  const { repoRoot, corpusRoot, run } = leakFixture(t);
+  const page = `<p>${POST}</p>\n`;
+  fs.writeFileSync(path.join(repoRoot, "a-allowed.html"), page);
+  fs.writeFileSync(path.join(repoRoot, "z-copy.html"), page);
+  assert.ok(fs.readFileSync(path.join(repoRoot, "z-copy.html"), "utf8").includes(POST), "the fault was injected");
+  const huge = "x ".repeat(5 * 1024 * 1024) + POST;
+  fs.writeFileSync(path.join(repoRoot, "huge.txt"), huge);
+  assert.ok(huge.length > 8 * 1024 * 1024 && huge.includes(POST), "the big blob holds the text and is over the limit");
+  git(repoRoot, "add", "a-allowed.html", "z-copy.html", "huge.txt");
+  git(repoRoot, "commit", "-qm", "two paths");
+  git(repoRoot, "rm", "-q", "a-allowed.html", "z-copy.html", "huge.txt");
+  git(repoRoot, "commit", "-qm", "remove");
+  const reason = "quoted on purpose";
+  for (const first of ["a-allowed.html", "z-copy.html"]) {
+    const other = first === "a-allowed.html" ? "z-copy.html" : "a-allowed.html";
+    const result = leakCheckHistory(repoRoot, corpusRoot, { [first]: { reason, maxWords: 99 } });
+    assert.deepEqual(result.status === "done" && result.hits.map((h) => h.file), [other], `only ${first} is allowed`);
+    assert.equal(result.status === "done" && result.allowed.length, 1);
+    assert.equal(result.status === "done" && result.unread, 1);
+  }
+  const cli = await run("--history");
+  assert.equal(cli.code, 1);
+  assert.equal(cli.errors.length, 3, "one line per path, then the summary");
+  const allowedBoth = leakCheckHistory(repoRoot, corpusRoot, { "a-allowed.html": { reason, maxWords: 99 }, "z-copy.html": { reason, maxWords: 99 } });
+  assert.equal(allowedBoth.status === "done" && allowedBoth.hits.length, 0);
+});
+
+test("leak-check: --history belongs to leak-check alone", async () => {
+  const s = sink();
+  assert.equal(await main(["parity", "--history"], { out: s.out }), 2);
+  assert.match(s.errors[0], /--history only applies to leak-check/);
 });
 
 test("leak-check --history: passes on a clean history, and skips with no private data", async (t) => {

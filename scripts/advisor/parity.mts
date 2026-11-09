@@ -94,9 +94,14 @@ export function parity(repoRoot: string, corpusRoot: string = CORPUS_DIR): Parit
   const checked = writers(corpusRoot).filter((w) => fs.existsSync(parityFile(w, corpusRoot)));
   if (checked.length === 0) return { status: "skipped", reason: "no private data with a parity reference (see `npm run advisor -- link`)" };
   const rows: [string, ParityRow][] = checked.flatMap((w) => writerParity(w, corpusRoot).map((r): [string, ParityRow] => [w, r]));
-  const leak = leakCheck(repoRoot, corpusRoot);
-  if (leak.status === "done") {
-    rows.push(["(all)", row("Leak check", leak.hits.length === 0, `${describeSources(leak.sources)}; ${leak.files} tracked files, ${leak.hits.length} runs found, ${leak.allowed.length} files allowed`)]);
+  // A malformed private file fails this one row (its message names a line, never text) instead of the whole report.
+  try {
+    const leak = leakCheck(repoRoot, corpusRoot);
+    if (leak.status === "done") {
+      rows.push(["(all)", row("Leak check", leak.hits.length === 0, `${describeSources(leak.sources)}; ${leak.files} tracked files, ${leak.hits.length} runs found, ${leak.allowed.length} files allowed`)]);
+    }
+  } catch (e) {
+    rows.push(["(all)", row("Leak check", false, (e as Error).message)]);
   }
   for (const [check, phase] of PENDING) rows.push(["(all)", { check, status: "pending", detail: `not ported yet (${phase})` }]);
   return { status: "done", rows };
