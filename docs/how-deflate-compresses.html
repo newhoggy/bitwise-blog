@@ -45,6 +45,9 @@
     #overview .node text.sub { font-size: 13px; }
     #window .cell text { font-weight: 500; }
     #window .win-cursor { fill: var(--accent); }
+    #window .win-ov { pointer-events: none; }
+    #window .win-ov rect { fill: url(#win-stripe); }
+    #win-stripe rect { fill: color-mix(in oklab, var(--c1) 32%, transparent); }
     #huffman-tree .leaf text:not(.sub) { font-size: 18px; }
     #huffman-tree .tree-bit { fill: var(--c6); }
     #canonical-codes .node text { font-size: 16px; }
@@ -268,22 +271,22 @@
         <text class="label" x="626" y="124">10 tokens</text>
         <path class="edge c6" data-id="e-huffman" d="M360 140 V189"/>
         <text class="label strong" x="374" y="170">Huffman codes turn tokens into bits</text>
-        <g class="node c5" data-id="bits"><rect x="110" y="200" width="500" height="48" rx="10"/><text x="360" y="216">13 bytes</text><text class="sub" x="360" y="236">103 bits, 37% of the input</text></g>
+        <g class="node c5" data-id="bits"><rect x="268" y="200" width="184" height="48" rx="10"/><text x="360" y="216">13 bytes</text><text class="sub" x="360" y="236">103 of 280 bits</text></g>
+        <text class="label" x="468" y="224">37% of the input, to scale</text>
       </svg>
       <ul class="legend">
         <li><span class="swatch c2"></span>literal byte</li>
         <li><span class="swatch c1"></span>back-reference (length, distance)</li>
-        <li><span class="swatch c6"></span>Huffman code</li>
-        <li><span class="swatch c5"></span>output bits</li>
       </ul>
-      <figcaption>Notice that the two savings are independent. The token count falls because of repetition (35 bytes, 10 tokens); the bits per token fall because of skew. These four colours keep the same meaning in every figure below.</figcaption>
+      <figcaption>Notice that the output box is drawn to scale: 103 bits against 280. Repetition made the token list shorter (35 bytes, 10 tokens). Skew could make each token cheaper too, but in this block it saves nothing, as <a href="#answer">the tally at the end</a> shows. The literal and back-reference colours keep their meaning in every figure below.</figcaption>
     </figure>
     <p>The two stages are independent, and each is useful alone. A file of random English words has little exact repetition but plenty of skew. A file of one byte repeated is all repetition. DEFLATE needs both because real data has both.</p>
     <p>So let's take them in that order: LZ77 on its own, then Huffman coding on its own, then the one part that isn't obvious, how DEFLATE joins them. Then we read a real block bit by bit, and come back to the opening question with every bit accounted for. If you already know LZ77 and Huffman coding, skip to <a href="#joining">the join</a>: it is the part you are least likely to have seen. If you'd rather experiment as you go, <a href="#try-it">the playground</a> runs all of it on your own text.</p>
     <h2 id="lz77">LZ77: say it once, then point back</h2>
     <p>Read the input left to right. Keep everything already read in a <em>sliding window</em> (DEFLATE's holds the last 32,768 bytes). At each position, look for the longest run of upcoming bytes that already appears in the window. If it is at least 3 bytes long, emit a <em>back-reference</em>: copy <em>length</em> bytes, starting <em>distance</em> bytes back. Otherwise emit the byte itself as a literal.<span class="sidenote">Why 3? A short copy costs about 12 to 25 bits once it is coded, as <a href="#one-block">the bit walk</a> shows (its 4-byte copy takes 13). Two literals cost 16, so a 2-byte copy would rarely pay; three cost 24.</span></p>
     <figure class="diagram wide" id="window">
-      <svg viewBox="-16 -16 800 172" role="img" aria-label="The 35 input bytes in a row, with two arcs pointing back to earlier copies, and the ten tokens they become: seven letters, (4,7), a space and (23,12)">
+      <svg viewBox="-16 -16 800 180" role="img" aria-label="The 35 input bytes in a row, with two arcs pointing back to earlier copies, and the ten tokens they become, each directly under the bytes it replaces: seven letters, (4,7), a space and (23,12). Bytes 12 to 22 are striped: the second copy reads them after writing them.">
+        <defs><pattern id="win-stripe" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3" height="6"/></pattern></defs>
         <rect class="zone win-zone" x="-4" y="34" width="708" height="40" rx="6"/>
         <text class="label win-zone-label" x="0" y="92">window: bytes already seen</text>
         <g class="node cell c2" data-id="c0"><rect x="0" y="40" width="20" height="28" rx="3"/><text x="10" y="54">a</text></g>
@@ -326,20 +329,21 @@
         <text class="label" data-id="arc1-label" x="78" y="26" text-anchor="middle">7 back</text>
         <text class="label" data-id="arc2-label" x="200" y="22" text-anchor="middle">12 back</text>
         <text class="label" x="716" y="54">35 bytes</text>
-        <g class="node tok c2" data-id="t0"><rect x="0" y="110" width="24" height="30" rx="5"/><text x="12" y="125">a</text></g>
-        <g class="node tok c2" data-id="t1"><rect x="30" y="110" width="24" height="30" rx="5"/><text x="42" y="125">b</text></g>
-        <g class="node tok c2" data-id="t2"><rect x="60" y="110" width="24" height="30" rx="5"/><text x="72" y="125">r</text></g>
-        <g class="node tok c2" data-id="t3"><rect x="90" y="110" width="24" height="30" rx="5"/><text x="102" y="125">a</text></g>
-        <g class="node tok c2" data-id="t4"><rect x="120" y="110" width="24" height="30" rx="5"/><text x="132" y="125">c</text></g>
-        <g class="node tok c2" data-id="t5"><rect x="150" y="110" width="24" height="30" rx="5"/><text x="162" y="125">a</text></g>
-        <g class="node tok c2" data-id="t6"><rect x="180" y="110" width="24" height="30" rx="5"/><text x="192" y="125">d</text></g>
-        <g class="node tok c1" data-id="t7"><rect x="210" y="110" width="56" height="30" rx="5"/><text x="238" y="125">(4,7)</text></g>
-        <g class="node tok c2" data-id="t8"><rect x="272" y="110" width="24" height="30" rx="5"/><text x="284" y="125">␣</text></g>
-        <g class="node tok c1" data-id="t9"><rect x="302" y="110" width="72" height="30" rx="5"/><text x="338" y="125">(23,12)</text></g>
-        <text class="label strong win-count" x="390" y="125">10 tokens</text>
+        <g class="node tok c2" data-id="t0"><rect x="1" y="118" width="18" height="30" rx="5"/><text x="10" y="133">a</text></g>
+        <g class="node tok c2" data-id="t1"><rect x="21" y="118" width="18" height="30" rx="5"/><text x="30" y="133">b</text></g>
+        <g class="node tok c2" data-id="t2"><rect x="41" y="118" width="18" height="30" rx="5"/><text x="50" y="133">r</text></g>
+        <g class="node tok c2" data-id="t3"><rect x="61" y="118" width="18" height="30" rx="5"/><text x="70" y="133">a</text></g>
+        <g class="node tok c2" data-id="t4"><rect x="81" y="118" width="18" height="30" rx="5"/><text x="90" y="133">c</text></g>
+        <g class="node tok c2" data-id="t5"><rect x="101" y="118" width="18" height="30" rx="5"/><text x="110" y="133">a</text></g>
+        <g class="node tok c2" data-id="t6"><rect x="121" y="118" width="18" height="30" rx="5"/><text x="130" y="133">d</text></g>
+        <g class="node tok c1" data-id="t7"><rect x="141" y="118" width="78" height="30" rx="5"/><text x="180" y="133">(4,7)</text></g>
+        <g class="node tok c2" data-id="t8"><rect x="221" y="118" width="18" height="30" rx="5"/><text x="230" y="133">␣</text></g>
+        <g class="node tok c1" data-id="t9"><rect x="241" y="118" width="458" height="30" rx="5"/><text x="470" y="133">(23,12)</text></g>
+        <text class="label strong win-count" x="716" y="133">10 tokens</text>
+        <g class="win-ov" data-id="ov"><rect x="240" y="40" width="220" height="28" rx="3"/><text class="label" x="350" y="100" text-anchor="middle">bytes 12–22: read after this copy writes them</text></g>
         <path class="win-cursor" d="M704 84 L710 74 L716 84 Z" opacity="0"/>
       </svg>
-      <figcaption>Watch <span data-ref="window:arc2 t9">the second copy</span>: it starts 12 bytes back but is 23 bytes long, so it reads bytes that the copy itself is still writing.</figcaption>
+      <figcaption>Watch <span data-ref="window:arc2 t9">the second copy</span>: it starts 12 bytes back but is 23 bytes long, so it reads <span data-ref="window:ov">bytes that the copy itself is still writing</span>.</figcaption>
     </figure>
     <bh-stepper for="window">
       <bh-step><p><strong>Start with nothing.</strong> The cursor is at the first byte and the window behind it is empty, so there is nothing to point back to.</p></bh-step>
@@ -347,7 +351,7 @@
       <bh-step highlight="c0 c1 c2 c3 arc1 arc1-label t7"><p><strong>A match.</strong> The next four bytes, <code>abra</code>, already appear 7 bytes back. Any run of 3 or more is worth replacing, and this one is 4 long.</p></bh-step>
       <bh-step highlight="t7 c7 c8 c9 c10"><p><strong>Emit (4, 7).</strong> The four bytes collapse into one token: <em>copy 4 bytes from 7 back</em>. Four letters cost one token.</p></bh-step>
       <bh-step highlight="t8 c11"><p><strong>The space is new</strong>, so it goes out as a literal.</p></bh-step>
-      <bh-step highlight="arc2 arc2-label t9 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11"><p><strong>A long match that overlaps.</strong> Everything that is left, 23 bytes, repeats what started 12 bytes back. Only 12 bytes lie between the source and the cursor, so the copy runs into its own output.</p></bh-step>
+      <bh-step highlight="arc2 arc2-label t9 ov c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14 c15 c16 c17 c18 c19 c20 c21 c22"><p><strong>A long match that overlaps.</strong> Everything that is left, 23 bytes, repeats what started 12 bytes back. Only 12 bytes lie between the source and the cursor, so the copy runs into its own output: the striped bytes, 12 to 22, are both copied from and written by this one copy.</p></bh-step>
       <bh-step highlight="t0 t1 t2 t3 t4 t5 t6 t7 t8 t9"><p><strong>Emit (23, 12).</strong> The decoder copies one byte at a time, so when it writes byte 24 it reads byte 12, which this same copy wrote 12 steps earlier. 35 bytes are now 10 tokens.</p></bh-step>
     </bh-stepper>
     <p>Overlap is not a corner case. It is how LZ77 encodes runs: <code>aaaaaaaa</code> is the literal <code>a</code> followed by <code>(7, 1)</code>, "copy 7 bytes from 1 back".</p>
@@ -1125,25 +1129,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---- LZ77 window: tokens leave the input and collapse into (length, distance) -------------
   const INPUT = "abracadabra abracadabra abracadabra";
+  // Each token sits under the bytes it replaces: the cell pitch is 20, inset by 1 each side.
   const TOK = [
-    { start: 0, len: 1, label: "a", kind: "c2", x: 0, w: 24 }, { start: 1, len: 1, label: "b", kind: "c2", x: 30, w: 24 },
-    { start: 2, len: 1, label: "r", kind: "c2", x: 60, w: 24 }, { start: 3, len: 1, label: "a", kind: "c2", x: 90, w: 24 },
-    { start: 4, len: 1, label: "c", kind: "c2", x: 120, w: 24 }, { start: 5, len: 1, label: "a", kind: "c2", x: 150, w: 24 },
-    { start: 6, len: 1, label: "d", kind: "c2", x: 180, w: 24 }, { start: 7, len: 4, label: "(4,7)", kind: "c1", x: 210, w: 56 },
-    { start: 11, len: 1, label: "␣", kind: "c2", x: 272, w: 24 }, { start: 12, len: 23, label: "(23,12)", kind: "c1", x: 302, w: 72 },
-  ];
+    { start: 0, len: 1, label: "a", kind: "c2" },
+    { start: 1, len: 1, label: "b", kind: "c2" },
+    { start: 2, len: 1, label: "r", kind: "c2" },
+    { start: 3, len: 1, label: "a", kind: "c2" },
+    { start: 4, len: 1, label: "c", kind: "c2" },
+    { start: 5, len: 1, label: "a", kind: "c2" },
+    { start: 6, len: 1, label: "d", kind: "c2" },
+    { start: 7, len: 4, label: "(4,7)", kind: "c1" },
+    { start: 11, len: 1, label: "␣", kind: "c2" },
+    { start: 12, len: 23, label: "(23,12)", kind: "c1" },
+  ].map((t) => ({ ...t, x: t.start * 20 + 1, w: t.len * 20 - 2 }));
+  const TOKEN_Y = 118;
   const EMIT = [1, 1, 1, 1, 1, 1, 1, 3, 4, 6], FOUND = { 7: 2, 9: 5 }, CURSOR = [0, 7, 7, 11, 12, 12, 35];
   const windowState = (k, hideCursor) => {
     const s = {};
     TOK.forEach((t, i) => {
       const out = k >= EMIT[i], boxed = !out && FOUND[i] !== undefined && k >= FOUND[i];
-      s[`t${i}`] = out ? { x: t.x, y: 110, w: t.w, h: 30, op: 1, text: t.label }
+      s[`t${i}`] = out ? { x: t.x, y: TOKEN_Y, w: t.w, h: 30, op: 1, text: t.label }
         : { x: t.start * 20, y: 40, w: t.len * 20, h: 28, op: boxed ? 1 : 0, text: INPUT.substr(t.start, t.len).replace(/ /g, "␣") };
       for (let c = t.start; c < t.start + t.len; c++) s[`c${c}`] = { tone: out ? t.kind : "" };
     });
     const pos = CURSOR[k];
     s.arc1 = { d: k >= 2 ? 1 : 0 };
     s.arc2 = { d: k >= 5 ? 1 : 0 };
+    s.ov = { op: k >= 5 ? 1 : 0 };
     s.cursor = { x: pos * 20 + 10, op: hideCursor ? 0 : 1 };
     s.zone = { w: pos ? pos * 20 + 8 : 0 }; // 4 units of margin either side of the cells
     s.count = { n: TOK.filter((_, i) => k >= EMIT[i]).length };
@@ -1158,6 +1170,7 @@ document.addEventListener("DOMContentLoaded", () => {
       TOK.forEach((_, i) => { const t = s[`t${i}`], g = part(`t${i}`); box(g, t.x, t.y, t.w, t.h, t.text); fade(g, t.op); });
       draw(part("arc1"), s.arc1.d); fade(part("arc1-label"), s.arc1.d);
       draw(part("arc2"), s.arc2.d); fade(part("arc2-label"), s.arc2.d);
+      fade(part("ov"), s.ov.op);
       cursor.setAttribute("transform", `translate(${s.cursor.x - 710} 0)`);
       cursor.setAttribute("opacity", s.cursor.op);
       zone.setAttribute("width", Math.max(0, s.zone.w));

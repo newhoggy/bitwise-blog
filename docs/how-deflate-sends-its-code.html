@@ -649,7 +649,7 @@
         <g class="node send-part" data-id="part-extras"><rect x="854.9" y="290" width="294.1" height="28" rx="4"/><text x="1003.5" y="304">extra bits</text></g>
         <text class="label send-formula" data-id="part-extras-f" x="1003.5" y="334" text-anchor="middle">5 × 7 + 2 × 3 = 41</text>
       </svg>
-      <figcaption>Notice what the four steps do to the same list: the long bar is almost all zeros, cutting its end barely shortens it, and only collapsing the zeros into run symbols shrinks it. The bar is the cost to scale, against a mark at the example's 41 bits of data: even at its best, the code costs more than the data it describes. The strip at the bottom shows what each step's cost is made of, as shares of that step, with the arithmetic under each part. Each box in the middle row is one code-length symbol; under it is what it stands for (×32 means a run of 32 zeros), its code once it has one, a run's extra bits as they arrive, and its cost in bits.</figcaption>
+      <figcaption>Notice what the four steps do to the same list: cutting the end of the long bar of zeros barely shortens it, and only collapsing the zeros into run symbols does. The bar is drawn to scale against a mark at the example's 41 bits of data: even at its best, the code costs more than the data it describes.</figcaption>
     </figure>
     <bh-stepper for="send-steps">
       <bh-step><p><strong>Step 1: every slot, 4 bits.</strong> All 316 of the example's code lengths, in symbol order. Only the 11 marked slots are not zero. 1,264 bits.</p></bh-step>
