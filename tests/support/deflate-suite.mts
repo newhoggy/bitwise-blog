@@ -153,7 +153,26 @@ export function defineDeflateTests({ PAGE, series, file, pages = [{ file, html: 
     assert.deepEqual(windowTokens, labels, "the window figure shows the encoder's tokens");
     assert.equal(r.bits.fixed, 103);
     assert.equal(r.bytes.length, 13);
-    assert.match(PAGE, /<text x="360" y="216">13 bytes<\/text><text class="sub" x="360" y="236">103 bits, 37% of the input<\/text>/);
+    if (!series) assert.match(PAGE, /<text x="360" y="216">13 bytes<\/text><text class="sub" x="360" y="236">103 bits, 37% of the input<\/text>/);
+    else {
+      assert.match(PAGE, /<text x="\d+" y="216">13 bytes<\/text><text class="sub" x="\d+" y="236">103 of 280 bits<\/text>/);
+      // The overview draws the output box to scale: its width is the input's, times 103 of 280 bits.
+      const overview = grab(PAGE, /<figure[^>]*id="overview"[\s\S]*?<\/figure>/)[0];
+      const width = (id: string) => Number(overview.match(new RegExp(`data-id="${id}"><rect [^>]*width="(\\d+)"`))![1]);
+      assert.ok(Math.abs(width("bits") / width("input") - r.bits.fixed / (8 * EXAMPLE.length)) < 0.005, "the output box is drawn to scale");
+      // The window figure puts each token under the bytes it replaces, and stripes the bytes the last copy both reads and writes.
+      const win = grab(PAGE, /<figure[^>]*id="window"[\s\S]*?<\/figure>/)[0];
+      let start = 0;
+      r.tokens.forEach((t, i) => {
+        const len = t.lit === undefined ? t.len : 1;
+        const m = win.match(new RegExp(`data-id="t${i}"><rect x="(\\d+)" y="\\d+" width="(\\d+)"`))!;
+        assert.deepEqual([Number(m[1]), Number(m[2])], [start * 20 + 1, len * 20 - 2], `token ${i} sits under its bytes`);
+        start += len;
+      });
+      const last = r.tokens[r.tokens.length - 1]!;
+      const ov = win.match(/data-id="ov"><rect x="(\d+)" y="\d+" width="(\d+)"/)!;
+      assert.deepEqual([Number(ov[1]), Number(ov[2])], [(start - last.len!) * 20, (last.len! - last.dist!) * 20], "the stripe covers the bytes copy reads after writing");
+    }
     if (series) assert.match(PAGE, /you will have read, bit by bit, a stream that does it in 13, and seen why the two differ\./);
     else assert.match(PAGE, /seen an encoder that does it in 13\./);
   });
