@@ -601,11 +601,12 @@ keep a replacement only if the with-skill arm passes at least two more of five t
 - **Case scores** (with / without), old wording then new: `plan-rank-select-series` 0.60 / 0.51 then
   0.71 / 0.43; `outline-bloom-filters` 0.72 / 0.33 then 0.75 / 0.40; `review-deflate-page` 0.87 /
   0.77 then 0.77 / 0.83. The first two cases now separate the arms by about 0.3; the third has no
-  gap, and its Δ is inside the run-to-run noise either way (+0.10, −0.07). Dropping the grader
+  gap, and its Δ is inside the run-to-run noise either way (+0.10, −0.06). Dropping the grader
   changes the case's score by construction (it has five graders now), so these are not a
   measure of the skill.
 - **Not done here.** `review-deflate-page` has no reading-order or clarity grader that separates the
-  arms now; its remaining graders pass in both. Whether the case should be kept (its Δ has been
-  +0.10, −0.07, +0.17, +0.00 and +0.17 across runs) is the #83 question and is left open.
+  arms now; its remaining graders pass in both. Whether the case should be kept (its Δ has ranged
+  from −0.06 to +0.17 across runs, apart from one earlier run that read −0.28 because a with-skill
+  run hit the timeout) is the #83 question and is left open.
 - **Cost.** $6.64 for the old wording ($4.68 `review`, $1.10 `plan`, $0.86 `outline`), $6.29 for the
   reworded ($4.32, $1.06, $0.91): $12.93 in all.
