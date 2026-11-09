@@ -93,7 +93,8 @@ npm run sync-posts -- duncan-sabien --full    # try every post, however many are
 Posts go to `corpus/private/<writer>/posts/`. Idempotent: a post already on disk (`<platform>-<slug>.md`) is skipped, and each source stops
 after five already-fetched posts in a row, so a routine run makes few requests. Use `--full`
 after adding a source, to retry posts that were paywalled before, or when you suspect a gap.
-Exit code: 0 on success, 1 if the writer has no `sources.yaml`, 2 if any source or post failed
+Exit code: 0 on success, 1 if the writer has no `sources.yaml` or still has posts in the old place
+(`corpus/<writer>/posts/`: move them to the private data), 2 if any source or post failed
 (the rest still sync).
 
 Each post is `---` frontmatter (`title`, `author`, `source`, `published`, `platform`, `slug`),

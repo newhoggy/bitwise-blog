@@ -444,6 +444,23 @@ test("syncWriter: exit 1 with no sources.yaml, 0 with an empty one, 2 when a sou
   assert.deepEqual(paywall.errors, ["    error: paid: Error: paywalled"]);
 });
 
+test("syncWriter: refuses, rather than fetching everything again, while posts sit in the old place", async (t) => {
+  const corpusRoot = corpus(t, { duncan: SUBSTACK_SOURCES });
+  const old = path.join(corpusRoot, "duncan", "posts");
+  fs.mkdirSync(old);
+  const { fetchFn, calls } = substackSite();
+  const empty = sink();
+  assert.equal(await syncWriter("duncan", { corpusRoot, out: empty.out, fetch: fetchFn, delayMs: 0 }), 0, "an empty old directory is harmless");
+  assert.ok(calls.length > 0);
+
+  fs.writeFileSync(path.join(old, "substack-older.md"), "old");
+  calls.length = 0;
+  const { out, errors } = sink();
+  assert.equal(await syncWriter("duncan", { corpusRoot, out, fetch: fetchFn, delayMs: 0 }), 1);
+  assert.match(errors[0], /from before the private data; move them/);
+  assert.equal(calls.length, 0, "nothing was fetched");
+});
+
 test("syncAll: syncs each writer that has a sources.yaml, in name order, and ignores the rest", async (t) => {
   const corpusRoot = corpus(t, { b: SUBSTACK_SOURCES, a: SUBSTACK_SOURCES, notes: null });
   fs.writeFileSync(path.join(corpusRoot, "README.md"), "not a writer");

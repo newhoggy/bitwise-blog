@@ -32,12 +32,20 @@ export interface SyncOptions extends IngesterOptions {
   out?: Output;
 }
 
-/** Sync one writer. Returns 0 on success, 1 if there is no sources.yaml, 2 if any source or post failed. */
+/** Sync one writer. Returns 0 on success, 1 if there is no sources.yaml or posts are in the old place, 2 if any source or post failed. */
 export async function syncWriter(name: string, options: SyncOptions = {}): Promise<number> {
   const { full = false, corpusRoot = CORPUS_DIR, out = console, ...ingesterOptions } = options;
   const sourcesFile = path.join(corpusRoot, name, "sources.yaml");
   if (!fs.existsSync(sourcesFile)) {
     out.error(`error: ${sourcesFile} not found`);
+    return 1;
+  }
+
+  // Posts synced before the private data existed. Going on would fetch them all again, and a re-fetched
+  // post can differ from the copy of record (see corpus/README.md).
+  const oldPosts = path.join(corpusRoot, name, "posts");
+  if (fs.existsSync(oldPosts) && fs.readdirSync(oldPosts).length > 0) {
+    out.error(`error: ${oldPosts} holds posts from before the private data; move them to ${path.join(dataDir(name, corpusRoot), "posts")} first`);
     return 1;
   }
 
