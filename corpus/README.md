@@ -34,9 +34,14 @@ Guards, because a rule that must hold every time belongs in a check:
   published site holds any `corpus/` path or text from the private data, or if `.gitignore` stops covering
   `corpus/private` (as a symlink or a directory). They run in CI, with no private data.
 - `npm run advisor -- leak-check` runs locally when the private data is present. It fails if a run of 8 or more
-  words from any atlas quote is in a tracked file. It prints file names, lines and lengths, never the words.
-  A page that quotes on purpose needs an entry in `LEAK_ALLOWED` in `scripts/advisor/guards.mts`, with a reason
-  and a cap on the quoted words.
+  words from the private text is in a tracked file. That text is every post, the atlas quotes and statements,
+  `voice_negatives.jsonl` and `evals/authored.jsonl`. It prints file names, lines, lengths and which of those the
+  run came from, never the words. A page that quotes on purpose needs an entry in `LEAK_ALLOWED` in
+  `scripts/advisor/guards.mts`, with a reason and a cap on the shared words, so quoting more still fails.
+- `npm run advisor -- leak-check --history` does the same for every text blob reachable from any ref, so it finds
+  text that was committed once and later removed. A blob is held to its own path's `LEAK_ALLOWED` cap. It only
+  reports: removing text from history means rewriting it, which is the owner's decision, and it keeps failing
+  until then. Hits are named `path@<blob id>:line`.
 - Advisor output is never published as the writer's words, and a reviewed draft is never written to disk.
 
 ## The private data
@@ -69,7 +74,7 @@ one checkout: it goes when a worktree is removed, and `link` won't replace it wh
 npm run advisor -- link <path> [--force]         point corpus/private at a clone
 npm run advisor -- index [<writer>]              regenerate the INDEX.md catalogues
 npm run advisor -- holdout <writer> [--check]    choose the eval holdout, or check it is current
-npm run advisor -- leak-check                    see above
+npm run advisor -- leak-check [--history]        see above
 npm run advisor -- parity                        compare with the Python reference; skips without private data
 ```
 

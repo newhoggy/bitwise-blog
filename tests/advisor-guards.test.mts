@@ -10,7 +10,7 @@ import { test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { main, type Output } from "../scripts/advisor.mts";
 import { dataDir } from "../scripts/advisor/corpus.mts";
-import { LEAK_RUN_WORDS, findRuns, leakCheck, quoteRuns } from "../scripts/advisor/guards.mts";
+import { LEAK_RUN_WORDS, describeSources, findRuns, jsonlRuns, leakCheck, leakCheckHistory, postRuns, quoteRuns } from "../scripts/advisor/guards.mts";
 import { preparePublishedSite } from "../scripts/publish.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -211,7 +211,7 @@ test("leak-check: skips with no private data; fails on an injected quote; never 
   fs.writeFileSync(path.join(dataDir("someone", corpusRoot), "ATLAS.jsonl"), atlas(QUOTE));
   const clean = await run();
   assert.equal(clean.code, 0, clean.errors.join("\n"));
-  assert.match(clean.lines[0], /leak-check passed: 1 quotes, 1 tracked files/, "the binary and the symlink aren't read");
+  assert.match(clean.lines[0], /leak-check passed: 1 atlas entries; 1 tracked files/, "the binary and the symlink aren't read");
 
   const leak = path.join(repoRoot, "leak.html");
   fs.writeFileSync(leak, `<p>intro</p>\n<p>${QUOTE}</p>\n`);
@@ -253,6 +253,182 @@ test("leak-check: skips with no private data; fails on an injected quote; never 
   // A file in the index but gone from disk is not an error.
   fs.rmSync(leak);
   assert.equal((await run()).code, 0);
+});
+
+// ---- leak-check: every private source, and history -------------------------------------
+
+// Invented sentences, one per source, with no word in common beyond the commonest.
+const POST = "the lighthouse keeper counted seven gulls before noon and wrote none of them down";
+const STATEMENT = "an honest ledger lists the debts that nobody asked about this quarter";
+const NEGATIVE = "marmalade should always be spread thickly because moderation is a form of cowardice";
+const AUTHORED = "every bridge in this town was built by someone who never crossed it";
+const SOURCES: [label: string, text: string][] = [
+  ["a post", POST], ["an atlas statement", STATEMENT], ["a voice negative", NEGATIVE], ["an authored sample", AUTHORED],
+];
+const LABELS: Record<string, string> = { "a post": "post text", "an atlas statement": "an atlas statement", "a voice negative": "a voice negative", "an authored sample": "an authored sample" };
+
+/** A git repo and a corpus, with one invented sentence in each private source. */
+function leakFixture(t: TestContext, only: string[] = SOURCES.map(([label]) => label)) {
+  const repoRoot = tmp(t);
+  const corpusRoot = path.join(repoRoot, "corpus");
+  git(repoRoot, "init", "-q");
+  git(repoRoot, "config", "user.email", "test@example.com");
+  git(repoRoot, "config", "user.name", "Test");
+  const dir = dataDir("someone", corpusRoot);
+  fs.mkdirSync(path.join(dir, "posts"), { recursive: true });
+  fs.mkdirSync(path.join(dir, "evals"));
+  if (only.includes("a post")) fs.writeFileSync(path.join(dir, "posts", "blog-day.md"), `---\ntitle: Day\n---\nOpening line.\n\n${POST}.\n`);
+  if (only.includes("an atlas statement")) fs.writeFileSync(path.join(dir, "ATLAS.jsonl"), JSON.stringify({ id: "a1", statement: STATEMENT, quote: "short" }) + "\n");
+  if (only.includes("a voice negative")) fs.writeFileSync(path.join(dir, "voice_negatives.jsonl"), JSON.stringify({ id: "n1", keep_surface: false, style: "plain", text: NEGATIVE }) + "\n");
+  if (only.includes("an authored sample")) fs.writeFileSync(path.join(dir, "evals", "authored.jsonl"), JSON.stringify({ kind: "x", text: AUTHORED, notes: "n" }) + "\n");
+  fs.writeFileSync(path.join(repoRoot, "clean.md"), "Nothing from the private data is in this file.\n");
+  git(repoRoot, "add", "clean.md");
+  const run = async (...args: string[]) => {
+    const s = sink();
+    return { code: await main(["leak-check", ...args], { corpusRoot, repoRoot, out: s.out }), ...s };
+  };
+  return { repoRoot, corpusRoot, run };
+}
+
+test("leak-check: each private source is compared, a hit names its source, and never prints the words", async (t) => {
+  const { repoRoot, corpusRoot, run } = leakFixture(t);
+  const clean = await run();
+  assert.equal(clean.code, 0, clean.errors.join("\n"));
+  assert.match(clean.lines.at(-1)!, /^leak-check passed: 1 atlas entries, 1 voice negatives, 1 authored samples, 1 posts; 1 tracked files$/);
+
+  for (const [label, sentence] of SOURCES) {
+    const file = path.join(repoRoot, "copied.html");
+    fs.writeFileSync(file, `<p>intro</p>\n<p>${sentence}</p>\n`);
+    assert.ok(fs.readFileSync(file, "utf8").includes(sentence), `${label}: the fault was injected`);
+    git(repoRoot, "add", "copied.html");
+    const caught = await run();
+    assert.equal(caught.code, 1, label);
+    assert.equal(caught.errors.length, 2, label);
+    assert.match(caught.errors[0], new RegExp(`^copied\\.html:2: \\d+-word run from ${LABELS[label]}$`), label);
+    const printed = [...caught.lines, ...caught.errors].join("\n");
+    for (const word of sentence.split(" ").filter((w) => w.length > 5)) assert.equal(printed.includes(word), false, `${label}: printed "${word}"`);
+    assert.equal(leakCheck(repoRoot, corpusRoot).status === "done", true);
+    git(repoRoot, "rm", "-qf", "copied.html");
+  }
+  assert.equal((await run()).code, 0, "clean again once the injected files are gone");
+});
+
+test("leak-check: a source can be the only one there, and no sources at all is a skip", async (t) => {
+  for (const [label, sentence] of SOURCES) {
+    const { repoRoot, run } = leakFixture(t, [label]);
+    fs.writeFileSync(path.join(repoRoot, "copied.md"), `${sentence}\n`);
+    git(repoRoot, "add", "copied.md");
+    assert.equal((await run()).code, 1, `${label} alone is compared`);
+  }
+  const { run } = leakFixture(t, []);
+  const none = await run();
+  assert.equal(none.code, 0);
+  assert.match(none.lines[0], /^leak-check skipped: no posts, atlas, voice negatives or authored samples/);
+});
+
+test("postRuns and jsonlRuns: markdown link targets are not prose, every string counts, errors hold no text", () => {
+  const words = POST.split(" ");
+  const linked = `${words.slice(0, 4).join(" ")} [${words[4]}](https://x.example/a_(b)/c "t") ${words.slice(5).join(" ")}`;
+  assert.deepEqual(postRuns(linked), postRuns(POST), "a link keeps its text and loses its target");
+  assert.ok(postRuns(`![alt text](https://x.example/i.png) ${POST}`).has(words.slice(0, 8).join(" ")));
+  assert.equal(postRuns("seven words make no run").size, 0);
+  assert.deepEqual(postRuns(`don&rsquo;t read the chart before you read the water &amp; more`), postRuns("don't read the chart before you read the water & more"), "entities are decoded as on the page side");
+
+  const nested = JSON.stringify({ a: 1, list: [{ deep: { text: NEGATIVE } }, null, true] });
+  assert.equal(jsonlRuns("x.jsonl", nested).size, NEGATIVE.split(" ").length - LEAK_RUN_WORDS + 1, "a string nested in arrays and objects");
+  assert.equal(jsonlRuns("x.jsonl", "\n\n").size, 0);
+  const secret = "SECRETWORDS here";
+  assert.throws(() => jsonlRuns("authored.jsonl", `${secret}\n`), (e: Error) => e.message === "authored.jsonl line 1 is not valid JSON");
+  assert.equal(describeSources({ "atlas entries": 3, "voice negatives": 0, "authored samples": 0, posts: 2 }), "3 atlas entries, 2 posts");
+});
+
+test("leak-check --history: finds a run in a blob no longer checked out, on any ref, and judges it by its own path", async (t) => {
+  const { repoRoot, corpusRoot, run } = leakFixture(t);
+  git(repoRoot, "commit", "-qm", "clean");
+  const file = path.join(repoRoot, "old.html");
+  fs.writeFileSync(file, `<p>intro</p>\n<p>${POST}</p>\n`);
+  assert.ok(fs.readFileSync(file, "utf8").includes(POST), "the fault was injected");
+  const blob = git(repoRoot, "hash-object", "old.html").trim().slice(0, 7);
+  git(repoRoot, "add", "old.html");
+  git(repoRoot, "commit", "-qm", "add");
+  git(repoRoot, "rm", "-q", "old.html");
+  git(repoRoot, "commit", "-qm", "remove");
+  assert.equal(fs.existsSync(file), false);
+
+  const tree = await run();
+  assert.equal(tree.code, 0, "the current tree is clean");
+  const history = await run("--history");
+  assert.equal(history.code, 1);
+  assert.match(history.errors[0], new RegExp(`^old\\.html@${blob}:2: \\d+-word run from post text$`));
+  assert.match(history.errors.at(-1)!, /^leak-check --history FAILED: 1 run\(s\) of 8\+ words in blobs in history$/);
+  const printed = [...history.lines, ...history.errors].join("\n");
+  for (const word of ["lighthouse", "gulls", "noon"]) assert.equal(printed.includes(word), false, `printed "${word}"`);
+
+  // The blob is judged by its path's allowance, with the same cap as a tracked file.
+  const reason = "quoted on purpose";
+  const within = leakCheckHistory(repoRoot, corpusRoot, { "old.html": { reason, maxWords: 14 } });
+  assert.deepEqual(within.status === "done" && [within.hits, within.allowed], [[], [{ file: "old.html", blob, words: 14, reason }]]);
+  const over = leakCheckHistory(repoRoot, corpusRoot, { "old.html": { reason, maxWords: 13 } });
+  assert.equal(over.status === "done" && over.hits.length, 1);
+
+  // A blob only on another branch counts too, and a binary doesn't break the scan.
+  git(repoRoot, "switch", "-q", "-c", "side");
+  fs.writeFileSync(path.join(repoRoot, "side.md"), `${STATEMENT}\n`);
+  fs.writeFileSync(path.join(repoRoot, "image.bin"), Buffer.from([0, 1, 2, 0]));
+  git(repoRoot, "add", "side.md", "image.bin");
+  git(repoRoot, "commit", "-qm", "side");
+  git(repoRoot, "switch", "-q", "-");
+  assert.equal(fs.existsSync(path.join(repoRoot, "side.md")), false, "the branch is not checked out");
+  const other = await run("--history");
+  assert.equal(other.code, 1);
+  assert.deepEqual(other.errors.slice(0, -1).map((e) => e.replace(/@[0-9a-f]{7}/, "@blob").replace(/\d+-word/, "N-word")).sort(), [
+    "old.html@blob:2: N-word run from post text",
+    "side.md@blob:1: N-word run from an atlas statement",
+  ]);
+});
+
+test("leak-check --history: a copy at another path isn't excused by the allowance of the first, and a big blob is counted", async (t) => {
+  const { repoRoot, corpusRoot, run } = leakFixture(t);
+  const page = `<p>${POST}</p>\n`;
+  fs.writeFileSync(path.join(repoRoot, "a-allowed.html"), page);
+  fs.writeFileSync(path.join(repoRoot, "z-copy.html"), page);
+  assert.ok(fs.readFileSync(path.join(repoRoot, "z-copy.html"), "utf8").includes(POST), "the fault was injected");
+  const huge = "x ".repeat(5 * 1024 * 1024) + POST;
+  fs.writeFileSync(path.join(repoRoot, "huge.txt"), huge);
+  assert.ok(huge.length > 8 * 1024 * 1024 && huge.includes(POST), "the big blob holds the text and is over the limit");
+  git(repoRoot, "add", "a-allowed.html", "z-copy.html", "huge.txt");
+  git(repoRoot, "commit", "-qm", "two paths");
+  git(repoRoot, "rm", "-q", "a-allowed.html", "z-copy.html", "huge.txt");
+  git(repoRoot, "commit", "-qm", "remove");
+  const reason = "quoted on purpose";
+  for (const first of ["a-allowed.html", "z-copy.html"]) {
+    const other = first === "a-allowed.html" ? "z-copy.html" : "a-allowed.html";
+    const result = leakCheckHistory(repoRoot, corpusRoot, { [first]: { reason, maxWords: 99 } });
+    assert.deepEqual(result.status === "done" && result.hits.map((h) => h.file), [other], `only ${first} is allowed`);
+    assert.equal(result.status === "done" && result.allowed.length, 1);
+    assert.equal(result.status === "done" && result.unread, 1);
+  }
+  const cli = await run("--history");
+  assert.equal(cli.code, 1);
+  assert.equal(cli.errors.length, 3, "one line per path, then the summary");
+  const allowedBoth = leakCheckHistory(repoRoot, corpusRoot, { "a-allowed.html": { reason, maxWords: 99 }, "z-copy.html": { reason, maxWords: 99 } });
+  assert.equal(allowedBoth.status === "done" && allowedBoth.hits.length, 0);
+});
+
+test("leak-check: --history belongs to leak-check alone", async () => {
+  const s = sink();
+  assert.equal(await main(["parity", "--history"], { out: s.out }), 2);
+  assert.match(s.errors[0], /--history only applies to leak-check/);
+});
+
+test("leak-check --history: passes on a clean history, and skips with no private data", async (t) => {
+  const fixture = leakFixture(t);
+  git(fixture.repoRoot, "commit", "-qm", "clean");
+  const clean = await fixture.run("--history");
+  assert.equal(clean.code, 0, clean.errors.join("\n"));
+  assert.match(clean.lines.at(-1)!, /^leak-check --history passed: .*; 1 blobs$/);
+  const empty = leakFixture(t, []);
+  assert.match((await empty.run("--history")).lines[0], /^leak-check --history skipped: /);
 });
 
 test("the fixtures hold only made-up writers", () => {
