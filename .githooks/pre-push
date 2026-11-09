@@ -1,0 +1,18 @@
+#!/bin/sh
+# Runs `npm run advisor -- leak-check` before a push: a tracked file that holds a run of 8 or more
+# words from the private corpus must not become public. Enable with `npm run hooks` (once per clone).
+# It skips, with a message, when this checkout has no private data. `git push --no-verify` bypasses it.
+# See corpus/README.md. It prints file names, lines and lengths, never the words.
+
+if ! root=$(cd "$(dirname "$0")/.." && pwd); then
+  echo "pre-push: could not find the checkout root, so leak-check did not run" >&2
+  exit 0
+fi
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-push: node not found, so leak-check did not run" >&2
+  exit 0
+fi
+if ! node "$root/scripts/advisor.mts" leak-check; then
+  echo "pre-push: leak-check failed, so the push is blocked. If it listed runs of words, remove that text or add a reviewed entry to LEAK_ALLOWED in scripts/advisor/guards.mts; if it printed an error, fix that first (it needs Node 22.18 or later). \`git push --no-verify\` skips this check." >&2
+  exit 1
+fi

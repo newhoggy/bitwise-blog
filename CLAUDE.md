@@ -23,6 +23,12 @@ from it rather than inventing new markup.
    it with the page. See [Social cards](#social-cards).
 6. For sharing outside the repo, run `npm run bundle -- docs/<slug>.html` and send `dist/<slug>.html`.
 
+Once per clone, run `npm run hooks`: it points `core.hooksPath` at the tracked `.githooks/`, whose
+`pre-push` runs `npm run advisor -- leak-check` and blocks a push when a tracked file holds a run of 8+
+words from the private corpus (see `corpus/README.md`). A checkout with no private data is not blocked: the
+hook says the check did not run, and `npm run advisor -- link <path>` fixes that (git worktrees don't share
+ignored files, so link each one). It is a local guard: `git push --no-verify` and merges made elsewhere skip it.
+
 Run `npm run index` after **any** change to a document. It regenerates the catalogue, the
 social meta block and feed autodiscovery link in every page's `<head>`, `feed.xml`,
 `theme/glossary.js`, `theme/site.js` (backlinks),
