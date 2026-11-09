@@ -71,16 +71,21 @@ test("pre-push: a push with an injected run is rejected without printing its wor
 
   const blocked = git(repo, "push", "origin", "main");
   assert.notEqual(blocked.code, 0, blocked.text);
-  assert.match(blocked.text, /leak\.html:2: 12-word run from an atlas quote/);
+  assert.match(blocked.text, /leak\.html@[0-9a-f]{7}:2: 12-word run from an atlas quote/);
   assert.match(blocked.text, /leak-check failed, so the push is blocked/);
   for (const word of ["harbour", "pilot", "chart", "morning"]) assert.equal(blocked.text.toLowerCase().includes(word), false, `printed "${word}"`);
   assert.equal(pushed(remote), false, "nothing reached the remote");
 
+  // Deleting the file in a later commit would not help: the leaky commit would still be pushed. Drop that commit.
   ok(repo, "rm", "-q", "leak.html");
   ok(repo, "commit", "-q", "-m", "remove it");
+  const stillBlocked = git(repo, "push", "origin", "main");
+  assert.notEqual(stillBlocked.code, 0, "the history still holds the run");
+  assert.equal(pushed(remote), false);
+  ok(repo, "reset", "-q", "--hard", "HEAD~2");
   const passed = git(repo, "push", "origin", "main");
   assert.equal(passed.code, 0, passed.text);
-  assert.match(passed.text, /leak-check passed/);
+  assert.match(passed.text, /leak-check --pushed passed/);
   assert.equal(pushed(remote), true);
 });
 
@@ -100,7 +105,7 @@ test("pre-push: a checkout with no private data is not blocked and is told the c
   ok(repo, "commit", "-q", "-m", "would leak, if there were data to know it");
   const r = git(repo, "push", "origin", "main");
   assert.equal(r.code, 0, r.text);
-  assert.match(r.text, /leak-check skipped: .*Nothing was checked; `npm run advisor -- link <path>`/);
+  assert.match(r.text, /leak-check --pushed skipped: .*Nothing was checked; `npm run advisor -- link <path>`/);
   assert.equal(pushed(remote), true);
 });
 
@@ -119,6 +124,101 @@ test("pre-push: a linked worktree shares the setting and runs the hook against i
   ok(wt, "commit", "-q", "-m", "leaky");
   const blocked = git(wt, "push", "origin", "feature");
   assert.notEqual(blocked.code, 0, blocked.text);
-  assert.match(blocked.text, /leak\.html:1: 12-word run/);
+  assert.match(blocked.text, /leak\.html@[0-9a-f]{7}:1: 12-word run/);
   assert.equal(git(remote, "rev-parse", "--verify", "-q", "feature").code === 0, false);
+});
+
+const branchPushed = (remote: string, branch: string) => git(remote, "rev-parse", "--verify", "-q", branch).code === 0;
+
+/** Commit a file holding the quote on a new branch, leaving `back` checked out. Returns the file's blob id. */
+function leakyBranch(repo: string, branch: string, back: string): string {
+  ok(repo, "switch", "-q", "-c", branch);
+  fs.writeFileSync(path.join(repo, "leak.html"), `<p>intro</p>\n<p>${QUOTE}</p>\n`);
+  assert.ok(fs.readFileSync(path.join(repo, "leak.html"), "utf8").includes(QUOTE), "the fault was injected");
+  ok(repo, "add", "leak.html");
+  ok(repo, "commit", "-q", "-m", "leaky");
+  ok(repo, "switch", "-q", back);
+  return ok(repo, "rev-parse", "--short=7", `${branch}:leak.html`).trim();
+}
+
+test("pre-push: a branch that is not checked out is scanned, and rejected while a clean branch is open", (t) => {
+  const { repo, remote } = setup(t, { withData: true });
+  const blob = leakyBranch(repo, "leaky", "main");
+  assert.equal(fs.existsSync(path.join(repo, "leak.html")), false, "the working tree is clean");
+
+  const blocked = git(repo, "push", "origin", "leaky");
+  assert.notEqual(blocked.code, 0, blocked.text);
+  assert.match(blocked.text, new RegExp(`leak\\.html@${blob}:2: 12-word run from an atlas quote`));
+  for (const word of ["harbour", "pilot", "chart", "morning"]) assert.equal(blocked.text.toLowerCase().includes(word), false, `printed "${word}"`);
+  assert.equal(branchPushed(remote, "leaky"), false, "nothing reached the remote");
+});
+
+test("pre-push: a leaky file in the working tree does not block pushing a clean branch", (t) => {
+  const { repo, remote } = setup(t, { withData: true });
+  leakyBranch(repo, "leaky", "leaky");
+  assert.ok(fs.readFileSync(path.join(repo, "leak.html"), "utf8").includes(QUOTE), "the leaky file is checked out");
+  const r = git(repo, "push", "origin", "main");
+  assert.equal(r.code, 0, r.text);
+  assert.match(r.text, /leak-check --pushed passed/);
+  assert.equal(branchPushed(remote, "main"), true);
+  assert.equal(branchPushed(remote, "leaky"), false);
+});
+
+test("pre-push: a delete, and a ref with nothing new, are not blocked by a leaky checkout", (t) => {
+  const { repo, remote } = setup(t, { withData: true });
+  assert.equal(git(repo, "push", "origin", "main").code, 0);
+  leakyBranch(repo, "leaky", "leaky");
+  const dup = git(repo, "push", "origin", "main:copy");
+  assert.equal(dup.code, 0, dup.text);
+  assert.equal(branchPushed(remote, "copy"), true, "a new ref at a commit the remote has");
+  const deleted = git(repo, "push", "origin", "--delete", "copy");
+  assert.equal(deleted.code, 0, deleted.text);
+  assert.equal(branchPushed(remote, "copy"), false);
+  assert.equal(git(repo, "push", "origin", "main").code, 0, "up to date");
+});
+
+test("pre-push: only what the push adds is read, so text the remote already has does not block a clean follow-up", (t) => {
+  const { repo, remote } = setup(t, { withData: true });
+  leakyBranch(repo, "leaky", "main");
+  ok(repo, "switch", "-q", "leaky");
+  assert.equal(git(repo, "push", "--no-verify", "origin", "leaky").code, 0);
+  fs.writeFileSync(path.join(repo, "other.html"), "<p>Nothing from the corpus.</p>\n");
+  ok(repo, "add", "other.html");
+  ok(repo, "commit", "-q", "-m", "clean follow-up");
+  const r = git(repo, "push", "origin", "leaky");
+  assert.equal(r.code, 0, r.text);
+  assert.equal(git(remote, "log", "--format=%s", "-1", "leaky").stdout.trim(), "clean follow-up");
+
+  // A new branch from that point is still judged by what it adds over the remote's refs.
+  ok(repo, "switch", "-q", "-c", "more");
+  fs.writeFileSync(path.join(repo, "copy.html"), `<p>${QUOTE}</p>\n`);
+  ok(repo, "add", "copy.html");
+  ok(repo, "commit", "-q", "-m", "a second copy");
+  const blocked = git(repo, "push", "origin", "more");
+  assert.notEqual(blocked.code, 0, blocked.text);
+  assert.match(blocked.text, /copy\.html@[0-9a-f]{7}:1: 12-word run/);
+  assert.doesNotMatch(blocked.text, /leak\.html/);
+});
+
+test("pre-push: every ref in one push is scanned, and a merge's own blobs are", (t) => {
+  const { repo, remote } = setup(t, { withData: true });
+  assert.equal(git(repo, "push", "origin", "main").code, 0);
+  ok(repo, "switch", "-q", "-c", "left");
+  fs.writeFileSync(path.join(repo, "a.html"), "<p>clean</p>\n");
+  ok(repo, "add", "a.html");
+  ok(repo, "commit", "-q", "-m", "left");
+  ok(repo, "switch", "-q", "main");
+  leakyBranch(repo, "right", "main");
+  const both = git(repo, "push", "origin", "left", "right");
+  assert.notEqual(both.code, 0, both.text);
+  assert.equal(branchPushed(remote, "left"), false, "the push is refused as a whole");
+  assert.equal(git(repo, "push", "origin", "left").code, 0);
+
+  // Merging the clean branch into the leaky one leaves the leak on the pushed side only.
+  ok(repo, "switch", "-q", "right");
+  ok(repo, "merge", "-q", "--no-edit", "left");
+  const merged = git(repo, "push", "origin", "right");
+  assert.notEqual(merged.code, 0, merged.text);
+  assert.match(merged.text, /leak\.html@[0-9a-f]{7}:2: 12-word run/);
+  assert.doesNotMatch(merged.text, /a\.html/, "the clean branch's blob was already on the remote");
 });

@@ -10,7 +10,7 @@ import { test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { main, type Output } from "../scripts/advisor.mts";
 import { dataDir } from "../scripts/advisor/corpus.mts";
-import { LEAK_RUN_WORDS, describeSources, findRuns, jsonlRuns, leakCheck, leakCheckHistory, postRuns, quoteRuns } from "../scripts/advisor/guards.mts";
+import { LEAK_RUN_WORDS, describeSources, findRuns, jsonlRuns, leakCheck, leakCheckHistory, leakCheckPushed, parsePushUpdates, postRuns, quoteRuns } from "../scripts/advisor/guards.mts";
 import { preparePublishedSite } from "../scripts/publish.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -429,6 +429,72 @@ test("leak-check --history: passes on a clean history, and skips with no private
   assert.match(clean.lines.at(-1)!, /^leak-check --history passed: .*; 1 blobs$/);
   const empty = leakFixture(t, []);
   assert.match((await empty.run("--history")).lines[0], /^leak-check --history skipped: /);
+});
+
+const SHA = "a".repeat(40), SHA2 = "b".repeat(40), ZERO = "0".repeat(40);
+
+test("parsePushUpdates: reads git's four fields per line and refuses anything else without echoing it", () => {
+  assert.deepEqual(parsePushUpdates(`refs/heads/x ${SHA} refs/heads/x ${ZERO}\n\nrefs/heads/y ${ZERO} refs/heads/y ${SHA2}\n`), [
+    { localRef: "refs/heads/x", localSha: SHA, remoteRef: "refs/heads/x", remoteSha: ZERO },
+    { localRef: "refs/heads/y", localSha: ZERO, remoteRef: "refs/heads/y", remoteSha: SHA2 },
+  ]);
+  assert.deepEqual(parsePushUpdates(""), []);
+  for (const bad of ["refs/heads/x", `refs/heads/x ${SHA} refs/heads/x`, `refs/heads/x nothex refs/heads/x ${ZERO}`]) {
+    assert.throws(() => parsePushUpdates(`${bad}\n`), (e: Error) => /^unexpected pre-push input/.test(e.message) && !e.message.includes(bad), bad);
+  }
+});
+
+test("leak-check --pushed: reads only what the push adds, judges each blob by its path's allowance, and a delete adds nothing", async (t) => {
+  const { repoRoot, corpusRoot } = leakFixture(t);
+  const head = () => git(repoRoot, "rev-parse", "HEAD").trim();
+  git(repoRoot, "commit", "-qm", "clean");
+  const base = head();
+  fs.writeFileSync(path.join(repoRoot, "old.html"), `<p>${POST}</p>\n`);
+  git(repoRoot, "add", "old.html");
+  git(repoRoot, "commit", "-qm", "leaky");
+  const leaky = head();
+  fs.writeFileSync(path.join(repoRoot, "later.md"), "nothing here\n");
+  git(repoRoot, "add", "later.md");
+  git(repoRoot, "commit", "-qm", "later");
+  const tip = head();
+  const update = (localSha: string, remoteSha: string) => ({ localRef: "refs/heads/x", localSha, remoteRef: "refs/heads/x", remoteSha });
+  const hits = (result: ReturnType<typeof leakCheckPushed>) => (result.status === "done" ? result.hits.map((h) => h.file) : result.status);
+  const reason = "quoted on purpose";
+
+  assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(tip, base)], "origin", corpusRoot)), ["old.html"], "the range base..tip holds the leak");
+  assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(tip, leaky)], "origin", corpusRoot)), [], "a remote that has the leaky commit is not shown it again");
+  assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(tip, ZERO)], "origin", corpusRoot)), ["old.html"], "a new branch with no tracking refs reads everything reachable");
+  assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(ZERO, tip)], "origin", corpusRoot)), [], "a delete adds nothing");
+  assert.deepEqual(hits(leakCheckPushed(repoRoot, [], "origin", corpusRoot)), []);
+  assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(tip, "c".repeat(40))], "origin", corpusRoot)), ["old.html"], "a remote value this clone doesn't have is ignored");
+  const allowed = leakCheckPushed(repoRoot, [update(tip, base)], "origin", corpusRoot, { "old.html": { reason, maxWords: 99 } });
+  assert.equal(allowed.status === "done" && allowed.hits.length, 0);
+  assert.equal(allowed.status === "done" && allowed.allowed.length, 1);
+
+  git(repoRoot, "update-ref", "refs/remotes/origin/main", leaky);
+  assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(tip, ZERO)], "origin", corpusRoot)), [], "the remote's tracking refs are its base");
+  assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(tip, ZERO)], "elsewhere", corpusRoot)), ["old.html"], "another remote's tracking refs are not");
+  assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(tip, ZERO)], "*", corpusRoot)), ["old.html"], "a glob is not a remote name");
+
+  const stdin = `refs/heads/x ${tip} refs/heads/x ${base}\n`;
+  const s = sink();
+  assert.equal(await main(["leak-check", "--pushed", "elsewhere"], { corpusRoot, repoRoot, out: s.out, stdin: () => stdin }), 1);
+  assert.match(s.errors[0], /^old\.html@[0-9a-f]{7}:1: \d+-word run from post text$/);
+  assert.match(s.errors.at(-1)!, /^leak-check --pushed FAILED: 1 run\(s\) of 8\+ words in blobs this push adds$/);
+  const noPrivate = leakFixture(t, []);
+  const skipped = sink();
+  assert.equal(await main(["leak-check", "--pushed", "origin"], { corpusRoot: path.join(noPrivate.repoRoot, "corpus"), repoRoot: noPrivate.repoRoot, out: skipped.out, stdin: () => "nonsense\n" }), 0, "with no data the input is not even read");
+  assert.match(skipped.lines[0], /^leak-check --pushed skipped: /);
+  const garbled = sink();
+  assert.equal(await main(["leak-check", "--pushed", "origin"], { corpusRoot, repoRoot, out: garbled.out, stdin: () => "nonsense\n" }), 1);
+  assert.match(garbled.errors[0], /^error: unexpected pre-push input/);
+});
+
+test("leak-check: --pushed belongs to leak-check alone and not with --history", async () => {
+  for (const args of [["parity", "--pushed", "origin"], ["leak-check", "--history", "--pushed", "origin"]]) {
+    const s = sink();
+    assert.equal(await main(args, { out: s.out }), 2, args.join(" "));
+  }
 });
 
 test("the fixtures hold only made-up writers", () => {
