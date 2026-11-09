@@ -116,7 +116,7 @@ test("substack: lists newest first from the sitemap, fetches each body, strips t
   const dir = tmp(t);
   const { fetchFn, calls } = fakeFetch({
     [`${BASE}/sitemap.xml`]: sitemap([`${BASE}/p/old`, "2026-01-01"], [`${BASE}/about`, "2026-06-01"], [`${BASE}/p/new`, "2026-05-04"]),
-    [`${BASE}/p/new`]: substackPage("Banter", "<p>I run into <em>a lot</em> of people.</p><h2>Part</h2><ul><li>one</li><li>two</li></ul>"),
+    [`${BASE}/p/new`]: substackPage("Banter", "<p>The ferry leaves <em>a few</em> minutes late.</p><h2>Part</h2><ul><li>one</li><li>two</li></ul>"),
     [`${BASE}/p/old`]: substackPage("Older", "<p>Old text.</p>"),
   });
   const ing = getIngester({ platform: "substack", url: `${BASE}/` }, dir, { fetch: fetchFn, delayMs: 0 });
@@ -128,7 +128,7 @@ test("substack: lists newest first from the sitemap, fetches each body, strips t
     { ...frontmatter(text), published: undefined },
     { title: "Banter", author: "Writer W", source: `${BASE}/p/new`, published: undefined, platform: "substack", slug: "new" },
   );
-  assert.match(text, /I run into \*a lot\* of people\./);
+  assert.match(text, /The ferry leaves \*a few\* minutes late\./);
   assert.match(text, /\n## Part\n/);
   assert.match(text, /\n- one\n- two\n/);
   assert.doesNotMatch(text, /Subscribe now|Share/);
@@ -285,30 +285,30 @@ test("lesswrong: bad config and an unknown user are errors", async (t) => {
 
 const FEED = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Stories</title>
-<item><title><![CDATA[Resensitizing]]></title><link>https://medium.com/@ThingMaker/resensitizing-cb24e5e533e9?source=rss-afd4fe84e81b------2</link>
-<dc:creator><![CDATA[Duncan A Sabien]]></dc:creator><pubDate>Thu, 24 Sep 2020 17:53:51 GMT</pubDate>
-<content:encoded><![CDATA[<p><em>Author’s note:</em> the first plane crash took almost a week.</p><p>Two full planes.</p>]]></content:encoded></item>
-<item><title>No content</title><link>https://medium.com/@ThingMaker/empty-1</link><pubDate>not a date</pubDate></item>
+<item><title><![CDATA[Tidewater]]></title><link>https://medium.com/@HarbourHand/tidewater-0a1b2c3d4e5f?source=rss-1a2b3c4d5e6f------2</link>
+<dc:creator><![CDATA[Jane Roe]]></dc:creator><pubDate>Thu, 24 Sep 2020 17:53:51 GMT</pubDate>
+<content:encoded><![CDATA[<p><em>Editor’s note:</em> the lighthouse keeper counted seven gulls by noon.</p><p>Two small boats.</p>]]></content:encoded></item>
+<item><title>No content</title><link>https://medium.com/@HarbourHand/empty-1</link><pubDate>not a date</pubDate></item>
 <item><title>No link</title></item>
 </channel></rss>`;
 
 test("medium: reads the RSS feed, with the slug from the link and the date from pubDate", async (t) => {
   const dir = tmp(t);
-  const { fetchFn, calls } = fakeFetch({ "https://medium.com/feed/@ThingMaker": FEED });
-  const ing = getIngester({ platform: "medium", user: "@ThingMaker" }, dir, { fetch: fetchFn, delayMs: 0 });
+  const { fetchFn, calls } = fakeFetch({ "https://medium.com/feed/@HarbourHand": FEED });
+  const ing = getIngester({ platform: "medium", user: "@HarbourHand" }, dir, { fetch: fetchFn, delayMs: 0 });
   const report = await ing.run();
-  assert.deepEqual(report.new, ["resensitizing-cb24e5e533e9"]);
+  assert.deepEqual(report.new, ["tidewater-0a1b2c3d4e5f"]);
   assert.deepEqual(report.errors, [["empty-1", "Error: no content:encoded in RSS item"]]);
   assert.equal(calls.length, 1, "the feed is fetched once");
-  const text = post(dir, "medium-resensitizing-cb24e5e533e9.md");
+  const text = post(dir, "medium-tidewater-0a1b2c3d4e5f.md");
   const fm = frontmatter(text);
-  assert.equal(fm.title, "Resensitizing");
-  assert.equal(fm.author, "Duncan A Sabien");
-  assert.equal(fm.source, "https://medium.com/@ThingMaker/resensitizing-cb24e5e533e9?source=rss-afd4fe84e81b------2");
+  assert.equal(fm.title, "Tidewater");
+  assert.equal(fm.author, "Jane Roe");
+  assert.equal(fm.source, "https://medium.com/@HarbourHand/tidewater-0a1b2c3d4e5f?source=rss-1a2b3c4d5e6f------2");
   assert.equal(fm.published.toISOString().slice(0, 10), "2020-09-24");
-  assert.match(text, /\*Author’s note:\* the first plane crash took almost a week\.\n\nTwo full planes\./);
+  assert.match(text, /\*Editor’s note:\* the lighthouse keeper counted seven gulls by noon\.\n\nTwo small boats\./);
   const empty = (await collect(ing.listPosts())).find((m) => m.slug === "empty-1")!;
-  assert.deepEqual([empty.published, empty.author], ["", "ThingMaker"], "no date, and the user stands in for a missing creator");
+  assert.deepEqual([empty.published, empty.author], ["", "HarbourHand"], "no date, and the user stands in for a missing creator");
 });
 
 // ---- WordPress and Ghost ------------------------------------------------------------
