@@ -14,3 +14,6 @@ _site/
 figures/*/*.html
 .claude/skills/anatomy/examples/**/*.html
 .claude/skills/anatomy/examples/**/*.pdf
+
+# Synced posts: other people's writing, fetched by `npm run sync-posts`. Only each writer's sources.yaml is committed.
+corpus/*/posts/

@@ -155,6 +155,8 @@ scripts/private-cards.mts  Encrypted card blobs for private pages, and the home-
 scripts/cards.mts       Social card renderer (used by `bh cards`): visual screenshot + branded frame
 scripts/chrome.mts      Finds and drives a local Chrome over the DevTools protocol (visual, cards)
 scripts/stats.mts       `npm run stats`: views per page from GoatCounter's export, joined with titles and tags
+scripts/sync-posts.mts  `npm run sync-posts`: pull a writer's posts into corpus/<writer>/posts/ (git-ignored); see corpus/README.md
+scripts/ingest/         The platform ingesters sync-posts runs: Substack, LessWrong, Medium, WordPress, Ghost
 scripts/visual.mts      Visual regression: Chrome via DevTools protocol, PNG diff, HTML report
 dist/                   Bundled single-file outputs (git-ignored)
 ```
