@@ -392,17 +392,23 @@ export function parsePushUpdates(stdin: string): PushUpdate[] {
  * A new branch has no remote value, so its base is the tracking refs; a delete adds nothing. A `remote` that is a
  * URL has no tracking refs, so everything reachable from the pushed refs is read: more than needed, never less.
  * A blob is judged by each path it was committed at, as in `leakCheckHistory`, so text already in older history
- * (and the allowances that cover it) does not block a push that doesn't add it.
+ * (and the allowances that cover it) does not block a push that doesn't add it. Remote-tracking refs are whatever this
+ * clone last fetched, so a stale one counts as what the remote has. `updates` may be a function, called only once
+ * there is private data to compare with, so a checkout without it never reads or parses the hook's input.
  */
-export function leakCheckPushed(repoRoot: string, updates: PushUpdate[], remote: string, corpusRoot: string = CORPUS_DIR, allowances: Record<string, LeakAllowance> = LEAK_ALLOWED): LeakCheckResult {
+export function leakCheckPushed(repoRoot: string, updates: PushUpdate[] | (() => PushUpdate[]), remote: string, corpusRoot: string = CORPUS_DIR, allowances: Record<string, LeakAllowance> = LEAK_ALLOWED): LeakCheckResult {
   const found = privateRuns(corpusRoot);
   if (!found) return { status: "skipped", reason: SKIPPED };
   const stats: HistoryStats = { tooLarge: 0 };
+  if (typeof updates === "function") updates = updates();
   const pushed = [...new Set(updates.filter((u) => !ZERO_SHA.test(u.localSha)).map((u) => u.localSha))];
   if (pushed.length === 0) return { status: "done", sources: found.sources, unread: 0, files: 0, hits: [], allowed: [] };
-  const known = (sha: string) => spawnSync("git", ["-C", repoRoot, "cat-file", "-e", `${sha}^{commit}`], { stdio: "ignore" }).status === 0;
-  const onRemote = [...new Set(updates.map((u) => u.remoteSha).filter((sha) => !ZERO_SHA.test(sha) && known(sha)))];
-  const revs = [...pushed, "--not", ...(remote ? [`--remotes=${remote}`] : []), ...onRemote];
+  // The remote's current value for each ref, where this clone has that commit (one call, whatever the number of refs).
+  const remoteShas = [...new Set(updates.map((u) => u.remoteSha).filter((sha) => !ZERO_SHA.test(sha)))];
+  const onRemote = remoteShas.length === 0 ? [] : spawnSync("git", ["-C", repoRoot, "cat-file", "--batch-check=%(objectname) %(objecttype)"], { input: remoteShas.map((sha) => `${sha}^{commit}`).join("\n") + "\n", encoding: "utf8" }).stdout
+    .split("\n").filter((line) => line.endsWith(" commit")).map((line) => line.split(" ")[0]);
+  // `--remotes=<pattern>` is a glob, so only a plain remote name is passed; a URL has no tracking refs anyway.
+  const revs = [...pushed, "--not", ...(/^[\w.-]+$/.test(remote) ? [`--remotes=${remote}`] : []), ...onRemote];
   const compared = compare(historyTexts(repoRoot, stats, revs), found.runs, allowances);
   return { status: "done", sources: found.sources, unread: stats.tooLarge, ...compared };
 }

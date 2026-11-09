@@ -48,7 +48,8 @@ Guards, because a rule that must hold every time belongs in a check:
   blob is held to its path's `LEAK_ALLOWED` cap, as in `--history`, and since only new blobs are read, text already
   in older history does not block a push that doesn't add it. A leak removed by a later commit is still in the
   pushed history, so it is still caught: drop or rewrite the commit. When the remote is given as a URL rather than
-  a remote name there are no tracking refs, so everything reachable from the pushed refs is read.
+  a remote name there are no tracking refs, so everything reachable from the pushed refs is read. Tracking refs are
+  what this clone last fetched, so a stale one counts as what the remote has.
   It is local and per clone: `git push --no-verify`, a clone that never ran `npm run hooks`, and merges made on
   GitHub skip it. CI can't do better without committing something derived from the private text (hashes of 8-word
   runs are guessable), which this repo's rule forbids; `tests/githooks.test.mts` pins the hook with real pushes.

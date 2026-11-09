@@ -124,7 +124,7 @@ function cmdLeakCheck(repoRoot: string, corpusRoot: string, scope: LeakScope, ou
   const blobs = scope.kind !== "tracked";
   const result =
     scope.kind === "history" ? leakCheckHistory(repoRoot, corpusRoot)
-    : scope.kind === "pushed" ? leakCheckPushed(repoRoot, parsePushUpdates(scope.stdin()), scope.remote, corpusRoot)
+    : scope.kind === "pushed" ? leakCheckPushed(repoRoot, () => parsePushUpdates(scope.stdin()), scope.remote, corpusRoot)
     : leakCheck(repoRoot, corpusRoot);
   if (result.status === "skipped") {
     out.log(`${name} skipped: ${result.reason}. Nothing was checked; \`npm run advisor -- link <path>\` points this checkout at the private data.`);

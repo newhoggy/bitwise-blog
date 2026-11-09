@@ -1,7 +1,7 @@
 #!/bin/sh
-# Runs `npm run advisor -- leak-check --pushed` before a push: a commit that adds a run of 8 or more
+# Runs `leak-check --pushed <remote>` (see scripts/advisor.mts) before a push: a commit that adds a run of 8 or more
 # words from the private corpus must not become public. It reads git's list of what is being pushed
-# (stdin) and checks the blobs those commits add, not the working tree. Enable with `npm run hooks` (once per clone).
+# (stdin; to reproduce a failure by hand, pipe those lines into the command) and checks the blobs those commits add, not the working tree. Enable with `npm run hooks` (once per clone).
 # It skips, with a message, when this checkout has no private data. `git push --no-verify` bypasses it.
 # See corpus/README.md. It prints file names, lines and lengths, never the words.
 

@@ -474,6 +474,7 @@ test("leak-check --pushed: reads only what the push adds, judges each blob by it
   git(repoRoot, "update-ref", "refs/remotes/origin/main", leaky);
   assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(tip, ZERO)], "origin", corpusRoot)), [], "the remote's tracking refs are its base");
   assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(tip, ZERO)], "elsewhere", corpusRoot)), ["old.html"], "another remote's tracking refs are not");
+  assert.deepEqual(hits(leakCheckPushed(repoRoot, [update(tip, ZERO)], "*", corpusRoot)), ["old.html"], "a glob is not a remote name");
 
   const stdin = `refs/heads/x ${tip} refs/heads/x ${base}\n`;
   const s = sink();
@@ -482,7 +483,7 @@ test("leak-check --pushed: reads only what the push adds, judges each blob by it
   assert.match(s.errors.at(-1)!, /^leak-check --pushed FAILED: 1 run\(s\) of 8\+ words in blobs this push adds$/);
   const noPrivate = leakFixture(t, []);
   const skipped = sink();
-  assert.equal(await main(["leak-check", "--pushed", "origin"], { corpusRoot: path.join(noPrivate.repoRoot, "corpus"), repoRoot: noPrivate.repoRoot, out: skipped.out, stdin: () => stdin }), 0);
+  assert.equal(await main(["leak-check", "--pushed", "origin"], { corpusRoot: path.join(noPrivate.repoRoot, "corpus"), repoRoot: noPrivate.repoRoot, out: skipped.out, stdin: () => "nonsense\n" }), 0, "with no data the input is not even read");
   assert.match(skipped.lines[0], /^leak-check --pushed skipped: /);
   const garbled = sink();
   assert.equal(await main(["leak-check", "--pushed", "origin"], { corpusRoot, repoRoot, out: garbled.out, stdin: () => "nonsense\n" }), 1);
