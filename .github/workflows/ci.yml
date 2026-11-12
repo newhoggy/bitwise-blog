@@ -117,11 +117,26 @@ jobs:
         with:
           node-version: 22
 
+      # The gates finish at different times, so an older commit's deploy can start after a newer
+      # commit has landed. Publish only if this commit is still the head of main; the newer
+      # commit's own run deploys it.
+      - name: Is this commit still the head of main?
+        id: fresh
+        run: |
+          head=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$head" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::main has moved on to $head; not publishing $GITHUB_SHA"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # No `npm ci` and no `npm run check` here: the `check` job already ran both on this
       # commit. The publish script imports no installed package (tests/advisor-guards.test.mts).
 
       # Assemble the local variant, then remove examples from the published copy.
       - name: Assemble the site
+        if: steps.fresh.outputs.current == 'true'
         run: |
           mkdir -p _site
           cp -r index.html docs theme _site/
@@ -136,15 +151,19 @@ jobs:
           echo "window.BH_BUILD = {\"repo\": \"${GITHUB_REPOSITORY}\", \"commit\": \"${GITHUB_SHA}\", \"dirty\": false, \"builtAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"};" > _site/theme/build.js
 
       - name: Remove example pages and rebuild published data
+        if: steps.fresh.outputs.current == 'true'
         run: node scripts/publish.mts
         env:
           GOATCOUNTER_CODE: ${{ vars.GOATCOUNTER_CODE }}
 
       - uses: actions/configure-pages@v5
+        if: steps.fresh.outputs.current == 'true'
 
       - uses: actions/upload-pages-artifact@v3
+        if: steps.fresh.outputs.current == 'true'
         with:
           path: _site
 
       - id: deployment
+        if: steps.fresh.outputs.current == 'true'
         uses: actions/deploy-pages@v4

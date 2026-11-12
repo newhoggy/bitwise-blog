@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
+import { parse } from "yaml";
 import { main, type Output } from "../scripts/advisor.mts";
 import { dataDir } from "../scripts/advisor/corpus.mts";
 import { LEAK_RUN_WORDS, describeSources, findRuns, jsonlRuns, leakCheck, leakCheckHistory, leakCheckPushed, parsePushUpdates, postRuns, quoteRuns } from "../scripts/advisor/guards.mts";
@@ -94,10 +95,10 @@ test("the published site holds no corpus path and nothing from the private data"
 
   // Copy what the workflow copies: its own list, read from the workflow, so changing it fails here.
   // (ci.yml also assembles a copy in its `check` job, so read the `deploy` job's.)
-  const workflow = fs.readFileSync(path.join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
-  const deploy = workflow.slice(workflow.indexOf("\n  deploy:"));
-  assert.ok(deploy.includes("deploy:"), "ci.yml has a `deploy` job");
-  const copied = deploy.match(/^\s*cp -r (.+) _site\/\s*$/m);
+  const ci = parse(fs.readFileSync(path.join(ROOT, ".github", "workflows", "ci.yml"), "utf8")) as { jobs: Record<string, { steps?: Array<{ run?: string }> }> };
+  const deploy = ci.jobs["deploy"];
+  assert.ok(deploy, "ci.yml has a `deploy` job");
+  const copied = (deploy.steps ?? []).map((step) => step.run?.match(/^\s*cp -r (.+) _site\/\s*$/m)).find(Boolean);
   assert.ok(copied, "the deploy job still copies with `cp -r ... _site/`");
   const entries = copied[1].trim().split(/\s+/);
   assert.equal(entries.some((e) => e.startsWith("corpus")), false, `the deploy job copies ${entries.join(" ")}`);

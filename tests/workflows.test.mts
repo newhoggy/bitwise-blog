@@ -12,8 +12,8 @@ import { parse } from "yaml";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const WORKFLOWS = path.join(ROOT, ".github", "workflows");
 
-interface Job { needs?: string | string[]; if?: string; steps?: Array<{ uses?: string; run?: string }> }
-interface Workflow { on: Record<string, unknown>; jobs: Record<string, Job> }
+interface Job { needs?: string | string[]; if?: string; permissions?: Record<string, string>; steps?: Array<{ uses?: string; run?: string }> }
+interface Workflow { on: Record<string, unknown>; permissions?: Record<string, string>; jobs: Record<string, Job> }
 
 const load = (file: string): Workflow => parse(fs.readFileSync(path.join(WORKFLOWS, file), "utf8")) as Workflow;
 const needs = (job: Job): string[] => [job.needs ?? []].flat();
@@ -29,16 +29,24 @@ test("the deploy job needs the check and render jobs of the same workflow", () =
 });
 
 test("the deploy job never runs for a pull request, and only for main", () => {
-  const condition = load("ci.yml").jobs["deploy"]?.if ?? "";
-  assert.match(condition, /github\.event_name != 'pull_request'/);
-  assert.match(condition, /github\.ref == 'refs\/heads\/main'/);
+  const condition = (load("ci.yml").jobs["deploy"]?.if ?? "").replace(/\s+/g, " ").trim();
+  assert.equal(condition, "vars.PAGES_ENABLED == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'");
 });
 
-test("only the deploy job publishes, and no other workflow can", () => {
-  const publishes = (job: Job) => (job.steps ?? []).some((s) => s.uses?.startsWith("actions/deploy-pages") || s.uses?.startsWith("actions/upload-pages-artifact"));
+test("only the deploy job can publish: no other workflow or job has `pages: write`", () => {
+  // Publishing to Pages needs the `pages: write` permission, however the job does it.
   for (const file of fs.readdirSync(WORKFLOWS).filter((f) => /\.ya?ml$/.test(f))) {
-    for (const [name, job] of Object.entries(load(file).jobs)) {
-      assert.equal(publishes(job), file === "ci.yml" && name === "deploy", `${file}: job \`${name}\` ${publishes(job) ? "publishes" : "does not publish"}`);
+    const workflow = load(file);
+    assert.notEqual(workflow.permissions?.["pages"], "write", `${file} grants \`pages: write\` to every job`);
+    for (const [name, job] of Object.entries(workflow.jobs)) {
+      assert.equal(job.permissions?.["pages"] === "write", file === "ci.yml" && name === "deploy", `${file}: job \`${name}\``);
     }
   }
+});
+
+test("the deploy job publishes only while its commit is still the head of main", () => {
+  const steps = load("ci.yml").jobs["deploy"]?.steps ?? [];
+  const publishing = steps.filter((s) => s.uses?.startsWith("actions/deploy-pages") || s.uses?.startsWith("actions/upload-pages-artifact"));
+  assert.ok(publishing.length === 2, "the deploy job uploads and deploys the Pages artifact");
+  for (const step of publishing) assert.match(JSON.stringify(step), /steps\.fresh\.outputs\.current == 'true'/);
 });
