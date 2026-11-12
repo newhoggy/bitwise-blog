@@ -115,7 +115,7 @@
     const { el } = bh;
     counter = el("span", { class: "bh-present-count", "aria-live": "polite" });
     progress = el("div", { class: "bh-present-progress", "aria-hidden": "true" });
-    bar = el("div", { class: "bh-present-bar", role: "toolbar", "aria-label": "Presentation" }, [
+    bar = el("nav", { class: "bh-present-bar", "aria-label": "Presentation" }, [
       el("button", { type: "button", class: "btn ghost", "data-prev": "", "aria-label": "Previous slide", text: "←", onclick: () => go(index - 1) }),
       counter,
       el("button", { type: "button", class: "btn ghost", "data-next": "", "aria-label": "Next slide", text: "→", onclick: () => go(index + 1) }),

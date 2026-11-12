@@ -651,7 +651,7 @@
       if (!started) {
         started = true;
         load();
-        pinLayer = el("div", { class: "bh-review-pins bh-review-ui", "aria-label": "Review comments" });
+        pinLayer = el("div", { class: "bh-review-pins bh-review-ui", role: "region", "aria-label": "Review comments" });
         selBtn = el("button", { type: "button", class: "btn primary bh-review-selbtn bh-review-ui", text: "Comment", hidden: true, onmousedown: (e) => e.preventDefault(), onclick: commentOnSelection });
         liveRegion = el("p", { class: "visually-hidden bh-review-ui", "aria-live": "polite" });
         doc.body.append(pinLayer, selBtn, liveRegion);
