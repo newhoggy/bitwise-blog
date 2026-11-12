@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: node run-trigger-evals.mjs <skill-name> [--runs N] [--model ID] [--max-cost USD] [--only 1,5,9] [--max-turns N] [--keep]
+// Usage: node run-trigger-evals.mjs <skill-name> [--runs N] [--model ID] [--max-cost USD] [--only 1,5,9] [--max-turns N] [--keep] [--json FILE]
 //
 // Measures how often a skill loads on evals/trigger-evals.json. Run it from inside the repo.
 //
@@ -23,6 +23,8 @@
 // --keep keeps the temporary plugin and copies each run's trace into its traces/ directory, and
 // lists the tool calls of every run that did not behave as labelled, or errored, so a miss can be
 // read rather than guessed from turn counts.
+// --json FILE also writes the per-query results and the totals as JSON (for scripts/skill-evals.mts,
+// which records the pass rate on a schedule). The printed report and the exit code do not change.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -32,7 +34,7 @@ const argv = process.argv.slice(2);
 const flag = (name, dflt) => { const i = argv.indexOf(name); return i < 0 ? dflt : argv[i + 1]; };
 const name = argv[0];
 if (!name || name.startsWith("--")) {
-  console.error("usage: node run-trigger-evals.mjs <skill-name> [--runs N] [--model ID] [--max-cost USD] [--only 1,5,9] [--max-turns N] [--keep]");
+  console.error("usage: node run-trigger-evals.mjs <skill-name> [--runs N] [--model ID] [--max-cost USD] [--only 1,5,9] [--max-turns N] [--keep] [--json FILE]");
   process.exit(2);
 }
 const runs = Number(flag("--runs", 3));
@@ -42,6 +44,8 @@ const maxCost = flag("--max-cost", "10");
 const maxTurns = Number(flag("--max-turns", 3));
 if (!Number.isInteger(maxTurns) || maxTurns < 1) { console.error("--max-turns takes a whole number of turns, 1 or more"); process.exit(2); }
 const keep = argv.includes("--keep");
+const jsonOut = flag("--json", "");
+if (argv.includes("--json") && !jsonOut) { console.error("--json takes a file name"); process.exit(2); }
 
 const repo = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
 const skillsDir = path.join(repo, ".claude", "skills");
@@ -178,6 +182,18 @@ function report(result) {
   if (rows.some(r => r.heldout)) console.log(`\npassed: train ${part(false)}, held-out ${part(true)}`);
   const should = rows.filter(r => r.should), shouldnt = rows.filter(r => !r.should);
   const errored = rows.filter(r => r.status === "ERROR").length;
+  if (jsonOut) {
+    const count = p => ({ passed: p.filter(r => r.status === "PASS").length, total: p.length, errored: p.filter(r => r.status === "ERROR").length });
+    fs.writeFileSync(jsonOut, JSON.stringify({
+      skill: name, model, runs, costUsd: result.costUsd ?? null, claudeVersion: result.claudeVersion ?? null,
+      // Cases that failed to load are not in the result at all; the caller must see that they were lost.
+      missing,
+      // True when the cost ceiling or an abort stopped the run: the missing cases were then never started, not broken.
+      partial: result.partial === true,
+      totals: { all: count(rows), shouldFire: count(should), shouldStayQuiet: count(shouldnt), heldout: rows.some(r => r.heldout) ? count(rows.filter(r => r.heldout)) : null },
+      queries: rows.map(r => ({ position: position[r.i], status: r.status, shouldTrigger: r.should, heldout: r.heldout, fired: r.should ? r.ok : r.n - r.ok, scored: r.n, errored: r.errors, query: r.query })),
+    }, null, 2) + "\n");
+  }
   console.log(`\n${rows.length - (failed - missing)}/${queries.length} queries passed ` +
     `(should-fire ${tally(should)}, should-stay-quiet ${tally(shouldnt)})` +
     `${errored ? `, ${errored} errored` : ""}; ` +

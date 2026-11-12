@@ -180,3 +180,40 @@ test("--max-turns must be a whole number", (t) => {
     assert.match(res.stderr, /--max-turns takes a whole number/);
   }
 });
+
+test("--json writes the per-query results and totals, and leaves the report and exit code alone", (t) => {
+  const err = { error: "exit 1: API Error: 529 overloaded" };
+  const { root, run } = setup({
+    [SHOULD]: [{ fire: true }, { fire: true }, {}],
+    [QUIET]: [err, err, err],
+  });
+  t.after(() => remove(root));
+  const out = path.join(root, "trigger.json");
+  const plain = run();
+  const res = run("--json", out);
+  assert.equal(res.status, plain.status);
+  assert.equal(res.stdout.replace(/kept .*\n/, ""), plain.stdout.replace(/kept .*\n/, ""));
+  const j = JSON.parse(fs.readFileSync(out, "utf8"));
+  assert.equal(j.skill, "demo");
+  assert.equal(j.runs, 3);
+  assert.equal(j.costUsd, 0.12);
+  assert.equal(j.missing, 0);
+  assert.deepEqual(j.totals, {
+    all: { passed: 1, total: 2, errored: 1 },
+    shouldFire: { passed: 1, total: 1, errored: 0 },
+    shouldStayQuiet: { passed: 0, total: 1, errored: 1 },
+    heldout: { passed: 0, total: 1, errored: 1 },
+  });
+  assert.deepEqual(j.queries.map((q: { position: number; status: string; fired: number; scored: number; errored: number }) =>
+    [q.position, q.status, q.fired, q.scored, q.errored]), [[1, "PASS", 2, 3, 0], [2, "ERROR", 0, 0, 3]]);
+  assert.equal(j.queries[0].query, SHOULD);
+  assert.equal(j.queries[1].heldout, true);
+});
+
+test("--json needs a file name", (t) => {
+  const { root } = setup({ [SHOULD]: [{}], [QUIET]: [{}] });
+  t.after(() => remove(root));
+  const res = spawnSync(process.execPath, [runner, "demo", "--json"], { cwd: path.join(root, "repo"), encoding: "utf8" });
+  assert.equal(res.status, 2);
+  assert.match(res.stderr, /--json takes a file name/);
+});
