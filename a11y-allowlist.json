@@ -254,8 +254,8 @@
   {
     "page": "docs/how-deflate-compresses.html",
     "rule": "target-size",
-    "nodes": 45,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). The stepper's copy-link button is smaller than 24px. Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 43,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/how-deflate-sends-its-code.html",
@@ -296,8 +296,8 @@
   {
     "page": "docs/how-deflate-sends-its-code.html",
     "rule": "target-size",
-    "nodes": 59,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). The stepper's copy-link button is smaller than 24px. Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 57,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/how-deflate-works.html",
@@ -338,8 +338,8 @@
   {
     "page": "docs/how-deflate-works.html",
     "rule": "target-size",
-    "nodes": 106,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). The stepper's copy-link button is smaller than 24px. Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 102,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/pedagogical-writing.html",
@@ -380,8 +380,8 @@
   {
     "page": "docs/pedagogical-writing.html",
     "rule": "target-size",
-    "nodes": 9,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). The stepper's copy-link button is smaller than 24px. Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 8,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/token-bucket-rate-limiting.html",

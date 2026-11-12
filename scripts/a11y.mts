@@ -277,8 +277,10 @@ export async function scan(send: ChromeHandle["send"], url: string, opts: ScanOp
       await s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
     }
     await s("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile });
-    // A phone has no hover, and CI's headless Chrome reports none even at desktop width: scan the touch styles here too.
-    if (viewport.mobile) await s("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+    // Scan with no hover at every width: controls that wait for hover to appear (the review "+ Comment" buttons, a
+    // stepper's copy-link button) are then on show and checked. A phone has no hover, and CI's headless Chrome
+    // reports none at desktop width either, so this also makes a local run see what CI sees.
+    await s("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
     await s("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }, { name: "prefers-reduced-motion", value: "reduce" }] });
     await s("Page.navigate", { url });
     const deadline = Date.now() + 20000;
