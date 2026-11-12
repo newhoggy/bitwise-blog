@@ -61,6 +61,7 @@ test("fewer elements than the entry lists is a failure, so the count only goes d
 test("targets are named the same in every run", () => {
   assert.equal(normalizeTarget("bh-tabs#tabs-k3j9x0-p1 > img"), normalizeTarget("bh-tabs#tabs-ab12cd-p1 > img"));
   assert.equal(normalizeTarget("#bh-sr-1-0 > a > .bh-search-snippet > mark:nth-child(2)"), normalizeTarget(".bh-search-section > mark"));
+  assert.equal(normalizeTarget(".node.is-lit > text"), normalizeTarget(".node > text"), "state classes are not part of an element's name");
   assert.equal(normalizeTarget("#bh-sr-1-0"), normalizeTarget(".bh-search-hit"));
   assert.equal(normalizeTarget(".bh-search-btn"), ".bh-search-btn", "the top-bar button is not a hit");
   assert.notEqual(normalizeTarget("ul:nth-child(2)"), normalizeTarget("ul:nth-child(3)"), "positions elsewhere still tell elements apart");
@@ -206,9 +207,10 @@ test("a state whose trigger is missing is skipped, and one that fails to apply i
   const states: State[] = [
     { name: "absent", apply: 'return "na";' },
     { name: "broken", apply: 'throw new Error("the widget did not open");' },
+    { name: "stuck", apply: 'return "ok";', undo: 'throw new Error("could not close");' },
     { name: "rounds", rounds: { from: 0 }, apply: 'return k < 2 ? "ok" : "na";' },
     { name: "after", apply: 'return "ok";' },
   ];
   const rs = await scan(chrome.send, `${base}/good.html`, { scheme: "light", axeSource, blockFonts: true, states });
-  assert.deepEqual(rs.map((r) => [r.state, r.error ?? null]), [["page", null], ["broken", "the widget did not open"], ["rounds 1", null], ["rounds 2", null], ["after", null]]);
+  assert.deepEqual(rs.map((r) => [r.state, r.error ?? null]), [["page", null], ["broken", "the widget did not open"], ["stuck", null], ["stuck (undo)", "could not close"], ["rounds 1", null], ["rounds 2", null], ["after", null]]);
 });

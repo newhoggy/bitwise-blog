@@ -59,12 +59,13 @@ export function publicPages(root: string): string[] {
 
 /**
  * An axe target with what varies from run to run replaced, so the same element has one name in every run: the
- * random ids <bh-tabs> generates, and the elements inside the search dialog's hits. Which hits the dialog shows,
+ * random ids <bh-tabs> generates, the state classes components toggle, and the elements inside the search dialog's hits. Which hits the dialog shows,
  * how many words each highlights, and how axe words the selector for them (it picks whatever is unique) follow the
  * site's content, not the markup, so a hit is named by its last step alone.
  */
 export function normalizeTarget(target: string): string {
-  const t = target.replace(/\btabs-[a-z0-9]{6}\b/g, "tabs-*");
+  // Classes that components toggle as a reader moves through a page: axe may or may not name them in the selector.
+  const t = target.replace(/\btabs-[a-z0-9]{6}\b/g, "tabs-*").replace(/\.(?:is-lit|is-dim|is-active|reveal-pending|reveal-in)\b/g, "");
   if (!/#bh-sr-\d|\.bh-search-(?:hit|snippet|section|title)\b/.test(t)) return t;
   const last = t.split(" > ").pop()!.replace(/#bh-sr-\d+-\d+/, ".bh-search-hit").replace(/:nth-child\(\d+\)/g, "");
   return `dialog.bh-search ${last}`;
@@ -223,8 +224,12 @@ const evalIn = async (s: TabSend, expression: string) => {
 
 // Colours mid-transition read as low contrast, and a step or tab that was just switched is mid-transition: wait for
 // every finite animation or transition to end (looping ones never do), then two frames so styles are computed.
+// A paused or stuck animation must not hang the run, so the wait is capped.
 const SETTLE = `(async () => {
-  await Promise.allSettled(document.getAnimations().filter((a) => a.effect && Number.isFinite(a.effect.getComputedTiming().endTime)).map((a) => a.finished));
+  await Promise.race([
+    Promise.allSettled(document.getAnimations().filter((a) => a.effect && Number.isFinite(a.effect.getComputedTiming().endTime)).map((a) => a.finished)),
+    new Promise((r) => setTimeout(r, 3000)),
+  ]);
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 })()`;
 
@@ -301,7 +306,11 @@ export async function scan(send: ChromeHandle["send"], url: string, opts: ScanOp
       } catch (e) {
         out.push({ state: st.name, violations: [], error: e instanceof Error ? e.message : String(e) });
       } finally {
-        if (st.undo) await call(st, st.undo, 0).catch(() => {});
+        // A state left open would taint every scan after it, so a failed undo is reported, not ignored.
+        if (st.undo) {
+          try { await call(st, st.undo, 0); }
+          catch (e) { out.push({ state: `${st.name} (undo)`, violations: [], error: e instanceof Error ? e.message : String(e) }); }
+        }
       }
     }
     return out;

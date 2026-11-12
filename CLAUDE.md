@@ -767,10 +767,10 @@ for everyone: highlights and pins, opening into threads.
   Chrome, like `visual`; `--only <text>` limits the pages; web fonts are always blocked, as in CI). Run it
   after a theme, component or page change; CI runs it as the `a11y` job (about two minutes). Sealed pages are skipped.
   - **It also scans what interaction reveals**, in the same tab after the page as loaded: closed `details`
-    opened, every inactive tab, every later stepper step, the glossary and sidenote popups, the search
-    dialog (with results), the review panel and slide mode (first slide). The states are `STATES` in
+    opened, every inactive tab, every later stepper step, the first glossary term's and the first sidenote's
+    popup, the search dialog (with results), the review panel and slide mode (first slide only). The states are `STATES` in
     `scripts/a11y.mts`; a new component that hides content needs one. A state whose trigger exists but does
-    nothing is an error, not a pass.
+    nothing, or that cannot be closed again, is an error, not a pass.
   - **A page must have rendered** (one `h1`, a `main` landmark and the top bar `bh.js` builds) or its scan is an error.
   - Findings that exist today are tracked in `a11y-allowlist.json` (`page`, `rule`, `nodes` and a `reason`
     that names the component to fix). `nodes` is how many distinct elements the rule hits on that page,
