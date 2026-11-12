@@ -6,13 +6,8 @@
   "description": "Bitwise Engineering: a software engineering blog, built on the beautiful-html theme.",
   "repository": "github:newhoggy/bitwise-blog",
   "homepage": "https://bitwise.john-ky.io/",
-  "bh": {
-    "siteName": "Bitwise Engineering",
-    "repoUrl": "https://github.com/newhoggy/bitwise-blog"
-  },
-  "engines": {
-    "node": ">=22.18"
-  },
+  "bh": { "siteName": "Bitwise Engineering", "repoUrl": "https://github.com/newhoggy/bitwise-blog" },
+  "engines": { "node": ">=22.18" },
   "scripts": {
     "test": "node --test tests/*.test.mts",
     "typecheck": "tsc -p .",

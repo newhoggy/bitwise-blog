@@ -3,10 +3,9 @@
 //
 //   node scripts/a11y.mts                    every public page, light and dark
 //   node scripts/a11y.mts --only deflate     pages whose path contains "deflate"
-//   node scripts/a11y.mts --system-fonts     block Google Fonts (offline / hermetic runs)
 //   node scripts/a11y.mts --json             print the full result as JSON on stdout
 //
-// Each page is opened with reduced motion, in both colour schemes, and waited on until
+// Each page is opened with the system fonts (web fonts blocked), reduced motion, in both colour schemes, and waited on until
 // <html data-bh-ready>. axe-core (a pinned devDependency) is injected and run against the
 // whole document with the WCAG 2.0/2.1 A and AA rules plus axe's best-practice rules.
 // Findings that are known and tracked live in a11y-allowlist.json; anything else fails the
@@ -21,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AddressInfo } from "node:net";
-import { launchChrome, serveStatic, sleep, type ChromeHandle } from "./chrome.mts";
+import { findChrome, launchChrome, serveStatic, sleep, type ChromeHandle } from "./chrome.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"];
@@ -56,8 +55,9 @@ export function applyAllowlist(results: A11yResult[], allow: AllowEntry[]): { fa
     });
     if (violations.length || r.error) failures.push({ ...r, violations });
   }
-  // An entry is unused only when its page was scanned and the rule did not fire in any scheme.
-  const scanned = new Set(results.filter((r) => !r.error).map((r) => r.page));
+  // An entry is unused only when its page was scanned in every scheme and the rule did not fire in any.
+  const failed = new Set(results.filter((r) => r.error).map((r) => r.page));
+  const scanned = new Set(results.filter((r) => !failed.has(r.page)).map((r) => r.page));
   return { failures, unused: allow.filter((a) => scanned.has(a.page) && !used.has(a)) };
 }
 
@@ -123,8 +123,11 @@ export function loadAllowlist(file: string): AllowEntry[] {
 async function main() {
   const c = { red: (s: string) => `\x1b[31m${s}\x1b[0m`, green: (s: string) => `\x1b[32m${s}\x1b[0m`, dim: (s: string) => `\x1b[2m${s}\x1b[0m` };
   const args = process.argv.slice(2);
-  const only = args.includes("--only") ? args[args.indexOf("--only") + 1] : null;
-  const blockFonts = args.includes("--system-fonts");
+  const onlyAt = args.indexOf("--only");
+  const only = onlyAt < 0 ? null : args[onlyAt + 1];
+  if (onlyAt >= 0 && (!only || only.startsWith("--"))) { console.error("--only needs a value, for example --only deflate"); process.exitCode = 2; return; }
+  // Google Fonts are always blocked, as in CI: the same layout everywhere, so the allowlist means the same thing.
+  const blockFonts = true;
   const json = args.includes("--json");
   const log = (s: string) => (json ? console.error(s) : console.log(s));
 
@@ -133,6 +136,7 @@ async function main() {
   const pages = publicPages(ROOT).filter((p) => !only || p.includes(only));
   if (!pages.length) { console.error(`No page matches --only ${only}`); process.exitCode = 1; return; }
 
+  if (!findChrome()) { console.error("Chrome not found: install it or set CHROME_PATH"); process.exitCode = 2; return; }
   const server = await serveStatic(ROOT);
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
   let chrome: ChromeHandle | undefined;

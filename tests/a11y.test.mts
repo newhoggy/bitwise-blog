@@ -43,6 +43,14 @@ test("a scan error is a failure, and does not make its allowlist entries look un
   assert.deepEqual(unused, []);
 });
 
+test("a page whose other scheme errored does not make its allowlist entries look unused", () => {
+  const { unused } = applyAllowlist(
+    [result("a.html", "light"), { page: "a.html", scheme: "dark", violations: [], error: "timeout" }],
+    [{ page: "a.html", rule: "color-contrast", reason: "tracked" }],
+  );
+  assert.deepEqual(unused, []);
+});
+
 test("the committed allowlist is valid and names only pages that exist", () => {
   const allow = loadAllowlist(path.join(root, "a11y-allowlist.json"));
   const pages = new Set(publicPages(root));
