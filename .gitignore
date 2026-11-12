@@ -9,6 +9,8 @@ _site/
 
 # Skill eval results (claude plugin eval): regenerated on every run
 .claude/skills/*/evals/results/
+# Output of npm run skill-evals (the scheduled run uploads record.json as an artifact instead)
+skill-evals/
 
 # Anatomy figures: standalone pages are an intermediate; the published copy is the page in docs/
 figures/*/*.html

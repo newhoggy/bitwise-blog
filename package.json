@@ -26,7 +26,8 @@
     "advisor": "node scripts/advisor.mts",
     "hooks": "git config core.hooksPath .githooks",
     "lint-skills": "node .claude/skills/skill-authoring/scripts/lint-skill.mjs --all",
-    "trigger-evals": "node .claude/skills/skill-authoring/scripts/run-trigger-evals.mjs"
+    "trigger-evals": "node .claude/skills/skill-authoring/scripts/run-trigger-evals.mjs",
+    "skill-evals": "node scripts/skill-evals.mts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
