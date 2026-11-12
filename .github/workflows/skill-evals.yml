@@ -1,0 +1,121 @@
+name: Skill evals
+
+# Runs every skill's trigger and output evals once a month and records the pass rates, so a model or
+# Claude Code update that changes how a skill behaves is noticed even though nothing in the repo
+# changed. A run fails (and GitHub emails you) when a skill's pass rate falls by more than the
+# tolerance against the previous run's record, or when a run errored and measured nothing. See
+# "Scheduled run" in .claude/skills/skill-authoring/references/maintenance.md.
+#
+# It costs real money (roughly US$40 to $60 a run; the run stops at a hard ceiling, US$75 by
+# default; run with kind "trigger" for about US$33), so it is off until you opt in:
+#   1. Settings → Secrets and variables → Actions → Secrets → New repository secret:
+#      ANTHROPIC_API_KEY = <an Anthropic API key>
+#   2. Settings → Secrets and variables → Actions → Variables → New variable:
+#      SKILL_EVALS_ENABLED = true
+#   3. Optional variables: SKILL_EVALS_MODEL and SKILL_EVALS_JUDGE_MODEL (default
+#      claude-sonnet-5-5 and claude-haiku-5-5), SKILL_EVALS_MAX_COST_USD (default 75).
+#   4. Run it once from the Actions tab (Run workflow) to record the baseline.
+on:
+  schedule:
+    - cron: "17 6 1 * *"
+  workflow_dispatch:
+    inputs:
+      skills:
+        description: "Skills to run, comma-separated (empty: every skill with evals)"
+        required: false
+        default: ""
+      kind:
+        description: "Which evals to run"
+        required: false
+        type: choice
+        options: [both, trigger, output]
+        default: both
+      model:
+        description: "Agent model (empty: the SKILL_EVALS_MODEL variable, else the script's default)"
+        required: false
+        default: ""
+      max_cost_usd:
+        description: "Cost ceiling for the whole run, in US dollars (empty: the variable, else 75)"
+        required: false
+        default: ""
+
+# actions: read lets the run download the previous run's record.
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: skill-evals
+  cancel-in-progress: false
+
+jobs:
+  evals:
+    if: vars.SKILL_EVALS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Unpinned on purpose: the point is to see what a user gets. The version is in the record, so a
+      # drop can be attributed to a Claude Code update or to a model.
+      - name: Install Claude Code
+        run: npm install --global @anthropic-ai/claude-code
+
+      - name: Check the API key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::The ANTHROPIC_API_KEY secret is not set (see the header of this workflow)."
+            exit 1
+          fi
+
+      # The record of the last run that produced one, passed or failed: a regression then alerts once,
+      # and the new level becomes the baseline. Nothing to fetch on the first run.
+      - name: Fetch the previous record
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p previous
+          for id in $(gh run list --workflow skill-evals.yml --status completed --limit 10 --json databaseId --jq '.[].databaseId'); do
+            if gh run download "$id" --name skill-evals-record --dir previous; then
+              echo "previous record: run $id"
+              break
+            fi
+          done
+          ls previous
+
+      # Inputs reach the script through the environment, never through the shell text.
+      - name: Run the evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SKILLS: ${{ inputs.skills }}
+          KIND: ${{ inputs.kind }}
+          MODEL: ${{ inputs.model || vars.SKILL_EVALS_MODEL }}
+          JUDGE_MODEL: ${{ vars.SKILL_EVALS_JUDGE_MODEL }}
+          MAX_COST_USD: ${{ inputs.max_cost_usd || vars.SKILL_EVALS_MAX_COST_USD }}
+        run: |
+          args=(--out skill-evals --previous previous/record.json)
+          if [ -n "$SKILLS" ]; then args+=(--skills "$SKILLS"); fi
+          if [ -n "$KIND" ]; then args+=(--kind "$KIND"); fi
+          if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
+          if [ -n "$JUDGE_MODEL" ]; then args+=(--judge-model "$JUDGE_MODEL"); fi
+          if [ -n "$MAX_COST_USD" ]; then args+=(--max-cost-usd "$MAX_COST_USD"); fi
+          node scripts/skill-evals.mts "${args[@]}"
+
+      # Only the record and the summary: the raw results hold model output and the artifact of a public
+      # repository is readable by any signed-in GitHub user. 90 days is the most a public repo keeps.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: skill-evals-record
+          path: |
+            skill-evals/record.json
+            skill-evals/summary.md
+          retention-days: 90
+          if-no-files-found: warn
