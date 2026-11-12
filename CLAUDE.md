@@ -523,7 +523,7 @@ dependencies, nothing written to disk).
 - **Decisions are never deleted, only superseded.** Link a replacement both ways in
   the `<head>`: `bh:supersedes` on the new ADR, and `bh:superseded-by` plus
   `bh:status` "superseded" on the old one. The old page then shows a banner, and the
-  index dims it. `check` fails if the links don't agree.
+  index marks it with a dashed border and a struck-through title. `check` fails if the links don't agree.
 - **Ids are permanent once published.** Pick ids that name the concept, not the wording:
   `#rollout`, not `#how-we-plan-to-roll-this-out`. If you must rename one, keep the old
   id working with an empty `<span id="old-id"></span>` placed right before the target.
