@@ -388,6 +388,60 @@
     setTimeout(() => target.classList.remove("is-target-flash"), 2000);
   }
 
+  /**
+   * Scrolling containers must be reachable by keyboard (a focusable scroll region needs a role that takes a
+   * name), but a container that fits must stay out of the tab order. So each candidate is measured, and only
+   * one that overflows gets tabindex, role and name. The size is re-measured when the container or its content
+   * resizes (a phone turning, fonts arriving, a closed details or inactive tab opening).
+   * Candidates: wide tables, code blocks, and anything marked data-scroll-region="Name" (page-specific strips).
+   * A <bh-codewalk> code block is handled by the component itself.
+   */
+  const SCROLL_REGIONS = ".bh-article .table-wrap, .bh-article pre:not(.cw-pre):not(.mermaid), .bh-article [data-scroll-region]";
+  function setupScrollRegions() {
+    const article = doc.querySelector(".bh-article");
+    if (!article) return;
+    const ours = new WeakSet(); // regions whose tabindex/role/label this function set
+    const watched = new WeakSet();
+    const ro = new ResizeObserver((entries) => entries.forEach((e) => { const r = e.target.closest(SCROLL_REGIONS); if (r) sync(r); }));
+    const nameOf = (r) => {
+      if (r.dataset.scrollRegion) return r.dataset.scrollRegion;
+      if (r.matches("pre")) return "Code";
+      const cap = r.querySelector("caption");
+      return (cap && cap.textContent.replace(/\s+/g, " ").trim()) || "Table";
+    };
+    function sync(r) {
+      const scrolls = r.scrollWidth > r.clientWidth || r.scrollHeight > r.clientHeight;
+      if (scrolls && !r.hasAttribute("tabindex")) {
+        r.tabIndex = 0;
+        r.setAttribute("role", "group");
+        r.setAttribute("aria-label", nameOf(r));
+        ours.add(r);
+      } else if (!scrolls && ours.has(r)) {
+        r.removeAttribute("tabindex");
+        r.removeAttribute("role");
+        r.removeAttribute("aria-label");
+        ours.delete(r);
+      }
+    }
+    function scan() {
+      article.querySelectorAll(SCROLL_REGIONS).forEach((r) => {
+        if (!watched.has(r)) {
+          watched.add(r);
+          ro.observe(r);
+          if (r.firstElementChild) ro.observe(r.firstElementChild);
+        }
+        sync(r);
+      });
+    }
+    scan(); // now, not only from the observers: rendering may be throttled
+    let queued = false;
+    new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      setTimeout(() => { queued = false; scan(); }, 0);
+    }).observe(article, { childList: true, subtree: true });
+  }
+
   function setupDeepLinks() {
     buildLinkTargets();
     addEventListener("hashchange", () => revealTarget(false));
@@ -1547,9 +1601,10 @@
       }
       // ?present opens straight into slides (at the slide holding #id, if any).
       if (new URLSearchParams(location.search).has("present") && doc.querySelector(".bh-article > h2")) {
-        return loadModule("present.js").then(() => { setupDeepLinks(); window.bh.present && window.bh.present.enter(); });
+        return loadModule("present.js").then(() => { setupDeepLinks(); setupScrollRegions(); window.bh.present && window.bh.present.enter(); });
       }
       setupDeepLinks();
+      setupScrollRegions();
     });
     if (doc.fonts && doc.fonts.ready) settle(doc.fonts.ready);
     signalWhenSettled();

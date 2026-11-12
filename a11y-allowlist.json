@@ -43,12 +43,6 @@
   },
   {
     "page": "docs/announcing-patchcov.html",
-    "rule": "list",
-    "nodes": 1,
-    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
-  },
-  {
-    "page": "docs/announcing-patchcov.html",
     "rule": "region",
     "nodes": 2,
     "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
@@ -70,12 +64,6 @@
     "rule": "region",
     "nodes": 2,
     "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
-  },
-  {
-    "page": "docs/component-gallery.html",
-    "rule": "scrollable-region-focusable",
-    "nodes": 2,
-    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
   },
   {
     "page": "docs/component-gallery.html",
@@ -112,12 +100,6 @@
     "rule": "region",
     "nodes": 2,
     "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
-  },
-  {
-    "page": "docs/edge-rate-limiting-design.html",
-    "rule": "scrollable-region-focusable",
-    "nodes": 2,
-    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label."
   },
   {
     "page": "docs/edge-rate-limiting-design.html",
@@ -151,12 +133,6 @@
   },
   {
     "page": "docs/how-deflate-compresses.html",
-    "rule": "scrollable-region-focusable",
-    "nodes": 4,
-    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
-  },
-  {
-    "page": "docs/how-deflate-compresses.html",
     "rule": "target-size",
     "nodes": 1,
     "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
@@ -169,21 +145,9 @@
   },
   {
     "page": "docs/how-deflate-sends-its-code.html",
-    "rule": "list",
-    "nodes": 1,
-    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
-  },
-  {
-    "page": "docs/how-deflate-sends-its-code.html",
     "rule": "region",
     "nodes": 2,
     "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
-  },
-  {
-    "page": "docs/how-deflate-sends-its-code.html",
-    "rule": "scrollable-region-focusable",
-    "nodes": 2,
-    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
   },
   {
     "page": "docs/how-deflate-sends-its-code.html",
@@ -199,21 +163,9 @@
   },
   {
     "page": "docs/how-deflate-works.html",
-    "rule": "list",
-    "nodes": 1,
-    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
-  },
-  {
-    "page": "docs/how-deflate-works.html",
     "rule": "region",
     "nodes": 2,
     "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
-  },
-  {
-    "page": "docs/how-deflate-works.html",
-    "rule": "scrollable-region-focusable",
-    "nodes": 6,
-    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
   },
   {
     "page": "docs/how-deflate-works.html",
@@ -229,21 +181,9 @@
   },
   {
     "page": "docs/pedagogical-writing.html",
-    "rule": "list",
-    "nodes": 2,
-    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
-  },
-  {
-    "page": "docs/pedagogical-writing.html",
     "rule": "region",
     "nodes": 2,
     "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
-  },
-  {
-    "page": "docs/pedagogical-writing.html",
-    "rule": "scrollable-region-focusable",
-    "nodes": 1,
-    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label."
   },
   {
     "page": "docs/pedagogical-writing.html",
