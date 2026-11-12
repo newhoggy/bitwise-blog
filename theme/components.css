@@ -601,18 +601,35 @@ bh-stepper.is-ready bh-step::before { content: "Step " attr(data-n) " of " attr(
 /* The copy-link button is a target: in a crowded bar it must not be squeezed below 24px (how far it shrank depended on the fonts). */
 .bh-stepper-bar .bh-step-link { flex: none; min-width: 24px; min-height: 24px; }
 /* Many steps must not push the bar past a phone screen: the dots wrap when there is no room (min-width lets this flex item shrink). */
-.bh-stepper-dots { display: flex; flex-wrap: wrap; justify-content: center; min-width: 0; gap: 6px; margin-inline: auto; }
+.bh-stepper-dots { display: flex; flex-wrap: wrap; justify-content: center; min-width: 0; margin-inline: auto; }
+/* Each button is a 24px target (WCAG 2.5.8); the 8px dot is drawn by ::before. Adjacent 24px targets need no gap. */
 .bh-stepper-dots button {
-  width: 8px;
-  height: 8px;
+  position: relative;
+  flex: none;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: var(--border-strong);
+  background: none;
   cursor: pointer;
+}
+.bh-stepper-dots button::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
   transition: background var(--dur-2), transform var(--dur-2);
 }
-.bh-stepper-dots button[aria-current="step"] { background: var(--accent); transform: scale(1.35); }
+.bh-stepper-dots button[aria-current="step"]::before { background: var(--accent); transform: scale(1.35); }
+.bh-stepper-dots button:hover::before { background: var(--text-muted); }
+.bh-stepper-dots button[aria-current="step"]:hover::before { background: var(--accent); }
+/* Forced colours replace background colours, so the dot would take the page colour and vanish: draw it in system colours. */
+@media (forced-colors: active) {
+  .bh-stepper-dots button::before { background: ButtonText; }
+  .bh-stepper-dots button[aria-current="step"]::before { background: Highlight; }
+}
 
 /* ---- bh-playground: inputs drive live outputs & SVG bindings ----------------------------------------------- */
 
