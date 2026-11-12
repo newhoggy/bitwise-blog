@@ -64,7 +64,8 @@
   padding: 0.12em 0.6em;
   border-radius: var(--radius-pill);
   border: 1px solid color-mix(in oklab, var(--tone) 35%, transparent);
-  background: color-mix(in oklab, var(--tone) 10%, transparent);
+  /* sRGB, so the blend is plain alpha and scripts/bh.mts (BADGE_TONES) can check it exactly. */
+  background: color-mix(in srgb, var(--tone) 10%, transparent);
   color: var(--tone);
   font-size: var(--step--2);
   font-weight: 600;
@@ -856,14 +857,16 @@ bh-codewalk.is-ready bh-cw-step {
   padding: var(--space-4) var(--space-5);
   border-left: 3px solid var(--border);
   border-radius: 0 var(--radius) var(--radius) 0;
-  opacity: 0.5;
+  /* Inactive steps are quieter by colour (--text-muted, 4.5:1 on --bg), not by opacity:
+     opacity blends text, links and code into the page and fell below 4.5:1 (#133). */
+  color: var(--text-muted);
   cursor: pointer;
-  transition: opacity var(--dur-2), border-color var(--dur-2), background var(--dur-2);
+  transition: color var(--dur-2), border-color var(--dur-2), background var(--dur-2);
 }
 bh-codewalk.is-ready bh-cw-step:last-child { margin-bottom: 0; }
 /* A linked step lands below the pinned code (stacked) or mid-screen (side by side). */
 bh-codewalk.is-ready bh-cw-step { scroll-margin-top: calc(42dvh + 6rem); }
-bh-codewalk.is-ready bh-cw-step.is-active { opacity: 1; border-left-color: var(--accent); background: var(--surface); }
+bh-codewalk.is-ready bh-cw-step.is-active { color: var(--text); border-left-color: var(--accent); background: var(--surface); }
 
 @container (min-width: 52rem) {
   .cw-grid { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); }
@@ -976,8 +979,10 @@ bh-chart { display: block; }
 .chart-data { margin-top: var(--space-3); }
 
 /* ---- Decision lifecycle ----------------------------------------------------------------- */
-.doc-card.is-superseded { opacity: 0.72; }
-.doc-card.is-superseded h3 { text-decoration: line-through; text-decoration-color: color-mix(in oklab, var(--text) 40%, transparent); }
+/* A superseded card is marked by a dashed border, a struck-through muted title and its
+   badge, not by opacity: fading the whole card dropped its text below 4.5:1 (#133). */
+.doc-card.is-superseded { border-style: dashed; }
+.doc-card.is-superseded h3 { color: var(--text-muted); text-decoration: line-through; text-decoration-color: color-mix(in oklab, var(--text) 40%, transparent); }
 .card-replaced { position: relative; z-index: 1; margin-top: var(--space-2) !important; font-size: var(--step--2); color: var(--text-muted); }
 
 /* Private cards (theme/modules/private-cards.js): a lock and the word, so the state is not carried by colour alone. */
