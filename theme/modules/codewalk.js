@@ -67,10 +67,6 @@
 
       // Overlays inside <pre>: gutter numbers, then one band/shade per run of lines.
       this.pre.classList.add("cw-pre");
-      // The code scrolls sideways: keyboard users need to focus it, and focus needs a name.
-      this.pre.tabIndex = 0;
-      this.pre.setAttribute("role", "group");
-      this.pre.setAttribute("aria-label", "Code");
       this.gutter = el("span", { class: "cw-gutter", "aria-hidden": "true",
         text: Array.from({ length: this.lineCount }, (_, i) => i + 1).join("\n") });
       this.layer = el("span", { class: "cw-layer", "aria-hidden": "true" });
@@ -88,13 +84,30 @@
 
       // Re-measure when fonts or highlighting change line heights; re-aim the step detector
       // when the layout switches between side-by-side and stacked.
-      this.ro = new ResizeObserver(() => { this.observeSteps(); this.paint(); });
+      this.ro = new ResizeObserver(() => { this.observeSteps(); this.paint(); this.syncScrollable(); });
       this.ro.observe(this.code);
       this.ro.observe(this);
 
       this.classList.add("is-ready");
       this.observeSteps(); // now, not only from the ResizeObserver: rendering may be throttled
+      this.syncScrollable();
       this.activate(0, true);
+    }
+
+    /** Code that scrolls must be reachable by keyboard, and a focusable element needs a role
+     *  that takes a name. Code that fits stays out of the tab order. */
+    syncScrollable() {
+      const pre = this.pre;
+      const scrolls = pre.scrollWidth > pre.clientWidth || pre.scrollHeight > pre.clientHeight;
+      if (scrolls) {
+        pre.tabIndex = 0;
+        pre.setAttribute("role", "group");
+        pre.setAttribute("aria-label", "Code");
+      } else {
+        pre.removeAttribute("tabindex");
+        pre.removeAttribute("role");
+        pre.removeAttribute("aria-label");
+      }
     }
 
     /** The active step crosses a detection band: mid-viewport when side by side, and just

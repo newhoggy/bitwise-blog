@@ -337,7 +337,8 @@
       const what = t.tagName === "FIGURE" ? "figure" : "block";
       const btn = el("button", { class: "bh-link-btn", type: "button", title: `Copy link to this ${what}`, "aria-label": `Copy link to this ${what}`, html: LINK_ICON });
       btn.addEventListener("click", () => copyLink(t.id));
-      // A list may only hold li: the button goes in the first item (still positioned from the list).
+      // A list may only hold li, so the button goes in the first item. It sits at that item's top-right
+      // corner (the list's own, for a block list; the item is positioned or the list is, whichever is nearer).
       const first = t.matches("ul, ol") ? t.querySelector(":scope > li") : null;
       (first || t).append(btn);
     });
