@@ -20,14 +20,14 @@ function sealedSite(t: Parameters<typeof site>[0]): Site {
 
 test("check looks the keys up concurrently and reports what it always did", { timeout: 120000 }, (t) => {
   const s = sealedSite(t);
-  const fresh = s.opCalls().count;
+  const earlier = s.opCalls().lines.length;
   s.delay(300);
   const r = s.run(["check"]);
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /private pages \(4 sealed\)/);
 
   const calls = s.opCalls();
-  const gets = calls.lines.slice(fresh * 2).filter((l) => GET.test(l));
+  const gets = calls.lines.slice(earlier).filter((l) => GET.test(l));
   // One get per page item (4) plus the group item (1); the loop then reads them from the cache.
   assert.equal(gets.length, 5, calls.lines.join("\n"));
   assert.ok(calls.peak > 1, `the lookups never overlapped (peak ${calls.peak})`);
@@ -40,10 +40,31 @@ test("a stale seal and an unreadable key are still reported with the lookups ahe
   assert.notEqual(r.code, 0, r.out);
   assert.match(r.out, /docs\/solo-note\.html is stale: run `npm run seal`/);
 
-  // A lookup that fails for any reason but "no such item" falls back to the serial path and says so.
+  // A lookup that fails for any reason but "no such item" is reported as the failure it was.
   r = s.run(["check"], { withOp: false });
   assert.notEqual(r.code, 0, r.out);
   assert.match(r.out, /can't read the key for solo-note from 1Password: the 1Password CLI \(`op`\) is not installed/);
+});
+
+test("a failing 1Password is asked once per page, not once to prefetch and again to check", { timeout: 120000 }, (t) => {
+  const s = sealedSite(t);
+  s.edit((data) => { data.failGet = true; });
+  const earlier = s.opCalls().lines.length;
+  const r = s.run(["check"]);
+  assert.notEqual(r.code, 0, r.out);
+  assert.match(r.out, /can't read the key for solo-note from 1Password: get failed/);
+  const gets = s.opCalls().lines.slice(earlier).filter((l) => GET.test(l));
+  assert.equal(gets.length, 4, gets.join("\n"));
+});
+
+test("check refuses an unknown argument, and --skip-keys under CI", (t) => {
+  const s = site(t);
+  let r = s.run(["check", "--skip-key"]);
+  assert.notEqual(r.code, 0);
+  assert.match(r.out, /unknown argument "--skip-key"/);
+  r = s.run(["check", "--skip-keys"], { env: { CI: "true" } });
+  assert.notEqual(r.code, 0);
+  assert.match(r.out, /--skip-keys is for the edit loop/);
 });
 
 test("--skip-keys makes no 1Password call, still checks sealed pages, and says what it skipped", { timeout: 120000 }, (t) => {

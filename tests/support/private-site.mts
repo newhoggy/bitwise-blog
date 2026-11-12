@@ -26,6 +26,7 @@ const delay = Number(process.env.FAKE_OP_DELAY_MS || 0);
 log("start");
 if (delay) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
 process.on("exit", () => log("end"));
+if (b === "get" && state.failGet) { console.error("[ERROR] fake op: get failed"); process.exit(1); }
 if (b === "get") {
   const item = state.items.find((i) => i.title === rest[0]);
   if (!item) { console.error('[ERROR] 2026/01/01 00:00:00 "' + rest[0] + '" isn\\'t an item in the "Private" vault.'); process.exit(1); }
@@ -45,7 +46,7 @@ if (b === "get") {
 /** One item in the fake vault, as `op item get` prints it. */
 export interface FakeOpItem { id?: string; title: string; fields: { id?: string; label: string; value?: string }[]; [more: string]: unknown }
 /** The fake vault's state file. */
-interface FakeOpState { items: FakeOpItem[]; archived: FakeOpItem[]; failCreateOnce?: string }
+interface FakeOpState { items: FakeOpItem[]; archived: FakeOpItem[]; failCreateOnce?: string; failGet?: boolean }
 
 export function site(t: TestContext) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "bh-private-cards-test-"));
@@ -63,8 +64,8 @@ export function site(t: TestContext) {
   fs.writeFileSync(path.join(root, "theme/private-cards.js"), renderCardsFile([]));
   fs.writeFileSync(path.join(bin, "op"), FAKE_OP, { mode: 0o755 });
   const env = (withOp: boolean) => ({ ...process.env, PATH: (withOp ? bin + path.delimiter : "") + path.dirname(process.execPath) + path.delimiter + "/usr/bin:/bin", FAKE_OP_STATE: state, FAKE_OP_LOG: opLog, FAKE_OP_DELAY_MS: String(delayMs), BH_OP_VAULT: "Private", CI: "" });
-  const run = (args: string[], { withOp = true }: { withOp?: boolean } = {}) => {
-    const r = spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env: env(withOp), encoding: "utf8" });
+  const run = (args: string[], { withOp = true, env: extra = {} }: { withOp?: boolean; env?: Record<string, string> } = {}) => {
+    const r = spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env: { ...env(withOp), ...extra }, encoding: "utf8" });
     return { code: r.status, out: (r.stdout || "") + (r.stderr || "") };
   };
   const read = (rel: string) => fs.readFileSync(path.join(root, rel), "utf8");
@@ -112,7 +113,7 @@ export function site(t: TestContext) {
   };
   /** Make every fake `op` call take this long, as a round trip to the app does. */
   const delay = (ms: number) => { delayMs = ms; };
-  return { root, opCalls, delay, run, read, write, items, field, entries, newPrivate, setGroup, setMeta, seed, drop, failCreateOnce };
+  return { root, edit, opCalls, delay, run, read, write, items, field, entries, newPrivate, setGroup, setMeta, seed, drop, failCreateOnce };
 }
 
 
