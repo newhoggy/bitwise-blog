@@ -13,7 +13,7 @@
   const { el } = bh;
   const root = bh.siteRoot;
   const MAX_RESULTS = 25, SNIPPET = 150;
-  let dialog, input, list, status, data = null, results = [], active = 0, uid = 0;
+  let dialog, input, list, status, data = null, results = [], options = [], active = 0, uid = 0;
 
   const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -88,9 +88,9 @@
       ]);
       a.addEventListener("click", () => close());
       a.addEventListener("pointermove", () => { if (active !== i) { active = i; mark(); } });
-      const li = el("li", { role: "none" }, [a]);
-      return li;
+      return el("li", { role: "none" }, [a]);
     }));
+    options = [...list.querySelectorAll("[role=option]")];
     status.textContent = input.value.trim()
       ? `${results.length || "No"} result${results.length === 1 ? "" : "s"}`
       : `${results.length} documents · type to search them and the glossary`;
@@ -98,7 +98,6 @@
   }
 
   function mark() {
-    const options = [...list.querySelectorAll("[role=option]")];
     options.forEach((o, i) => o.setAttribute("aria-selected", String(i === active)));
     const cur = options[active];
     if (cur) { input.setAttribute("aria-activedescendant", cur.id); cur.scrollIntoView({ block: "nearest" }); }

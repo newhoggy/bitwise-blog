@@ -131,6 +131,13 @@ const THEME_CASES: ThemeCase[] = [
     contains: [], only: /(?!)/,
   },
   {
+    // The search dialog's matches are --text on --warn-soft; a dark --warn-soft in light mode must fail that pair.
+    name: "search-match highlight too dark for its text",
+    file: "theme/tokens.css", find: "--warn-soft:   light-dark(#fdf1dc,", replace: "--warn-soft:   light-dark(#3a3a3a,",
+    contains: ["error: tokens.css: --text on --warn-soft is R:1 in light mode (needs 4.5:1)"],
+    only: /^error: tokens\.css: --[\w-]+ on --warn-soft is R:1 in light mode \(needs 4\.5:1\)$/,
+  },
+  {
     name: "a token that is no longer a light-dark() pair",
     file: "theme/tokens.css", find: "--c6: light-dark(#475569, #a0aec0);", replace: "--c6: #475569;",
     contains: ["error: tokens.css: --c6 or --surface is not a light-dark() hex pair"],

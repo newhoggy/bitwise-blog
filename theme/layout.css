@@ -511,8 +511,9 @@ html.bh-presenting { font-size: clamp(16px, 0.55vw + 11px, 24px); scroll-padding
 .bh-search-section { color: var(--text-muted); font-weight: 500; }
 .bh-search-snippet { font-size: var(--step--1); color: var(--text-muted); line-height: 1.45; }
 /* A hit's matches: --text on --warn-soft, a pair `check` verifies. --warn-soft differs from the selected row's
-   --accent-soft, so a match stays visible in the selected row. The snippet is muted text, so the colour is set, not inherited. */
-.bh-search-results mark { background: var(--warn-soft); color: var(--text); }
+   --accent-soft, so a match stays visible in the selected row. The snippet is muted text, so the colour is set, not inherited.
+   The tint is faint by itself, so an underline marks a match too: colour alone must not carry it. */
+.bh-search-results mark { background: var(--warn-soft); color: var(--text); text-decoration: underline; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
 .bh-search-foot {
   display: flex;
   justify-content: space-between;
