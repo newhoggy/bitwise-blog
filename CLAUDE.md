@@ -763,6 +763,16 @@ for everyone: highlights and pins, opening into threads.
   Local files fetched by script, CSS `url()`, the social cards and sealed pages (already
   compressed ciphertext) are not counted, so the budget bounds the page's own HTML and images, not
   everything it could load.
+- **`npm run a11y` runs axe-core on every public page, in light and dark** (needs Node ≥ 22 and a local
+  Chrome, like `visual`; `--only <text>` limits the pages, `--system-fonts` blocks Google Fonts). Run it
+  after a theme, component or page change; CI runs it as the `a11y` job. Sealed pages are skipped.
+  - Findings that exist today are tracked in `a11y-allowlist.json` (`page`, `rule`, and a `reason`
+    that names the component to fix). The run fails on a violation that is not listed, and on an entry
+    that no longer fires, so **delete the entry when you fix the cause**. Never add an entry to make a
+    new violation pass: fix the markup, or file an issue and say so in the reason.
+  - An entry covers a rule on a page, not one element, so a second element breaking the same rule
+    on that page is not caught until the entry is removed.
+  - It checks the page as loaded, in the desktop layout. It does not open popups or inactive tabs.
 
 ## Changing the theme
 
@@ -815,6 +825,7 @@ Theme files (`theme/*`) are shared by every page. These rules come from bugs alr
 
 ## Verifying changes
 
+- **Run `npm run a11y` too** after a theme or component change: it is axe-core on every page in both themes (see [Accessibility & quality bar](#accessibility--quality-bar)).
 - **Run `npm run visual` around every theme or component change.** It renders the key
   pages in light, dark and phone layouts and pixel-diffs them against your baselines in
   `.visual/`. If the differences are what you intended, accept them with
