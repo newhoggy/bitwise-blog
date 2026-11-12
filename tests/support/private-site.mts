@@ -54,7 +54,7 @@ export function site(t: TestContext) {
   const root = path.join(temp, "site"), bin = path.join(temp, "bin"), state = path.join(temp, "op-state.json"), opLog = path.join(temp, "op-calls.log");
   let delayMs = 0;
   fs.mkdirSync(root); fs.mkdirSync(bin);
-  for (const entry of ["scripts", "theme", "docs", "templates", "reviews", "package.json", "index.html", "feed.xml"]) {
+  for (const entry of ["scripts", "theme", "docs", "templates", "reviews", "package.json", "index.html", "feed.xml", "sitemap.xml", "robots.txt", "404.html"]) {
     fs.cpSync(path.join(ROOT, entry), path.join(root, entry), { recursive: true });
   }
   // The real sealed pages, and any plaintext unsealed from them, belong to the real vault: this site starts with none.

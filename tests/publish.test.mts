@@ -20,7 +20,7 @@ function fixture(t: TestContext) {
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const source = path.join(temp, "source"), stage = path.join(temp, "stage");
   fs.mkdirSync(source); fs.mkdirSync(stage);
-  for (const entry of ["scripts", "theme", "docs", "reviews", "package.json", "index.html", "feed.xml"]) {
+  for (const entry of ["scripts", "theme", "docs", "reviews", "package.json", "index.html", "feed.xml", "sitemap.xml", "robots.txt", "404.html"]) {
     fs.cpSync(path.join(ROOT, entry), path.join(source, entry), { recursive: true });
   }
   return { source, stage, assemble() {
@@ -95,6 +95,13 @@ test("published artifact omits examples, keeps posts and local source, and serve
   assert.ok(feed.includes(`<id>https://bitwise.john-ky.io/${post}</id>`));
   for (const href of removed) assert.ok(!feed.includes(href), `${href} must not be in the published feed`);
   assert.equal(feed, fs.readFileSync(path.join(f.source, "feed.xml"), "utf8"), "the published feed matches the source feed, which never lists examples");
+  // The sitemap is rebuilt too, from the pruned tree; robots.txt and the 404 page ship.
+  const sitemap = fs.readFileSync(path.join(f.stage, "sitemap.xml"), "utf8");
+  assert.ok(sitemap.includes(`<loc>https://bitwise.john-ky.io/${post}</loc>`));
+  for (const href of removed) assert.ok(!sitemap.includes(href), `${href} must not be in the published sitemap`);
+  assert.equal(sitemap, fs.readFileSync(path.join(f.source, "sitemap.xml"), "utf8"), "the published sitemap matches the source sitemap, which never lists examples");
+  assert.match(fs.readFileSync(path.join(f.stage, "robots.txt"), "utf8"), /^Sitemap: https:\/\/bitwise\.john-ky\.io\/sitemap\.xml$/m);
+  assert.match(fs.readFileSync(path.join(f.stage, "404.html"), "utf8"), /<h1>Page not found<\/h1>/);
   const publishedPost = fs.readFileSync(path.join(f.stage, post), "utf8");
   for (const href of links) assert.ok(!publishedPost.includes(`href="${href}"`));
   assert.ok(publishedPost.includes('<em>Example words</em>'));
