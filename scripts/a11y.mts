@@ -414,8 +414,10 @@ async function main() {
   }
   for (const g of grown) {
     log(`\n${c.red("More elements than allowlisted")}: ${g.entry.rule} on ${g.entry.page} hits ${g.found.length}, the allowlist covers ${g.entry.nodes}. Fix the new element rather than raising "nodes".`);
-    for (const t of g.found.slice(0, 15)) log(`  ${t}`);
-    if (g.found.length > 15) log(c.dim(`  … and ${g.found.length - 15} more`));
+    // A CI log cannot be re-run with more detail, and the new element is often the last one in the list: print them all there.
+    const shown = process.env.CI ? g.found.length : 15;
+    for (const t of g.found.slice(0, shown)) log(`  ${t}`);
+    if (g.found.length > shown) log(c.dim(`  … and ${g.found.length - shown} more`));
   }
   for (const s of shrunk) log(c.red(`\nFewer elements than allowlisted: ${s.entry.rule} on ${s.entry.page} now hits ${s.found}, the entry says ${s.entry.nodes}. Set "nodes" to ${s.found} in a11y-allowlist.json.`));
   for (const u of unused) log(c.red(`\nUnused allowlist entry: ${u.rule} on ${u.page} no longer fires. Remove it from a11y-allowlist.json.`));
