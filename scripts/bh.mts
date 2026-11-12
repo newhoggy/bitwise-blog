@@ -1522,8 +1522,9 @@ function cmdCheck(): void {
     }
 
     if (isDoc && !isTemplate && !isPrivateSource(file)) {
-      // Size budget: what a reader downloads for this page, apart from the shared theme (see scripts/page-size.mts).
-      const size = pageSizeFinding(pageWeight(file, raw));
+      // Size budget: the page's own HTML and images, apart from the shared theme (see scripts/page-size.mts).
+      // Sealed shells never reach this loop (docFiles() leaves them out): their payload is already compressed.
+      const size = pageSizeFinding(pageWeight(file));
       if (size) (size.level === "error" ? err : warn)(size.message);
       // The card image: one per public page, current for the visual and the text it shows.
       const job = cardJob(file);
