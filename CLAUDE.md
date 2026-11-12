@@ -724,13 +724,15 @@ for everyone: highlights and pins, opening into threads.
 - Never use colour alone to carry meaning: pair it with a label, an icon or a position.
 - Every `<img>` has an `alt`, and every `<svg>` diagram has an accessible name.
 - Check the page at 375px wide: no horizontal page scroll. Wide tables scroll inside `.table-wrap`.
-- **Page size budget.** `check` measures what a reader downloads for each public page, apart from
-  the shared theme: the gzip size (level 9) of the page's HTML plus every page-local file it loads
-  with `<img src>`. Over 75 KB it warns; over 200 KB it fails (`scripts/page-size.mts`; KB = 1024
+- **Page size budget.** `check` measures the weight of each public page itself, apart from the
+  shared theme: the gzip size (level 9) of its HTML plus every file inside its own folder that it
+  loads with `<img src>`. Over 75 KB it warns; over 200 KB it fails (`scripts/page-size.mts`; KB = 1024
   bytes). Gzip is the measure because raw HTML bytes punish repetitive SVG that compresses to almost
   nothing. The largest post is about 65 KB today. When a page trips the warning, cut weight (a
   repeated inline SVG, an unused script, an image that could be SVG) before raising the constants.
-  Local files fetched by script, CSS `url()` and the social cards are not counted.
+  Local files fetched by script, CSS `url()`, the social cards and sealed pages (already
+  compressed ciphertext) are not counted, so the budget bounds the page's own HTML and images, not
+  everything it could load.
 
 ## Changing the theme
 

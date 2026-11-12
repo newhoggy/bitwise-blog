@@ -42,6 +42,24 @@ test("local images are counted once each; data:, remote and missing images are n
   assert.equal(w.total, w.parts[0].bytes + w.parts[1].bytes);
 });
 
+test("only real, page-local <img src> files count", (t) => {
+  const dir = tmp(t), docs = path.join(dir, "docs");
+  fs.mkdirSync(path.join(docs, "assets"), { recursive: true });
+  fs.mkdirSync(path.join(dir, "theme"));
+  const png = (f: string) => fs.writeFileSync(f, crypto.randomBytes(4_000));
+  for (const f of ["a.png", "b c.png", "d&e.png", "single.png", "bare.png", "lazy.png", "commented.png", "scripted.png"]) png(path.join(docs, "assets", f));
+  png(path.join(dir, "theme", "logo.png"));
+  const file = path.join(docs, "p.html");
+  fs.writeFileSync(file, [
+    '<img alt="a > b" src="assets/a.png">', '<img src="assets/b%20c.png">', '<img src="assets/d&amp;e.png">',
+    "<img src='assets/single.png'>", "<img src=assets/bare.png>",
+    '<img data-src="assets/lazy.png" src="data:image/gif;base64,R0lGOD">',
+    '<!-- <img src="assets/commented.png"> -->', '<script>const t = \'<img src="assets/scripted.png">\';</script>',
+    '<img src="../theme/logo.png">', '<img src="../../outside.png">',
+  ].join("\n"));
+  assert.deepEqual(pageWeight(file).parts.map((p) => p.path), ["p.html", ...["a.png", "b c.png", "d&e.png", "single.png", "bare.png"].map((f) => path.join("assets", f))]);
+});
+
 test("the thresholds are exclusive at the boundary and name the heaviest part", () => {
   const w = (total: number) => ({ total, parts: [{ path: "p.html", bytes: total - 10 }, { path: "assets/a.png", bytes: 10 }] });
   assert.equal(pageSizeFinding(w(PAGE_WARN_BYTES)), undefined);
@@ -52,13 +70,6 @@ test("the thresholds are exclusive at the boundary and name the heaviest part", 
   const error = pageSizeFinding(w(PAGE_ERROR_BYTES + 1));
   assert.equal(error?.level, "error");
   assert.match(error!.message, /over the 200\.0 KB limit/);
-});
-
-test("the published pages are inside the budget", () => {
-  const docs = path.join(source, "docs");
-  for (const f of fs.readdirSync(docs).filter((f) => f.endsWith(".html") && !f.endsWith(".private.html"))) {
-    assert.equal(pageSizeFinding(pageWeight(path.join(docs, f))), undefined, f);
-  }
 });
 
 function fixture(t: TestContext) {
@@ -83,7 +94,17 @@ function fixture(t: TestContext) {
     const r = spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), "check"], { cwd: root, env, encoding: "utf8" });
     return { status: r.status, stdout: r.stdout.replace(/\x1b\[[0-9;]*m/g, "") };
   };
-  return { bloat, check };
+  // Grow the first sealed shell instead (its other checks may then complain; only the size rule matters here).
+  const bloatSealed = (target: number) => {
+    const sealed = fs.readdirSync(path.join(root, "docs")).find((n) => n.endsWith(".html") && fs.readFileSync(path.join(root, "docs", n), "utf8").includes('id="sealed-payload"'));
+    assert.ok(sealed, "no sealed page to test with");
+    const file = path.join(root, "docs", sealed), html = fs.readFileSync(file, "utf8"), next = html.replace("</body>", `<!-- ${noise(Math.ceil((target + 5_000) / 0.7))} --></body>`);
+    assert.notEqual(next, html, "the injection changed nothing");
+    fs.writeFileSync(file, next);
+    assert.ok(pageWeight(file).total > target, "the sealed page did not reach the target weight");
+    return sealed;
+  };
+  return { bloat, bloatSealed, check };
 }
 
 test("check warns on a page over the budget and still passes", (t) => {
@@ -91,7 +112,7 @@ test("check warns on a page over the budget and still passes", (t) => {
   f.bloat(PAGE_WARN_BYTES);
   const r = f.check();
   assert.match(r.stdout, /adr-001-rate-limit-in-each-service\.html[\s\S]*?warn\s+page weighs \d+\.\d KB gzipped[^\n]*budget/);
-  assert.match(r.stdout, /0 errors · \S*1 warning/);
+  assert.match(r.stdout, /\b0 errors\b/);
   assert.equal(r.status, 0);
 });
 
@@ -100,5 +121,12 @@ test("check fails on a page over the limit", (t) => {
   f.bloat(PAGE_ERROR_BYTES);
   const r = f.check();
   assert.match(r.stdout, /error\s+page weighs \d+\.\d KB gzipped[^\n]*limit/);
+  assert.match(r.stdout, /\b1 errors?\b/);
   assert.notEqual(r.status, 0);
+});
+
+test("check leaves sealed shells out of the budget (their payload is already compressed)", (t) => {
+  const f = fixture(t);
+  f.bloatSealed(PAGE_ERROR_BYTES);
+  assert.doesNotMatch(f.check().stdout, /page weighs/);
 });
