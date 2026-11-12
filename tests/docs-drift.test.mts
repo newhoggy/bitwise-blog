@@ -21,6 +21,9 @@ test("dependencies: a README list that matches package.json is clean", () => {
   assert.deepEqual(readmeDependencyProblems(DEPS, PKG), []);
   // `dependencies` count as well as `devDependencies`.
   assert.deepEqual(readmeDependencyProblems(DEPS, { dependencies: { yaml: "1" }, devDependencies: { typescript: "1", "@types/node": "1" } }), []);
+  assert.deepEqual(readmeDependencyProblems(DEPS, { optionalDependencies: { yaml: "1" }, peerDependencies: { typescript: "1" }, devDependencies: { "@types/node": "1" } }), []);
+  // An item wrapped over two lines still counts as one, and a numbered or colon-less item claims nothing.
+  assert.deepEqual(readmeDependencyProblems("<!-- bh:deps -->\n- `typescript`,\n  `yaml`: both\n<!-- /bh:deps -->", { devDependencies: { typescript: "1", yaml: "1" } }), []);
 });
 
 test("dependencies: a package missing from the README, and one the repo lacks, are named", () => {
