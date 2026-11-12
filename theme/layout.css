@@ -377,6 +377,7 @@
 }
 :is(figure, [data-linkable]):hover > .bh-link-btn,
 :is(figure, [data-linkable]):focus-within > .bh-link-btn,
+:is(ul, ol)[data-linkable]:is(:hover, :focus-within) > li:first-child > .bh-link-btn,
 .bh-link-btn:focus-visible { opacity: 1; }
 .bh-link-btn:hover { color: var(--accent); border-color: var(--accent); }
 
@@ -474,6 +475,8 @@ html.bh-presenting { font-size: clamp(16px, 0.55vw + 11px, 24px); scroll-padding
 
 .bh-search-btn { gap: var(--space-2); color: var(--text-muted); }
 .bh-search-btn kbd { font-size: 0.72em; padding: 0 0.35em; }
+/* The hint is generated, not text: the button's visible text is "Search", which its label contains (WCAG 2.5.3). */
+.bh-search-btn kbd::after { content: attr(data-hint); }
 @media (max-width: 640px) { .bh-search-btn span, .bh-search-btn kbd { display: none; } }
 
 .bh-search {

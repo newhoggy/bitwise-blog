@@ -205,8 +205,8 @@
 
     // Search needs the site's generated index, so not in bundled (standalone) files.
     const searchBtn = SITE_ROOT ? el("button", {
-      class: "btn ghost bh-search-btn", type: "button", title: "Search (⌘K)", "aria-label": "Search all documents",
-      html: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span><kbd>${/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"}</kbd>`,
+      class: "btn ghost bh-search-btn", type: "button", title: "Search (⌘K)", "aria-label": "Search all documents", "aria-keyshortcuts": "Control+K Meta+K",
+      html: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span><kbd aria-hidden="true" data-hint="${/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"}"></kbd>`,
       onclick: openSearch,
     }) : null;
 
@@ -333,11 +333,13 @@
   /** Link buttons on figures and [data-linkable] blocks; anchors on glossary entries. */
   function buildLinkTargets() {
     doc.querySelectorAll(".bh-article figure[id], .bh-article [data-linkable][id]").forEach((t) => {
-      if (t.querySelector(":scope > .bh-link-btn")) return;
+      if (t.querySelector(":scope > .bh-link-btn, :scope > li > .bh-link-btn")) return;
       const what = t.tagName === "FIGURE" ? "figure" : "block";
       const btn = el("button", { class: "bh-link-btn", type: "button", title: `Copy link to this ${what}`, "aria-label": `Copy link to this ${what}`, html: LINK_ICON });
       btn.addEventListener("click", () => copyLink(t.id));
-      t.append(btn);
+      // A list may only hold li: the button goes in the first item (still positioned from the list).
+      const first = t.matches("ul, ol") ? t.querySelector(":scope > li") : null;
+      (first || t).append(btn);
     });
     doc.querySelectorAll("dl.glossary > dt[id]").forEach((dt) => {
       if (!dt.querySelector(".heading-anchor")) dt.append(linkAnchor(dt.id, "entry"));
@@ -356,7 +358,7 @@
       if (p.tagName === "SECTION" && host && host.tagName === "BH-TABS" && p.hidden && host.select) {
         host.select([...host.querySelectorAll(":scope > section")].indexOf(p));
       }
-      if (p.tagName === "FIGURE" && host && host.classList.contains("bh-versions-stage")) {
+      if (p.tagName === "FIGURE" && host && host.classList.contains("bh-version")) {
         const versions = host.closest("bh-versions");
         if (versions && versions.show) versions.show(versions.figures.indexOf(p));
       }
@@ -580,7 +582,7 @@
       restore();
       // A reference into one version of a <bh-versions> diagram shows that version.
       const versions = r.fig.closest("bh-versions");
-      if (versions && versions.show && versions.figures && !r.fig.classList.contains("is-current")) {
+      if (versions && versions.show && versions.figures && versions.figures.indexOf(r.fig) !== versions.index) {
         versions.show(versions.figures.indexOf(r.fig));
       }
       const nodes = [...r.fig.querySelectorAll("[data-id]")];

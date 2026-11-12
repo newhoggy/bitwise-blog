@@ -71,7 +71,7 @@
       // Layout: legend, plot, data table.
       this.legend = this.series.length > 1 ? el("ul", { class: "chart-legend" }, this.series.map((s) =>
         el("li", {}, [el("span", { class: `chart-key ${this.type}`, style: `--key:${s.color}` }), s.name]))) : null;
-      this.plot = el("div", { class: "chart-plot", tabindex: "0" });
+      this.plot = el("div", { class: "chart-plot", role: "group", tabindex: "0" });
       this.tip = el("div", { class: "chart-tip", role: "status", "aria-live": "polite", hidden: true });
       this.plot.append(this.tip);
       const data = el("details", { class: "disclosure chart-data" }, [el("summary", { text: "Show data" })]);

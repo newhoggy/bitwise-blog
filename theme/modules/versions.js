@@ -30,17 +30,23 @@
 
       // Stage: every version occupies the same grid cell.
       this.stage = el("div", { class: "bh-versions-stage" });
-      this.figures[0].before(this.stage);
-      this.stage.append(...this.figures);
+      // A figure cannot take role=tabpanel, so each sits in a panel div of its own.
+      this.panels = this.figures.map((f, i) => {
+        const panel = el("div", { class: "bh-version", role: "tabpanel", id: `${uid}-panel-${i}` });
+        f.before(panel);
+        panel.append(f);
+        return panel;
+      });
+      this.panels[0].before(this.stage);
+      this.stage.append(...this.panels);
 
       // Segmented control (ARIA tabs) + compare toggle.
       this.tabs = this.figures.map((f, i) => {
-        f.setAttribute("role", "tabpanel");
         const t = el("button", {
-          type: "button", role: "tab", id: `${uid}-tab-${i}`, "aria-controls": f.id || null,
+          type: "button", role: "tab", id: `${uid}-tab-${i}`, "aria-controls": this.panels[i].id,
           text: f.dataset.label || `Version ${i + 1}`, onclick: () => this.show(i),
         });
-        f.setAttribute("aria-labelledby", t.id);
+        this.panels[i].setAttribute("aria-labelledby", t.id);
         return t;
       });
       const list = el("div", { class: "bh-versions-tabs", role: "tablist", "aria-label": "Versions" }, this.tabs);
@@ -103,8 +109,8 @@
       this.index = Math.max(0, Math.min(this.figures.length - 1, i));
       this.figures.forEach((f, j) => {
         const on = j === this.index;
-        f.classList.toggle("is-current", on);
-        f.toggleAttribute("inert", !on && !this.comparing);
+        this.panels[j].classList.toggle("is-current", on);
+        this.panels[j].toggleAttribute("inert", !on && !this.comparing);
         this.tabs[j].setAttribute("aria-selected", String(on));
         this.tabs[j].tabIndex = on ? 0 : -1;
       });
@@ -116,7 +122,7 @@
       this.comparing = on;
       this.classList.toggle("is-comparing", on);
       if (this.compareBtn) this.compareBtn.setAttribute("aria-pressed", String(on));
-      this.figures.forEach((f, j) => f.toggleAttribute("inert", !on && j !== this.index));
+      this.panels.forEach((p, j) => p.toggleAttribute("inert", !on && j !== this.index));
       if (on) this.setPos(this.range ? +this.range.value : 50);
       this.renderCaption();
     }
