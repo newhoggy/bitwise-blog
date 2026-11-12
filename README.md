@@ -33,9 +33,13 @@ every page and key, so the rebrand changes the site's name and not these.
 - **Topics.** A post joins a topic by carrying its name in `bh:tags`: `functional
   programming`, `succinct data structures` or `ai workflows`. The home page's topic chips
   are built from those tags (a topic with no posts yet gets no chip).
-- **Examples.** The rate-limiting design doc, its two ADRs and the token-bucket explainer
-  are worked examples of the document kinds, not posts. They carry `<meta name="bh:example"
-  content="true">`. They are hidden by default, locally as well as on the published site: no home-page
+- **Examples.** Three pages are worked examples of the document kinds, not posts
+  (`check` compares this list with the pages that carry the marker):
+  <!-- bh:examples -->
+  `docs/edge-rate-limiting-design.html`, `docs/adr-001-rate-limit-in-each-service.html` and
+  `docs/adr-002-rate-limit-at-the-edge.html`.
+  <!-- /bh:examples -->
+  Each carries `<meta name="bh:example" content="true">`. They are hidden by default, locally as well as on the published site: no home-page
   card, search result or backlink. Open any page with `?examples` (remembered for the tab) to
   see them, labelled "Example · …"; `?examples=off` or `=auto` hides them again. Pages
   deployment removes their HTML and social cards, so their addresses return 404, and no
@@ -44,10 +48,10 @@ every page and key, so the rebrand changes the site's name and not these.
   --unlisted …`) is published and opens from its direct link, but stays off the home page,
   search, backlinks and links unless a page is opened with `#unlisted=true` (remembered for the
   tab). It is not private: anyone with the link can read it (see CLAUDE.md, "Unlisted pages").
-- **Address.** The repository, and so the Pages URL, keep the name `beautiful-html`. Renaming
-  the repo would break every Pages link, including private-page `#k=` links already shared
-  (GitHub redirects the repo URL but not Pages). If the blog gets its own address, use a
-  custom domain rather than a rename.
+- **Address.** The repository is `bitwise-blog` and the site is served from its own domain,
+  `bitwise.john-ky.io`, so the repo name does not appear in any page address. The name
+  `beautiful-html` survives only in the theme and toolkit (see above). Every page's absolute
+  URLs come from `homepage` in `package.json`.
 
 ## Social cards
 
@@ -88,8 +92,15 @@ npm run typecheck                                   # type-check scripts/ and te
 ```
 
 Node ≥ 22.18 is the requirement: it runs the TypeScript tooling by stripping types, so there is no build step.
-The only npm dependencies are dev ones (`typescript` and `@types/node`), used by `npm run typecheck`; run
-`npm ci` once to get them. (`cards` and `visual` also need a local Chrome.)
+All npm dependencies are dev ones; run `npm ci` once to get them (`check` compares this list with `package.json`):
+<!-- bh:deps -->
+- `typescript` and `@types/node`: `npm run typecheck`.
+- `cheerio`, `turndown` and `@types/turndown`: the platform ingesters behind `npm run sync-posts`.
+- `yaml`: the YAML that `sync-posts` and the advisor tooling (`npm run advisor`) read and write.
+<!-- /bh:deps -->
+
+The authoring and publishing commands (`index`, `check`, `bundle`, `seal`, …) need none of them beyond Node itself.
+(`cards` and `visual` also need a local Chrome.)
 
 ## Continuous integration & publishing
 
@@ -136,7 +147,7 @@ docs/                   One HTML file per document (flat, kebab-case slugs)
   assets/og/<slug>.png  Generated social card of each page (`npm run cards`; committed)
   component-gallery.html  Every component, rendered live — the visual reference
   glossary.html         Shared term definitions (source for every page's term popups)
-  token-bucket-rate-limiting.html  Worked example explainer
+  token-bucket-rate-limiting.html  A published explainer (a post, not an example)
 templates/              Starting points, one per document kind
   explainer.html  design-doc.html  adr.html  incident.html  review.html
 theme/

@@ -37,6 +37,10 @@ social meta block and feed autodiscovery link in every page's `<head>`, `feed.xm
 generated files by hand. `theme/private-cards.js` is generated too, but by `npm run seal`, not
 `index` (it needs the keys; see [Private pages](#private-pages)).
 
+`check` also compares two lists in `README.md`, fenced by `<!-- bh:deps -->` and `<!-- bh:examples -->`
+comments, with `package.json` and the `bh:example` markers. Edit the fenced list when either changes
+(`scripts/docs-drift.mts`).
+
 Run `npm run cards` after changing a page's title, kind, date, or its first diagram or image
 (or the card layout, or the theme tokens): it re-renders every card that `check` calls stale.
 
@@ -227,8 +231,8 @@ carries its key.
 
 ## Example pages
 
-Some pages only demonstrate the theme and the templates (the rate-limiting design doc, its two
-ADRs and the token-bucket explainer). They are not posts. They are hidden by default, where
+Some pages only demonstrate the theme and the templates (the rate-limiting design doc and its two
+ADRs). They are not posts. They are hidden by default, where
 you work as well as on the published site, and opt-in with `?examples`. Pages deployment builds a
 separate published copy without them; local source files and committed generated data keep every
 example.

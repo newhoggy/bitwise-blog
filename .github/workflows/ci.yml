@@ -37,11 +37,11 @@ jobs:
       - name: Type-check the tooling
         run: npm run typecheck
 
-      # Links, ids, arrows, labels, contrast, glossary, decision links, and that the
-      # generated files (index, glossary, site data, search index) are up to date.
-      - name: Review ingestion regression tests
+      - name: Run the tests
         run: npm test
 
+      # Links, ids, arrows, labels, contrast, glossary, decision links, and that the
+      # generated files (index, glossary, site data, search index) are up to date.
       - name: npm run check
         run: npm run check
 
