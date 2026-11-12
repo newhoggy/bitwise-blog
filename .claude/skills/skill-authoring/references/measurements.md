@@ -25,6 +25,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-10-30: the comparison snapshot holds the whole repo (#96)
 - 2026-10-30: three `pedagogical-writing` graders that passed in few or unstable runs (#97)
 - 2026-11-10: `pedagogical-diagrams` added, and the boundary with `pedagogical-writing` (#80)
+- 2026-11-12: what the scheduled run costs, measured through `npm run skill-evals` (#122)
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -660,3 +661,19 @@ cases keep the small gaps the `pedagogical-writing` review case also has (+0.06 
 Haiku judge the same answers scored lower and scattered widely (one answer of the boundary case got 0.2
 for a response that addressed every point), which is why the Sonnet judge was used for the table.
 
+## 2026-11-12: what the scheduled run costs, measured through `npm run skill-evals` (#122)
+
+Claude Code 2.1.318, agent `claude-sonnet-5-5`, judge `claude-haiku-5-5`, one run each, from `scripts/skill-evals.mts`.
+These are the first records the script wrote, taken to size the monthly workflow's cost ceiling and to check that it reads
+what the two eval tools write; they are not a comparison of any skill version.
+
+| Run | Result | Cost |
+| --- | --- | --- |
+| `anatomy` trigger evals, 26 queries x 3 runs | 26 of 26 passed (11 of 11 should-fire, 15 of 15 should-stay-quiet; train 16/16, held-out 10/10) | $6.82 |
+| `pedagogical-diagrams` output evals, 4 cases, both arms | 0.75 with the skill, Δ +0.24 | $3.69 |
+
+- **A trigger query costs about $0.27**, so the 122 queries of the four skills are about $33 and the largest suite
+  (`pedagogical-writing`, 38) about $10. An output suite is a few dollars. A full run is therefore roughly $40 to $60.
+- **An earlier attempt with a $5 cap stopped at 21 of 26 queries** ($5.58, the ceiling is checked before each run
+  starts so it can be passed by the runs in flight). The runner reported the other five as missing, which the script first
+  called "failed to load". `--json` now records `partial`, so a run cut short by the ceiling says so.
