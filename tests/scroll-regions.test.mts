@@ -63,16 +63,27 @@ test("only containers that scroll join the tab order, and they get a name", { sk
   assert.deepEqual(r["short-code"], { tabindex: null, role: null, label: null }, "code that fits stays out of the tab order");
   assert.deepEqual(r["authored-wrap"], { tabindex: "-1", role: null, label: null }, "an authored tabindex is left alone");
 
+  // Poll for a state: an observer's timing is the browser's business, not a fixed delay's.
+  const until = async (expression: string, what: string) => {
+    for (let i = 0; i < 50; i++) { if (await evaluate(expression)) return; await sleep(100); }
+    assert.fail(what);
+  };
+  const tab = (id: string) => `document.getElementById("${id}").getAttribute("tabindex")`;
+
   // When the content shrinks to fit, the table leaves the tab order; when it grows again, it rejoins.
   const setWidth = (px: number) => evaluate(`document.querySelectorAll("#wide-wrap td").forEach((td) => { td.style.minWidth = "${px}px"; })`);
   await setWidth(10);
-  await sleep(400);
-  r = await evaluate(probe);
-  assert.deepEqual(r["wide-wrap"], { tabindex: null, role: null, label: null }, "a table that now fits leaves the tab order");
+  await until(`${tab("wide-wrap")} === null`, "a table that now fits leaves the tab order");
   await setWidth(900);
-  await sleep(400);
-  r = await evaluate(probe);
-  assert.equal(r["wide-wrap"].tabindex, "0", "and rejoins it when it overflows again");
+  await until(`${tab("wide-wrap")} === "0"`, "a table that overflows again rejoins it");
+
+  // Code that grows past its box, with the box unchanged: the same.
+  await evaluate(`document.querySelector("#short-code code").textContent = "let y = 1; ".repeat(200)`);
+  await until(`${tab("short-code")} === "0"`, "code that grows past its box joins the tab order");
+
+  // A table a component adds after load is found.
+  await evaluate(`(() => { const d = document.createElement("div"); d.className = "table-wrap"; d.id = "late-wrap"; d.innerHTML = '<table><tbody><tr><td style="min-width: 900px">l</td></tr></tbody></table>'; document.querySelector(".bh-article").append(d); })()`);
+  await until(`${tab("late-wrap")} === "0"`, "a table added after load is measured");
 
   // The review panel's "+ Comment" on a list goes inside an item.
   await s("Page.navigate", { url: base + "?review" });

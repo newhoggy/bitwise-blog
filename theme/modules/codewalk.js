@@ -84,30 +84,13 @@
 
       // Re-measure when fonts or highlighting change line heights; re-aim the step detector
       // when the layout switches between side-by-side and stacked.
-      this.ro = new ResizeObserver(() => { this.observeSteps(); this.paint(); this.syncScrollable(); });
+      this.ro = new ResizeObserver(() => { this.observeSteps(); this.paint(); });
       this.ro.observe(this.code);
       this.ro.observe(this);
 
       this.classList.add("is-ready");
       this.observeSteps(); // now, not only from the ResizeObserver: rendering may be throttled
-      this.syncScrollable();
       this.activate(0, true);
-    }
-
-    /** Code that scrolls must be reachable by keyboard, and a focusable element needs a role
-     *  that takes a name. Code that fits stays out of the tab order. */
-    syncScrollable() {
-      const pre = this.pre;
-      const scrolls = pre.scrollWidth > pre.clientWidth || pre.scrollHeight > pre.clientHeight;
-      if (scrolls) {
-        pre.tabIndex = 0;
-        pre.setAttribute("role", "group");
-        pre.setAttribute("aria-label", "Code");
-      } else {
-        pre.removeAttribute("tabindex");
-        pre.removeAttribute("role");
-        pre.removeAttribute("aria-label");
-      }
     }
 
     /** The active step crosses a detection band: mid-viewport when side by side, and just
