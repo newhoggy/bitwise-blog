@@ -1,9 +1,13 @@
 name: CI
 
+# One workflow, so that publishing can depend on the checks: the `deploy` job below
+# `needs` both `check` and `render`, and runs only for main (a push, or a manual run
+# from main, which re-runs the checks first). A commit that fails any check is not published.
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -83,3 +87,83 @@ jobs:
         with:
           name: renders
           path: .visual/system-fonts/
+
+  # Off until you opt in (a repository setting, so it's yours to change):
+  #   1. Settings → Pages → Build and deployment → Source: GitHub Actions
+  #   2. Settings → Secrets and variables → Actions → Variables → New variable:
+  #      PAGES_ENABLED = true
+  #   3. Optional page-view counting: add the variable GOATCOUNTER_CODE = <your GoatCounter
+  #      site code>. Unset or empty means no tag (see "Page-view counting" in CLAUDE.md).
+  # To redeploy without a new commit (after changing a variable), run this workflow from main.
+  deploy:
+    name: Publish to GitHub Pages
+    needs: [check, render]
+    if: vars.PAGES_ENABLED == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The gates finish at different times, so an older commit's deploy can start after a newer
+      # commit has landed. Publish only if this commit is still the head of main; the newer
+      # commit's own run deploys it.
+      - name: Is this commit still the head of main?
+        id: fresh
+        run: |
+          head=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$head" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::main has moved on to $head; not publishing $GITHUB_SHA"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # No `npm ci` and no `npm run check` here: the `check` job already ran both on this
+      # commit. The publish script imports no installed package (tests/advisor-guards.test.mts).
+
+      # Assemble the local variant, then remove examples from the published copy.
+      - name: Assemble the site
+        if: steps.fresh.outputs.current == 'true'
+        run: |
+          mkdir -p _site
+          cp -r index.html docs theme _site/
+          # The review-file schema is published at the URL its $id names.
+          mkdir -p _site/reviews && cp reviews/schema.json _site/reviews/
+          touch _site/.nojekyll
+          # Private pages ship only as sealed (encrypted) copies; never plaintext or keys.
+          if find _site -name '*.private.html' -o -name '.private-keys.json' | grep -q .; then
+            echo "::error::plaintext private page or key file in the site"; exit 1
+          fi
+          # Review comments record which commit the reader was looking at.
+          echo "window.BH_BUILD = {\"repo\": \"${GITHUB_REPOSITORY}\", \"commit\": \"${GITHUB_SHA}\", \"dirty\": false, \"builtAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"};" > _site/theme/build.js
+
+      - name: Remove example pages and rebuild published data
+        if: steps.fresh.outputs.current == 'true'
+        run: node scripts/publish.mts
+        env:
+          GOATCOUNTER_CODE: ${{ vars.GOATCOUNTER_CODE }}
+
+      - uses: actions/configure-pages@v5
+        if: steps.fresh.outputs.current == 'true'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.fresh.outputs.current == 'true'
+        with:
+          path: _site
+
+      - id: deployment
+        if: steps.fresh.outputs.current == 'true'
+        uses: actions/deploy-pages@v4

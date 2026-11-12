@@ -402,7 +402,7 @@ no consent banner. It is **added at deploy time and nowhere else**.
 
 - **Switch.** The repository variable `GOATCOUNTER_CODE` (Settings → Secrets and variables →
   Actions → Variables; a variable, not a secret) is passed to `scripts/publish.mts` by
-  `pages.yml`. Unset or empty means no tag, and the published artifact is byte-identical to one
+  the `deploy` job in `ci.yml`. Unset or empty means no tag, and the published artifact is byte-identical to one
   built without this feature. A value that is not `[a-z0-9-]+` fails the publish before anything
   is written.
 - **Injection.** After everything else, `preparePublishedSite` adds one

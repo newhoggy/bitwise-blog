@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
+import { parse } from "yaml";
 import { main, type Output } from "../scripts/advisor.mts";
 import { dataDir } from "../scripts/advisor/corpus.mts";
 import { LEAK_RUN_WORDS, describeSources, findRuns, jsonlRuns, leakCheck, leakCheckHistory, leakCheckPushed, parsePushUpdates, postRuns, quoteRuns } from "../scripts/advisor/guards.mts";
@@ -93,11 +94,14 @@ test("the published site holds no corpus path and nothing from the private data"
   fs.writeFileSync(privateFile, `{"quote": "${SENTINEL}"}\n`);
 
   // Copy what the workflow copies: its own list, read from the workflow, so changing it fails here.
-  const workflow = fs.readFileSync(path.join(ROOT, ".github", "workflows", "pages.yml"), "utf8");
-  const copied = workflow.match(/^\s*cp -r (.+) _site\/\s*$/m);
-  assert.ok(copied, "pages.yml still copies with `cp -r ... _site/`");
+  // (ci.yml also assembles a copy in its `check` job, so read the `deploy` job's.)
+  const ci = parse(fs.readFileSync(path.join(ROOT, ".github", "workflows", "ci.yml"), "utf8")) as { jobs: Record<string, { steps?: Array<{ run?: string }> }> };
+  const deploy = ci.jobs["deploy"];
+  assert.ok(deploy, "ci.yml has a `deploy` job");
+  const copied = (deploy.steps ?? []).map((step) => step.run?.match(/^\s*cp -r (.+) _site\/\s*$/m)).find(Boolean);
+  assert.ok(copied, "the deploy job still copies with `cp -r ... _site/`");
   const entries = copied[1].trim().split(/\s+/);
-  assert.equal(entries.some((e) => e.startsWith("corpus")), false, `pages.yml copies ${entries.join(" ")}`);
+  assert.equal(entries.some((e) => e.startsWith("corpus")), false, `the deploy job copies ${entries.join(" ")}`);
   for (const entry of entries) fs.cpSync(path.join(source, entry), path.join(stage, entry), { recursive: true });
 
   preparePublishedSite(stage, source);
@@ -110,7 +114,7 @@ test("the published site holds no corpus path and nothing from the private data"
 
 // ---- what must not be imported --------------------------------------------------------
 
-test("scripts/bh.mts reaches no advisor code and no installed package: pages.yml runs it with no install", () => {
+test("scripts/bh.mts reaches no advisor code and no installed package: the deploy job runs it with no install", () => {
   const seen = new Set<string>();
   const packages = new Set<string>();
   const visit = (file: string) => {
