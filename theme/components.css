@@ -623,6 +623,13 @@ bh-stepper.is-ready bh-step::before { content: "Step " attr(data-n) " of " attr(
   transition: background var(--dur-2), transform var(--dur-2);
 }
 .bh-stepper-dots button[aria-current="step"]::before { background: var(--accent); transform: scale(1.35); }
+.bh-stepper-dots button:hover::before { background: var(--text-muted); }
+.bh-stepper-dots button[aria-current="step"]:hover::before { background: var(--accent); }
+/* Forced colours replace background colours, so the dot would take the page colour and vanish: draw it in system colours. */
+@media (forced-colors: active) {
+  .bh-stepper-dots button::before { background: ButtonText; }
+  .bh-stepper-dots button[aria-current="step"]::before { background: Highlight; }
+}
 
 /* ---- bh-playground: inputs drive live outputs & SVG bindings ----------------------------------------------- */
 
