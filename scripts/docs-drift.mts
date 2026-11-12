@@ -21,27 +21,27 @@ function claims(text: string, shape: RegExp): string[] {
   return [...text.matchAll(/`([^`\n]+)`/g)].map((m) => m[1]).filter((t) => shape.test(t));
 }
 
-/** Backticked names before the first colon of each `- ` item. */
+/** Backticked names before the first colon of each `- ` item. A wrapped item counts as one line. */
 function leadClaims(text: string, shape: RegExp): string[] {
-  return text.split("\n").filter((l) => /^\s*[-*] /.test(l)).flatMap((l) => claims(l.split(":")[0], shape));
+  return text.split(/\n(?=\s*[-*] )/).filter((item) => /^\s*[-*] /.test(item)).flatMap((item) => claims(item.replace(/\s*\n\s*/g, " ").split(":")[0], shape));
 }
 
-function compare(what: string, fence: string, claimed: string[], actual: string[], hint: string): string[] {
+function compare(what: string, absentFrom: string, claimed: string[], actual: string[], hint: string): string[] {
   const problems: string[] = [];
   const have = new Set(claimed), want = new Set(actual);
   const missing = [...want].filter((x) => !have.has(x)).sort();
   const extra = [...have].filter((x) => !want.has(x)).sort();
   if (missing.length) problems.push(`README.md ${what} is missing ${missing.map((x) => `\`${x}\``).join(", ")} (${hint})`);
-  if (extra.length) problems.push(`README.md ${what} names ${extra.map((x) => `\`${x}\``).join(", ")}, which ${fence}`);
+  if (extra.length) problems.push(`README.md ${what} names ${extra.map((x) => `\`${x}\``).join(", ")}, which ${absentFrom}`);
   if (!claimed.length && !missing.length && !extra.length) problems.push(`README.md ${what} lists nothing`);
   return problems;
 }
 
-/** `pkg` is the parsed package.json. */
+/** `pkg` is the parsed package.json. Every dependency kind counts, not only `devDependencies`. */
 export function readmeDependencyProblems(readme: string, pkg: unknown): string[] {
   const o = (pkg && typeof pkg === "object" ? pkg : {}) as Record<string, unknown>;
   const names = (v: unknown) => (v && typeof v === "object" ? Object.keys(v) : []);
-  const actual = [...new Set([...names(o.dependencies), ...names(o.devDependencies)])];
+  const actual = [...new Set(["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"].flatMap((k) => names(o[k])))];
   const text = fenced(readme, "deps");
   if (text === undefined) return ["README.md has no <!-- bh:deps --> … <!-- /bh:deps --> list of the npm dependencies"];
   return compare("dependency list", "package.json does not have", leadClaims(text, PACKAGE_NAME), actual, "add it, or remove it from package.json");

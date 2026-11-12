@@ -33,7 +33,7 @@ every page and key, so the rebrand changes the site's name and not these.
 - **Topics.** A post joins a topic by carrying its name in `bh:tags`: `functional
   programming`, `succinct data structures` or `ai workflows`. The home page's topic chips
   are built from those tags (a topic with no posts yet gets no chip).
-- **Examples.** Three pages are worked examples of the document kinds, not posts
+- **Examples.** These pages are worked examples of the document kinds, not posts
   (`check` compares this list with the pages that carry the marker):
   <!-- bh:examples -->
   `docs/edge-rate-limiting-design.html`, `docs/adr-001-rate-limit-in-each-service.html` and
@@ -126,7 +126,7 @@ The authoring and publishing commands (`index`, `check`, `bundle`, `seal`, …) 
   `GOATCOUNTER_CODE` and a token (`GOATCOUNTER_TOKEN`, or 1Password); see "Reading the numbers" in `CLAUDE.md`.
   The output names unlisted pages, so keep it private.
   The custom domain is a Pages setting (Settings → Pages → Custom domain, plus DNS), not a file in
-  the repo. Pages also work under a project sub-path such as `/beautiful-html/`; a fork sets
+  the repo. Pages also work under a project sub-path such as `/bitwise-blog/`; a fork sets
   `homepage` in `package.json` (or `BH_SITE_URL`) to wherever it is served from.
 - **Skill evals** (`.github/workflows/skill-evals.yml`) runs every skill's trigger and output evals on
   the 1st of each month, records the pass rates and fails when a skill's rate falls against the
