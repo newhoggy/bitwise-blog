@@ -213,7 +213,10 @@ test("--json writes the per-query results and totals, and leaves the report and 
 test("--json needs a file name", (t) => {
   const { root } = setup({ [SHOULD]: [{}], [QUIET]: [{}] });
   t.after(() => remove(root));
-  const res = spawnSync(process.execPath, [runner, "demo", "--json"], { cwd: path.join(root, "repo"), encoding: "utf8" });
-  assert.equal(res.status, 2);
-  assert.match(res.stderr, /--json takes a file name/);
+  // A following flag is not a file name: `--json --keep` must not write a file called "--keep".
+  for (const args of [["--json"], ["--json", "--keep"]]) {
+    const res = spawnSync(process.execPath, [runner, "demo", ...args], { cwd: path.join(root, "repo"), encoding: "utf8" });
+    assert.equal(res.status, 2, args.join(" "));
+    assert.match(res.stderr, /--json takes a file name/);
+  }
 });

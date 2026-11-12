@@ -7,7 +7,7 @@ import { spawnSync, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import {
-  FORMAT, compare, outputFromResult, parseRecord, renderSummary, triggerErrors, triggerFromJson,
+  FORMAT, compare, mergeRetry, outputFromResult, parseRecord, renderSummary, triggerErrors, triggerFromJson,
   type EvalRecord, type SkillRecord,
 } from "../scripts/skill-evals.mts";
 
@@ -66,7 +66,8 @@ test("triggerFromJson keeps the counts and the per-query status, and rejects any
   assert.equal(t.queries[9].status, "FAIL");
   assert.equal(t.costUsd, 1);
   assert.equal(triggerFromJson(null), null);
-  assert.equal(triggerFromJson({ totals: {}, queries: [] }), null);
+  assert.equal(triggerFromJson({ totals: {} }), null);
+  assert.equal(triggerFromJson({ queries: [{ query: "q", status: "PASS" }] }), null, "a query needs its position");
   assert.equal(triggerFromJson({ ...triggerJson(1, 2), queries: [{ query: 3 }] }), null);
 });
 
@@ -168,6 +169,38 @@ test("parseRecord accepts only this format", () => {
   assert.equal(parseRecord("[]"), null);
 });
 
+test("parseRecord rejects a record whose skills compare would trip over", () => {
+  const r = record({ alpha: trig(1, 1) });
+  for (const bad of [
+    { alpha: { errors: [], trigger: { counts: {}, queries: [] } } },
+    { alpha: { errors: [], trigger: { counts: { all: { passed: 1, total: 1, errored: 0 } }, queries: "x" } } },
+    { alpha: { errors: [], output: { meanWith: "high", cases: [] } } },
+    { alpha: { errors: [], output: { meanWith: 1, cases: [{ withSkill: 1 }] } } },
+    { alpha: { trigger: r.skills.alpha.trigger } },
+    { alpha: 3 },
+  ]) assert.equal(parseRecord(JSON.stringify({ ...r, skills: bad })), null, JSON.stringify(bad).slice(0, 60));
+  assert.equal(parseRecord(JSON.stringify({ ...r, models: { agent: 1 } })), null);
+});
+
+test("mergeRetry replaces only the ERROR queries the retry decided, and recounts", () => {
+  const first = triggerFromJson(triggerJson(6, 10, { errored: 3, cost: 4 }))!;
+  assert.deepEqual(first.counts.all, { passed: 6, total: 10, errored: 3 });
+  const erroredPositions = first.queries.filter(q => q.status === "ERROR").map(q => q.position);
+  assert.deepEqual(erroredPositions, [8, 9, 10]);
+  // The retry decides #8 (pass) and #9 (fail) and errors again on #10; it also repeats a query that had passed.
+  const retry = triggerFromJson({
+    costUsd: 0.5,
+    queries: [8, 9, 10, 1].map((position, i) => ({ position, query: `query ${position}`, status: ["PASS", "FAIL", "ERROR", "FAIL"][i], shouldTrigger: true, heldout: false })),
+  })!;
+  const merged = mergeRetry(first, retry);
+  assert.deepEqual(merged.queries.map(q => q.status), ["PASS", "PASS", "PASS", "PASS", "PASS", "PASS", "FAIL", "PASS", "FAIL", "ERROR"]);
+  assert.deepEqual(merged.counts.all, { passed: 7, total: 10, errored: 1 }, "a PASS is never replaced");
+  assert.equal(merged.costUsd, 4.5);
+  // A retry of a different query list (the file was edited meanwhile) changes nothing.
+  const other = triggerFromJson({ queries: [{ position: 8, query: "something else", status: "PASS", shouldTrigger: true, heldout: false }] })!;
+  assert.deepEqual(mergeRetry(first, other).counts.all, first.counts.all);
+});
+
 test("renderSummary tables the rates and names regressions, errors and the baseline", () => {
   const prev = record({ alpha: trig(18, 20), beta: out({ x: [1] }) });
   const cur = record({ alpha: trig(10, 20), beta: out({ x: [0.5] }, 0.25) });
@@ -188,7 +221,7 @@ test("renderSummary tables the rates and names regressions, errors and the basel
  * A repo with two skills: alpha (trigger evals and two output cases) and beta (trigger evals only), a fake
  * trigger runner and a fake `claude`. Each writes the JSON it is told to by FAKE and logs its arguments.
  */
-function setup(fake: { trigger: Record<string, unknown>; output: Record<string, unknown> }) {
+function setup(fake: { trigger: Record<string, unknown>; output: Record<string, unknown>; retry?: Record<string, unknown> }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skill-evals-test-"));
   const repo = path.join(dir, "repo");
   const evals = (s: string) => path.join(repo, ".claude", "skills", s, "evals");
@@ -206,7 +239,7 @@ function setup(fake: { trigger: Record<string, unknown>; output: Record<string, 
   fs.writeFileSync(runner, `const fs = require("fs");
 const a = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(log)}, "trigger " + a.join(" ") + "\\n");
-const j = JSON.parse(process.env.FAKE_TRIGGER)[a[0]];
+const j = JSON.parse(a.includes("--only") ? process.env.FAKE_TRIGGER_RETRY : process.env.FAKE_TRIGGER)[a[0]];
 if (j) fs.writeFileSync(a[a.indexOf("--json") + 1], JSON.stringify(j));
 process.exit(1);
 `);
@@ -221,16 +254,17 @@ if (j) fs.writeFileSync(a[a.indexOf("--json") + 1], JSON.stringify(j));
 process.exit(1);
 `, { mode: 0o755 });
 
-  const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, FAKE_TRIGGER: JSON.stringify(fake.trigger), FAKE_OUTPUT: JSON.stringify(fake.output) };
+  const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, FAKE_TRIGGER: JSON.stringify(fake.trigger), FAKE_TRIGGER_RETRY: JSON.stringify(fake.retry ?? {}), FAKE_OUTPUT: JSON.stringify(fake.output) };
   delete env.GITHUB_STEP_SUMMARY;
-  const run = (...flags: string[]) => {
-    const res = spawnSync(process.execPath, [script, "--trigger-runner", runner, "--out", path.join(dir, "out"), ...flags], { cwd: repo, env, encoding: "utf8" });
+  const run = (...flags: string[]) => runIn(repo, ...flags);
+  const runIn = (cwd: string, ...flags: string[]) => {
+    const res = spawnSync(process.execPath, [script, "--trigger-runner", runner, ...(flags.includes("--out") ? [] : ["--out", path.join(dir, "out")]), ...flags], { cwd, env, encoding: "utf8" });
     const calls = fs.existsSync(log) ? fs.readFileSync(log, "utf8").trim().split("\n").filter(Boolean) : [];
     fs.rmSync(log, { force: true });
     const rec = path.join(dir, "out", "record.json");
     return { ...res, calls, record: fs.existsSync(rec) ? (JSON.parse(fs.readFileSync(rec, "utf8")) as EvalRecord) : null, out: path.join(dir, "out") };
   };
-  return { dir, run };
+  return { dir, repo, run, runIn };
 }
 
 const healthy = () => ({
@@ -265,7 +299,7 @@ test("a second run with the same results exits 0; a fall beyond the tolerance ex
   const first = run();
   assert.equal(first.status, 0);
   const previous = path.join(dir, "previous.json");
-  fs.copyFileSync(path.join(first.out, "record.json"), previous);
+  fs.copyFileSync(path.join(first.out, "baseline.json"), previous);
 
   assert.equal(run("--previous", previous).status, 0);
 
@@ -285,7 +319,7 @@ test("an errored run is exit 2, never a regression, and the skill is left out of
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const first = run();
   const previous = path.join(dir, "previous.json");
-  fs.copyFileSync(path.join(first.out, "record.json"), previous);
+  fs.copyFileSync(path.join(first.out, "baseline.json"), previous);
 
   const broken = setup({
     trigger: { alpha: triggerJson(0, 10, { errored: 10 }), beta: triggerJson(5, 5) },
@@ -299,6 +333,10 @@ test("an errored run is exit 2, never a regression, and the skill is left out of
   assert.match(res.stdout, /alpha: 10 trigger queries errored/);
   assert.match(res.stdout, /alpha: case1: scaffold failed: fixture.sh/);
   assert.match(res.stdout, /alpha: case2: the case failed to load/);
+  // The skill that errored is not "removed", and this run is not offered as the next baseline.
+  assert.doesNotMatch(res.stdout, /not in this run/);
+  assert.ok(res.record, "the record is still written, for reading");
+  assert.ok(!fs.existsSync(path.join(res.out, "baseline.json")));
 });
 
 test("a tool that writes no result is an error", (t) => {
@@ -352,10 +390,101 @@ test("an unreadable previous record is ignored, not fatal", (t) => {
   fs.writeFileSync(bad, "{ truncated");
   const res = run("--previous", bad);
   assert.equal(res.status, 0, res.stderr);
-  assert.match(res.stdout, /not a bh-skill-evals\/1 record: ignored/);
+  assert.match(res.stdout, /not a usable bh-skill-evals\/1 record: ignored/);
   const missing = run("--previous", path.join(dir, "absent.json"));
   assert.equal(missing.status, 0);
   assert.match(missing.stdout, /no previous record at/);
+});
+
+test("only a complete run with no error is written as a baseline", (t) => {
+  const { dir, run } = setup(healthy());
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const full = run();
+  assert.equal(full.status, 0);
+  const baseline = path.join(full.out, "baseline.json");
+  assert.deepEqual(JSON.parse(fs.readFileSync(baseline, "utf8")), full.record);
+  // A debugging run of one skill, or of one kind, is a record but not a baseline, and removes the stale one.
+  for (const flags of [["--skills", "beta"], ["--kind", "trigger"]]) {
+    const res = run(...flags);
+    assert.equal(res.status, 0, flags.join(" "));
+    assert.ok(fs.existsSync(path.join(res.out, "record.json")));
+    assert.ok(!fs.existsSync(baseline), flags.join(" "));
+    fs.writeFileSync(baseline, "stale");
+  }
+});
+
+test("a subset run compares only its skills with the previous record, without calling the others removed", (t) => {
+  const { dir, run } = setup(healthy());
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const previous = path.join(dir, "previous.json");
+  fs.copyFileSync(path.join(run().out, "baseline.json"), previous);
+  const res = run("--skills", "beta", "--kind", "trigger", "--previous", previous);
+  assert.equal(res.status, 0, res.stderr + res.stdout);
+  assert.doesNotMatch(res.stdout, /not in this run/);
+  assert.match(res.stdout, /No skill fell by more than the tolerance/);
+});
+
+test("errored queries are run once more, and a retry that decides them saves the skill's measurement", (t) => {
+  const { dir, run } = setup({
+    ...healthy(),
+    trigger: { alpha: triggerJson(7, 10, { errored: 2, cost: 4 }), beta: triggerJson(5, 5) },
+    retry: { alpha: { costUsd: 0.4, queries: [9, 10].map(position => ({ position, query: `query ${position}`, status: "PASS", shouldTrigger: position % 2 === 1, heldout: false })) } },
+  });
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const res = run();
+  assert.equal(res.status, 0, res.stderr + res.stdout);
+  assert.deepEqual(res.record!.skills.alpha.trigger!.counts.all, { passed: 9, total: 10, errored: 0 });
+  const retry = res.calls.filter(c => c.startsWith("trigger alpha"));
+  assert.equal(retry.length, 2);
+  assert.match(retry[1], /--max-cost 5 --only 9,10$/);
+  assert.equal(res.calls.filter(c => c.startsWith("trigger beta")).length, 1, "a skill with no errors is not run again");
+  assert.equal(res.record!.costUsd, 4 + 0.4 + 1 + 1.5);
+});
+
+test("queries that error again after the retry still make the skill an error", (t) => {
+  const { dir, run } = setup({
+    ...healthy(),
+    trigger: { alpha: triggerJson(7, 10, { errored: 2 }), beta: triggerJson(5, 5) },
+    retry: { alpha: { queries: [9, 10].map(position => ({ position, query: `query ${position}`, status: "ERROR", shouldTrigger: true, heldout: false })) } },
+  });
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const res = run();
+  assert.equal(res.status, 2);
+  assert.match(res.stdout, /alpha: 2 trigger queries errored/);
+  assert.equal(res.calls.filter(c => c.startsWith("trigger alpha")).length, 2, "retried once, not in a loop");
+});
+
+test("a run cut short by the cost ceiling is not retried", (t) => {
+  const { dir, run } = setup({ ...healthy(), trigger: { alpha: triggerJson(4, 5, { missing: 5, partial: true, errored: 1 }), beta: triggerJson(5, 5) } });
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const res = run("--skills", "alpha", "--kind", "trigger");
+  assert.equal(res.status, 2);
+  assert.equal(res.calls.length, 1);
+  assert.match(res.stdout, /stopped early/);
+});
+
+test("relative paths mean the same thing from a subdirectory of the repo", (t) => {
+  const { dir, repo, runIn } = setup(healthy());
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const sub = path.join(repo, "docs");
+  fs.mkdirSync(sub);
+  // The tools run in the repo root; the files they write and the ones we read are still the same files.
+  const res = runIn(sub, "--out", "results", "--previous", "none.json");
+  assert.equal(res.status, 0, res.stderr + res.stdout);
+  assert.ok(fs.existsSync(path.join(sub, "results", "record.json")));
+  assert.ok(fs.existsSync(path.join(sub, "results", "trigger-alpha.json")));
+  assert.ok(!fs.existsSync(path.join(repo, "results")));
+});
+
+test("an unknown flag or a stray argument is refused before anything is paid for", (t) => {
+  const { dir, run } = setup(healthy());
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (const bad of [["--skill", "anatomy"], ["--maxcost-usd", "5"], ["alpha"], ["--skills", "alpha", "--force"], ["--skills", "--kind", "trigger"]]) {
+    const res = run(...bad);
+    assert.equal(res.status, 2, bad.join(" "));
+    assert.equal(res.calls.length, 0, bad.join(" "));
+  }
+  assert.match(run("--skill", "x").stderr, /unknown argument --skill /);
 });
 
 // ---- the workflow ----------------------------------------------------------------------------------------
@@ -379,8 +508,10 @@ test("the workflow is scheduled monthly, opt-in, read-only and hands its inputs 
   const upload = steps.find(s => s.uses?.startsWith("actions/upload-artifact"))!;
   assert.equal(upload.if, "always()");
   assert.equal(upload.with!.name, "skill-evals-record");
-  assert.match(String(upload.with!.path), /skill-evals\/record\.json/);
+  assert.match(String(upload.with!.path), /skill-evals\/baseline\.json/);
+  assert.match(String(upload.with!.path), /skill-evals\/summary\.md/);
   assert.match(steps.find(s => s.name === "Fetch the previous record")!.run!, /--name skill-evals-record/);
+  assert.match(run.run!, /--previous previous\/baseline\.json/);
   // Every script and flag it names exists.
   assert.ok(fs.existsSync(path.join(root, "scripts", "skill-evals.mts")));
   for (const flag of ["--out", "--previous", "--skills", "--kind", "--model", "--judge-model", "--max-cost-usd"]) assert.ok(run.run!.includes(flag), flag);
