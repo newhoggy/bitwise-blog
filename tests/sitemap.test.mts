@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import http from "node:http";
+import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { test, type TestContext } from "node:test";
 
@@ -128,4 +130,23 @@ test("check fails on a missing or stale file, and on a sitemap that lists a page
   const dup = fixture(t);
   dup.edit("sitemap.xml", "</urlset>", `  <url><loc>${SITE}</loc></url>\n</urlset>`);
   assert.match(dup.bh("check").stdout, new RegExp(`sitemap\\.xml lists ${SITE.replace(/[.]/g, "\\.")} twice`));
+});
+
+test("serve answers a missing path with the 404 page, rebased onto the local root when homepage has a sub-path", async (t) => {
+  const f = fixture(t);
+  f.edit("package.json", /"homepage": "[^"]*"/, '"homepage": "https://example.org/blog/"');
+  assert.equal(f.bh("index").status, 0);
+  assert.match(f.read("404.html"), /href="\/blog\/theme\/bh\.css"/);
+  const port = await new Promise<number>((resolve) => { const s = net.createServer(); s.listen(0, () => { const p = (s.address() as net.AddressInfo).port; s.close(() => resolve(p)); }); });
+  const child = spawn(process.execPath, [path.join(f.root, "scripts/bh.mts"), "serve", String(port)], { cwd: f.root, stdio: ["ignore", "pipe", "pipe"] });
+  t.after(() => { child.kill(); });
+  await new Promise<void>((resolve, reject) => { child.stdout.on("data", (d) => { if (String(d).includes("Serving ")) resolve(); }); child.once("exit", () => reject(new Error("serve exited"))); });
+  const res = await new Promise<{ status?: number; body: string }>((resolve, reject) => http.get({ hostname: "127.0.0.1", port, path: "/no/such/page" }, (r) => {
+    let body = ""; r.setEncoding("utf8"); r.on("data", (d) => { body += d; }); r.on("end", () => resolve({ status: r.statusCode, body }));
+  }).on("error", reject));
+  assert.equal(res.status, 404);
+  assert.match(res.body, /<h1>Page not found<\/h1>/);
+  assert.match(res.body, /href="\/theme\/bh\.css"/);
+  assert.doesNotMatch(res.body, /href="\/blog\//, "no root-relative link may keep the sub-path");
+  assert.match(res.body, /<a href="\/">Back to all posts<\/a>/);
 });
