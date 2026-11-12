@@ -13,12 +13,6 @@
   },
   {
     "page": "docs/adr-001-rate-limit-in-each-service.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/adr-001-rate-limit-in-each-service.html",
     "rule": "nested-interactive",
     "nodes": 1,
     "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
@@ -46,12 +40,6 @@
     "rule": "color-contrast",
     "nodes": 3,
     "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
-  },
-  {
-    "page": "docs/adr-002-rate-limit-at-the-edge.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
   },
   {
     "page": "docs/adr-002-rate-limit-at-the-edge.html",
@@ -85,12 +73,6 @@
   },
   {
     "page": "docs/announcing-patchcov.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/announcing-patchcov.html",
     "rule": "list",
     "nodes": 1,
     "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
@@ -115,14 +97,8 @@
   },
   {
     "page": "docs/component-gallery.html",
-    "rule": "aria-allowed-role",
-    "nodes": 1,
-    "reason": "<bh-versions> gives each <figure> role=tabpanel, which axe does not allow on figure; wrap or change the role in theme/bh.js."
-  },
-  {
-    "page": "docs/component-gallery.html",
     "rule": "aria-prohibited-attr",
-    "nodes": 3,
+    "nodes": 1,
     "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component. The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
   },
   {
@@ -130,12 +106,6 @@
     "rule": "color-contrast",
     "nodes": 12,
     "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
-  },
-  {
-    "page": "docs/component-gallery.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
   },
   {
     "page": "docs/component-gallery.html",
@@ -175,12 +145,6 @@
   },
   {
     "page": "docs/deflate-format-reference.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/deflate-format-reference.html",
     "rule": "nested-interactive",
     "nodes": 1,
     "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
@@ -199,14 +163,8 @@
   },
   {
     "page": "docs/edge-rate-limiting-design.html",
-    "rule": "aria-allowed-role",
-    "nodes": 1,
-    "reason": "<bh-versions> gives each <figure> role=tabpanel, which axe does not allow on figure; wrap or change the role in theme/bh.js."
-  },
-  {
-    "page": "docs/edge-rate-limiting-design.html",
     "rule": "aria-prohibited-attr",
-    "nodes": 2,
+    "nodes": 1,
     "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component. The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
   },
   {
@@ -214,12 +172,6 @@
     "rule": "color-contrast",
     "nodes": 10,
     "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
-  },
-  {
-    "page": "docs/edge-rate-limiting-design.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
   },
   {
     "page": "docs/edge-rate-limiting-design.html",
@@ -259,12 +211,6 @@
   },
   {
     "page": "docs/glossary.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/glossary.html",
     "rule": "nested-interactive",
     "nodes": 1,
     "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
@@ -289,12 +235,6 @@
   },
   {
     "page": "docs/how-deflate-compresses.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/how-deflate-compresses.html",
     "rule": "nested-interactive",
     "nodes": 1,
     "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
@@ -308,7 +248,7 @@
   {
     "page": "docs/how-deflate-compresses.html",
     "rule": "scrollable-region-focusable",
-    "nodes": 5,
+    "nodes": 4,
     "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
   },
   {
@@ -320,7 +260,7 @@
   {
     "page": "docs/how-deflate-sends-its-code.html",
     "rule": "aria-prohibited-attr",
-    "nodes": 3,
+    "nodes": 1,
     "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component. The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
   },
   {
@@ -328,12 +268,6 @@
     "rule": "color-contrast",
     "nodes": 53,
     "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
-  },
-  {
-    "page": "docs/how-deflate-sends-its-code.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
   },
   {
     "page": "docs/how-deflate-sends-its-code.html",
@@ -356,7 +290,7 @@
   {
     "page": "docs/how-deflate-sends-its-code.html",
     "rule": "scrollable-region-focusable",
-    "nodes": 3,
+    "nodes": 2,
     "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
   },
   {
@@ -368,7 +302,7 @@
   {
     "page": "docs/how-deflate-works.html",
     "rule": "aria-prohibited-attr",
-    "nodes": 3,
+    "nodes": 1,
     "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component. The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
   },
   {
@@ -376,12 +310,6 @@
     "rule": "color-contrast",
     "nodes": 72,
     "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
-  },
-  {
-    "page": "docs/how-deflate-works.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
   },
   {
     "page": "docs/how-deflate-works.html",
@@ -404,7 +332,7 @@
   {
     "page": "docs/how-deflate-works.html",
     "rule": "scrollable-region-focusable",
-    "nodes": 8,
+    "nodes": 6,
     "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
   },
   {
@@ -416,7 +344,7 @@
   {
     "page": "docs/pedagogical-writing.html",
     "rule": "aria-prohibited-attr",
-    "nodes": 2,
+    "nodes": 1,
     "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component. The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
   },
   {
@@ -424,12 +352,6 @@
     "rule": "color-contrast",
     "nodes": 3,
     "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
-  },
-  {
-    "page": "docs/pedagogical-writing.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
   },
   {
     "page": "docs/pedagogical-writing.html",
@@ -482,7 +404,7 @@
   {
     "page": "docs/token-bucket-rate-limiting.html",
     "rule": "label-content-name-mismatch",
-    "nodes": 2,
+    "nodes": 1,
     "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
   },
   {
@@ -517,12 +439,6 @@
   },
   {
     "page": "docs/voice-notes-on-trial.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/voice-notes-on-trial.html",
     "rule": "nested-interactive",
     "nodes": 1,
     "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
@@ -550,12 +466,6 @@
     "rule": "color-contrast",
     "nodes": 13,
     "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
-  },
-  {
-    "page": "index.html",
-    "rule": "label-content-name-mismatch",
-    "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
   },
   {
     "page": "index.html",
