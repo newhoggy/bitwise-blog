@@ -600,7 +600,8 @@ bh-stepper.is-ready bh-step::before { content: "Step " attr(data-n) " of " attr(
 }
 /* The copy-link button is a target: in a crowded bar it must not be squeezed below 24px (how far it shrank depended on the fonts). */
 .bh-stepper-bar .bh-step-link { flex: none; min-width: 24px; min-height: 24px; }
-.bh-stepper-dots { display: flex; gap: 6px; margin-inline: auto; }
+/* Many steps must not push the bar past a phone screen: the dots wrap when there is no room (min-width lets this flex item shrink). */
+.bh-stepper-dots { display: flex; flex-wrap: wrap; justify-content: center; min-width: 0; gap: 6px; margin-inline: auto; }
 .bh-stepper-dots button {
   width: 8px;
   height: 8px;
