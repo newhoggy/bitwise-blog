@@ -182,8 +182,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Every public page, light and dark. Known findings are in a11y-allowlist.json with a
-      # reason; a new violation, or an entry that no longer fires, fails the job.
+      # Every public page at desktop and phone width, light and dark, and after tabs, steps, popups,
+      # the search dialog, the review panel and slide mode are opened. Known findings are in
+      # a11y-allowlist.json with a reason and an element count; a new violation, a new element on a
+      # listed rule, or an entry that no longer fires, fails the job.
       - name: Run axe-core on every page
         run: npm run a11y
         env:

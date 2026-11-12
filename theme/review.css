@@ -76,7 +76,7 @@
 .bh-reviewing :is(h2, h3, h4, figure, dt, [data-linkable], bh-step, bh-cw-step, bh-codewalk, bh-matrix):is(:hover, :focus-within) > .bh-review-add,
 .bh-reviewing .bh-review-add:focus-visible { opacity: 1; }
 .bh-reviewing figure > .bh-review-add { position: absolute; left: var(--space-2); top: var(--space-2); margin: 0; z-index: 3; }
-@media (hover: none) { .bh-reviewing .bh-review-add { opacity: 0.85; } }
+@media (hover: none) { .bh-reviewing .bh-review-add { opacity: 1; } }
 
 .bh-review-pop {
   position: absolute;
