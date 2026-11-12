@@ -97,8 +97,10 @@ The only npm dependencies are dev ones (`typescript` and `@types/node`), used by
   syntax-checks the browser scripts, type-checks the Node tooling (`npm run typecheck`), runs `npm run check` (which also verifies each page's social
   meta and card), uploads all documents bundled as single files, and renders every page in
   Chrome (light, dark and phone layouts).
-- **GitHub Pages** (`.github/workflows/pages.yml`) publishes a copy of the repo to
-  [bitwise.john-ky.io](https://bitwise.john-ky.io/), with
+- **GitHub Pages** (the `deploy` job in `.github/workflows/ci.yml`) publishes a copy of the repo to
+  [bitwise.john-ky.io](https://bitwise.john-ky.io/) from `main`, only after the `check` and `render`
+  jobs pass on that commit, so a commit that fails type-checking, tests, `npm run check` or the
+  render is not published. To redeploy without a new commit, run the CI workflow from `main`. It uses
   a publication step that removes marked examples and their cards, strips links to them, and
   rebuilds the catalogue, glossary, search, backlinks and review data. Source files remain
   unchanged. The step fails if it finds no examples or an expected page/card is missing.
