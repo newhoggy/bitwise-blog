@@ -18,6 +18,7 @@ import zlib from "node:zlib";
 import crypto from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { fileURLToPath } from "node:url";
+import { readmeDependencyProblems, readmeExampleProblems } from "./docs-drift.mts";
 import {
   KIND_LABELS, escapeHtml, CARD_FILE, KEY_RE, GROUP_RE, cardFromDoc, tryDecryptCard, buildBlob,
   renderCardsFile, parseCardsFile, validateCardsFile, mergeEntries, docCardHtml,
@@ -1510,6 +1511,18 @@ function cmdCheck(skipKeys = false): void {
   {
     const problems = rootFileProblems();
     console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + `${SITEMAP_FILE}, ${ROBOTS_FILE} and ${NOT_FOUND_FILE}`);
+    problems.forEach((p) => console.log(c.red("  error  ") + p));
+    errors += problems.length;
+  }
+  // The README's dependency and example lists must match package.json and the bh:example markers.
+  // Skipped when there is no README (a fork may delete it; the test fixtures copy none).
+  if (fs.existsSync(path.join(ROOT, "README.md"))) {
+    const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
+    const problems = [
+      ...readmeDependencyProblems(readme, JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"))),
+      ...readmeExampleProblems(readme, publicDocs.filter((d) => d.example).map((d) => d.href)),
+    ];
+    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + "README (dependency and example lists match the repo)");
     problems.forEach((p) => console.log(c.red("  error  ") + p));
     errors += problems.length;
   }
