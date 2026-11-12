@@ -12,7 +12,7 @@ import { parse } from "yaml";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const WORKFLOWS = path.join(ROOT, ".github", "workflows");
 
-interface Job { needs?: string | string[]; if?: string; permissions?: Record<string, string>; steps?: Array<{ uses?: string; run?: string }> }
+interface Job { needs?: string | string[]; if?: string; "timeout-minutes"?: number; permissions?: Record<string, string>; steps?: Array<{ uses?: string; run?: string }> }
 interface Workflow { on: Record<string, unknown>; permissions?: Record<string, string>; jobs: Record<string, Job> }
 
 const load = (file: string): Workflow => parse(fs.readFileSync(path.join(WORKFLOWS, file), "utf8")) as Workflow;
@@ -49,4 +49,26 @@ test("the deploy job publishes only while its commit is still the head of main",
   const publishing = steps.filter((s) => s.uses?.startsWith("actions/deploy-pages") || s.uses?.startsWith("actions/upload-pages-artifact"));
   assert.ok(publishing.length === 2, "the deploy job uploads and deploys the Pages artifact");
   for (const step of publishing) assert.match(JSON.stringify(step), /steps\.fresh\.outputs\.current == 'true'/);
+});
+
+// A job with no `timeout-minutes` runs until GitHub's 360-minute default when a step hangs, keeps the
+// PR's checks pending, and its log is unreadable until the run ends (issue #139).
+const jobsWithoutTimeout = (workflow: Workflow): string[] =>
+  Object.entries(workflow.jobs).filter(([, job]) => !(Number.isInteger(job["timeout-minutes"]) && (job["timeout-minutes"] as number) > 0)).map(([name]) => name);
+
+test("every job in every workflow sets a timeout-minutes", () => {
+  for (const file of fs.readdirSync(WORKFLOWS).filter((f) => /\.ya?ml$/.test(f))) {
+    assert.deepEqual(jobsWithoutTimeout(load(file)), [], `${file}: jobs with no \`timeout-minutes\``);
+  }
+});
+
+test("the timeout check names a job that lacks one (so it can fail)", () => {
+  const ci = load("ci.yml");
+  delete ci.jobs["render"]?.["timeout-minutes"];
+  assert.deepEqual(jobsWithoutTimeout(ci), ["render"]);
+});
+
+test("the test script bounds each test, so a hung test fails by name", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  assert.match(pkg.scripts["test"] ?? "", /--test-timeout=\d+/);
 });
