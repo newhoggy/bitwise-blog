@@ -1,0 +1,9 @@
+<!-- expect error: node text "A very long node label" (~179px) doesn't fit its 100px box -->
+<figure class="diagram wide" id="fx-case">
+  <svg viewBox="-16 -16 332 132" role="img" aria-label="Box A points at box B">
+    <g class="node c1" data-id="a"><rect x="0" y="0" width="100" height="40" rx="6"/><text x="50" y="20">A very long node label</text></g>
+    <g class="node c2" data-id="b"><rect x="200" y="0" width="100" height="40" rx="6"/><text x="250" y="20">B</text></g>
+    <path class="edge" data-id="ab" d="M101 20 H189"/>
+  </svg>
+  <figcaption>Notice the arrow.</figcaption>
+</figure>

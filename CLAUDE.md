@@ -805,6 +805,12 @@ Theme files (`theme/*`) are shared by every page. These rules come from bugs alr
     - Use the keyboard: Tab to a term, then Enter, Tab and Esc.
     - Hover a term near the bottom-right corner; the popup should flip above it and stay
       inside the window.
+- **A checker rule gets a fixture.** `tests/checker-rules.test.mts` runs the real `check` on a
+  throwaway copy of the site. Each fragment in `tests/fixtures/checker-rules/` is injected at the end
+  of a public page, and the leading `<!-- expect error|warn: … -->` comments (or `expect clean`) must
+  equal the messages `check` prints for that page. When you add or change a diagram, link-target or
+  theme rule, add the bad case and a clean control beside it (a rule that flags everything also
+  passes a bad case). Theme rules (`THEME_CASES` in the test) edit one theme file instead.
 - **When testing the checker with injected faults, assert the injection happened.** A
   replacement anchored on stale text matched nothing, and the "test" passed while
   checking nothing.
