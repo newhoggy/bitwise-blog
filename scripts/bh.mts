@@ -1142,8 +1142,8 @@ function cssImportProblems(file: string): string[] {
 /** WCAG contrast for every text/background token pair, in both themes (from light-dark()). */
 const CONTRAST_PAIRS: [string, string[], number][] = [
   // [foreground, [backgrounds], minimum ratio]
-  ["text", ["bg", "surface", "surface-2", "code-bg"], 4.5],
-  ["text-muted", ["bg", "surface", "surface-2", "code-bg"], 4.5],
+  ["text", ["bg", "surface", "surface-2", "code-bg", "accent-soft", "warn-soft"], 4.5], // accent-soft: the search dialog's selected row; warn-soft: its matches
+  ["text-muted", ["bg", "surface", "surface-2", "code-bg", "accent-soft"], 4.5],
   ["accent", ["bg", "surface", "accent-soft"], 4.5],
   ["accent-contrast", ["accent"], 4.5],
   ["info", ["info-soft", "surface"], 4.5],
@@ -1163,6 +1163,8 @@ const CONTRAST_PAIRS: [string, string[], number][] = [
  * The tones are read from the `.badge.x { --tone: var(--y) }` rules, so a new badge is covered too.
  */
 const BADGE_BACKGROUNDS = ["bg", "surface", "surface-2", "code-bg"];
+/** Where only the plain (text-muted) badge sits: the kind label on the search dialog's selected row. */
+const PLAIN_BADGE_ONLY_BACKGROUNDS = ["accent-soft"];
 function badgeTones(): string[] {
   const css = fs.readFileSync(path.join(ROOT, "theme", "components.css"), "utf8");
   const tones = new Set(["text-muted"]); // the default `--tone` of a plain .badge
@@ -1187,7 +1189,7 @@ function contrastProblems(): string[] {
     if (r < min) out.push(`tokens.css: --${fg} on --${bg} is ${r.toFixed(2)}:1 in ${mode} mode (needs ${min}:1)`);
   }
   const hexOf = (c: number[]) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
-  for (const tone of badgeTones()) for (const bg of BADGE_BACKGROUNDS) for (const mode of ["light", "dark"] as const) {
+  for (const tone of badgeTones()) for (const bg of tone === "text-muted" ? [...BADGE_BACKGROUNDS, ...PLAIN_BADGE_ONLY_BACKGROUNDS] : BADGE_BACKGROUNDS) for (const mode of ["light", "dark"] as const) {
     if (!tok[tone] || !tok[bg]) { out.push(`tokens.css: --${tone} or --${bg} is not a light-dark() hex pair`); continue; }
     const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
     const [fg, base] = [rgb(tok[tone][mode]), rgb(tok[bg][mode])];
