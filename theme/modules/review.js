@@ -482,12 +482,14 @@
   function addBlockButtons() {
     const blocks = [...headings(), ...article.querySelectorAll(BLOCKS)];
     for (const b of blocks) {
-      if (b.querySelector(":scope > .bh-review-add")) continue;
+      // A list may only hold li, so its button goes in the first item (as bh.js does for the link button).
+      const host = b.matches("ul, ol") ? b.querySelector(":scope > li") || b : b;
+      if (host.querySelector(":scope > .bh-review-add")) continue;
       const btn = el("button", {
         type: "button", class: "bh-review-add", text: "+ Comment", title: "Comment on this " + (b.matches(HEADINGS) ? "section" : "block"),
         onclick: (e) => { e.stopPropagation(); composer(targetForBlock(b), null, b.getBoundingClientRect(), null); },
       });
-      b.append(btn);
+      host.append(btn);
     }
   }
   function removeBlockButtons() { article.querySelectorAll(".bh-review-add").forEach((b) => b.remove()); }
