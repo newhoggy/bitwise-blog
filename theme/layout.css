@@ -505,12 +505,14 @@ html.bh-presenting { font-size: clamp(16px, 0.55vw + 11px, 24px); scroll-padding
   color: var(--text);
   text-decoration: none;
 }
-.bh-search-results li[aria-selected="true"] a { background: var(--accent-soft); }
+.bh-search-results a[aria-selected="true"] { background: var(--accent-soft); }
 .bh-search-title { font-weight: 600; }
 .bh-search-kind { margin-right: var(--space-2); text-transform: capitalize; }
 .bh-search-section { color: var(--text-muted); font-weight: 500; }
 .bh-search-snippet { font-size: var(--step--1); color: var(--text-muted); line-height: 1.45; }
-.bh-search-results mark { background: color-mix(in oklab, var(--accent) 22%, transparent); color: inherit; }
+/* A hit's matches: --text on --warn-soft, a pair `check` verifies. --warn-soft differs from the selected row's
+   --accent-soft, so a match stays visible in the selected row. The snippet is muted text, so the colour is set, not inherited. */
+.bh-search-results mark { background: var(--warn-soft); color: var(--text); }
 .bh-search-foot {
   display: flex;
   justify-content: space-between;

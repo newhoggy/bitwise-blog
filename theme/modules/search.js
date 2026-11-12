@@ -76,7 +76,9 @@
     results = run(input.value);
     active = Math.min(active, Math.max(0, results.length - 1));
     list.replaceChildren(...results.map((r, i) => {
-      const a = el("a", { href: href(r), tabindex: "-1" }, [
+      // The link is the option itself: an option may not contain a focusable child. Focus stays in the input
+      // (aria-activedescendant), so tabindex -1 only keeps the link out of the Tab order; the li is presentational.
+      const a = el("a", { role: "option", href: href(r), tabindex: "-1", id: `bh-sr-${uid}-${i}`, "aria-selected": String(i === active) }, [
         el("span", { class: "bh-search-title" }, [
           el("span", { class: "badge plain bh-search-kind", text: r.page.kind }),
           highlighted(r.page.title, r.terms),
@@ -85,8 +87,8 @@
         r.terms.length || r.page.kind === "glossary" ? el("span", { class: "bh-search-snippet" }, [highlighted(snippet(r.sec.text, r.terms), r.terms)]) : null,
       ]);
       a.addEventListener("click", () => close());
-      const li = el("li", { role: "option", id: `bh-sr-${uid}-${i}`, "aria-selected": String(i === active) }, [a]);
-      li.addEventListener("pointermove", () => { if (active !== i) { active = i; mark(); } });
+      a.addEventListener("pointermove", () => { if (active !== i) { active = i; mark(); } });
+      const li = el("li", { role: "none" }, [a]);
       return li;
     }));
     status.textContent = input.value.trim()
@@ -96,8 +98,9 @@
   }
 
   function mark() {
-    [...list.children].forEach((li, i) => li.setAttribute("aria-selected", String(i === active)));
-    const cur = list.children[active];
+    const options = [...list.querySelectorAll("[role=option]")];
+    options.forEach((o, i) => o.setAttribute("aria-selected", String(i === active)));
+    const cur = options[active];
     if (cur) { input.setAttribute("aria-activedescendant", cur.id); cur.scrollIntoView({ block: "nearest" }); }
     else input.removeAttribute("aria-activedescendant");
   }

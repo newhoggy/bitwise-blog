@@ -1142,8 +1142,8 @@ function cssImportProblems(file: string): string[] {
 /** WCAG contrast for every text/background token pair, in both themes (from light-dark()). */
 const CONTRAST_PAIRS: [string, string[], number][] = [
   // [foreground, [backgrounds], minimum ratio]
-  ["text", ["bg", "surface", "surface-2", "code-bg"], 4.5],
-  ["text-muted", ["bg", "surface", "surface-2", "code-bg"], 4.5],
+  ["text", ["bg", "surface", "surface-2", "code-bg", "accent-soft", "warn-soft"], 4.5], // accent-soft: the search dialog's selected row; warn-soft: its matches
+  ["text-muted", ["bg", "surface", "surface-2", "code-bg", "accent-soft"], 4.5],
   ["accent", ["bg", "surface", "accent-soft"], 4.5],
   ["accent-contrast", ["accent"], 4.5],
   ["info", ["info-soft", "surface"], 4.5],
