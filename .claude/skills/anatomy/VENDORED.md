@@ -38,7 +38,8 @@ and needs Node 20.10+ and a local Chrome or Chromium for `capture.mjs`, `drive.m
 2. Added `references/bitwise-blog.md` and `scripts/embed.mjs`.
 3. Added `evals/trigger-evals.json`: trigger queries for this repo's measurements (#92). Upstream's
    `evals/evals.json` is still left out: its five cases are build prompts, not trigger queries.
-4. Added this file.
+4. `references/motion.md`: one bullet on which ARIA value attributes a stage may carry, and the `group` plus live-region pattern for a stage that is not a slider (#132).
+5. Added this file.
 
 Everything else is byte-identical to the upstream commit above.
 

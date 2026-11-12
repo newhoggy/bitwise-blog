@@ -343,6 +343,7 @@ const part = (name) => svg.querySelector('[data-part="' + name + '"]');
 const [plunger, flagEl, barFront, eject, stack, drop, spill, hand] = ["plunger", "flag", "barfront", "eject", "stack", "drop", "spill", "hand"].map(part);
 const coins = [...stack.querySelectorAll("[data-coin]")];
 const readout = document.querySelector("[data-readout]");
+const status = stage.querySelector("[data-status]");
 const still = matchMedia("(prefers-reduced-motion: reduce)");
 const coinMarkup = ${JSON.stringify(coinSvg(true))};
 const handAt = ${handAt.toString().replace(/k\./g, "")};
@@ -370,6 +371,9 @@ function startStroke() {
   stroke = { t: 0, dry, tip: BAR.rest, pushed: false };
   if (dry) { refused++; flagHold = 1.3; }
   else { coinsIn--; sent++; shift = 1; holdStack = true; ejected.push({ x: C[0], v: 0 }); }
+  // Tell a screen reader what the reader's own press did. The demo tour stays silent, and so does the per-frame loop.
+  // The running counts keep consecutive messages different, since a live region may skip a repeat.
+  if (!touring) status.textContent = (dry ? "Request rejected, 429. " : "Request admitted. ") + coinsIn + " of " + B + " tokens left. " + sent + " admitted, " + refused + " rejected.";
 }
 function barAt(t) {
   const { out, hold, back } = STROKE;
@@ -437,11 +441,8 @@ function draw() {
   const tip = stroke ? stroke.tip : BAR.rest;
   const len = Math.max(tip - BAR.join, 1);
   barFront.innerHTML = solidSvg(slabOf({ x: BAR.join, y: -BAR.w / 2, w: len, d: BAR.w, r: 1 }, ZB, BAR.h, P, 3, 0.4), { tone: "mid" });
-  const next = ((1 - phi) / RATE).toFixed(1);
   const text = coinsIn + " of " + B + " tokens · " + sent + " admitted · " + refused + " rejected";
   if (readout.textContent !== text) readout.textContent = text;
-  stage.setAttribute("aria-valuenow", String(coinsIn));
-  stage.setAttribute("aria-valuetext", text + ", next token in " + next + " s");
 }
 
 const SCRIPT = [1.4, 1.72, 2.04, 2.36, 2.68, 3, 3.32, 3.64, 3.96, 4.28, 4.6, 4.92, 9.5, 11.1, 12.7, 14.3];
@@ -498,7 +499,7 @@ const body = k.plateHtml({
   ],
   caption:
     "A toy bucket that holds six tokens (b = 6), refilled by one every 1.25 s (r = 0.8 per second). Each press takes the bottom coin; with none left the pusher finds nothing and the 429 flag goes up. A coin dropped onto a full magazine is lost. The machine counts whole coins and its drip clock keeps running when the magazine is full, so after a take from a full magazine the next coin can land sooner than the refill rule below allows.",
-  body: `<style>.iso [data-press] { cursor: pointer; }</style><div class="iso-stage" tabindex="0" role="button" aria-label="Token bucket: press Space, or the button, to send a request" aria-valuenow="${B}">${svg}</div>`,
+  body: `<style>.iso [data-press] { cursor: pointer; } .iso [data-status] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }</style><div class="iso-stage" tabindex="0" role="group" aria-label="Token bucket. Press Space or Enter to send a request.">${svg}<span role="status" aria-live="polite" data-status></span></div>`,
 });
 
 const name = theme === "light" ? "token-bucket-light.html" : "token-bucket.html";

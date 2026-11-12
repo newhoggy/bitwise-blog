@@ -1,12 +1,1 @@
-[
-  {
-    "page": "docs/token-bucket-rate-limiting.html",
-    "rule": "aria-allowed-attr",
-    "reason": "The anatomy figure puts aria-valuenow/aria-valuetext on a role=button stage; use a role that allows them (slider/meter) or move the readout to aria-live text."
-  },
-  {
-    "page": "docs/token-bucket-rate-limiting.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The anatomy figure's role=button stage (.iso-stage) has an aria-label that does not contain its visible text; to be fixed with its aria-allowed-attr entry (#132)."
-  }
-]
+[]
