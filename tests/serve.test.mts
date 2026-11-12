@@ -48,7 +48,7 @@ async function fixture(t: TestContext, { shared = false, symlinkRoot = false } =
   });
   let root = path.join(dir, "repo");
   fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-  for (const file of ["bh.mts", "private-cards.mts"]) fs.copyFileSync(path.join(source, "scripts", file), path.join(root, "scripts", file));
+  for (const file of ["bh.mts", "private-cards.mts", "page-size.mts"]) fs.copyFileSync(path.join(source, "scripts", file), path.join(root, "scripts", file));
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ repository: "github:example/blog" }));
   fs.writeFileSync(path.join(root, "index.html"), "<h1>Home</h1>");
   fs.mkdirSync(path.join(root, "docs"));

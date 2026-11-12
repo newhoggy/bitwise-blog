@@ -22,6 +22,7 @@ import {
   KIND_LABELS, escapeHtml, CARD_FILE, KEY_RE, GROUP_RE, cardFromDoc, tryDecryptCard, buildBlob,
   renderCardsFile, parseCardsFile, validateCardsFile, mergeEntries, docCardHtml,
 } from "./private-cards.mts";
+import { pageWeight, pageSizeFinding } from "./page-size.mts";
 import type { Doc, SocialMeta, Visual, CardJob, GlossaryEntry, TreeNode, PathSeg, NodeRect, Box, Pt, ReviewComment, ReviewFile, ReviewRecord, OpItem } from "./types.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -1521,6 +1522,9 @@ function cmdCheck(): void {
     }
 
     if (isDoc && !isTemplate && !isPrivateSource(file)) {
+      // Size budget: what a reader downloads for this page, apart from the shared theme (see scripts/page-size.mts).
+      const size = pageSizeFinding(pageWeight(file, raw));
+      if (size) (size.level === "error" ? err : warn)(size.message);
       // The card image: one per public page, current for the visual and the text it shows.
       const job = cardJob(file);
       if (job.selection.problem) err(job.selection.problem);
