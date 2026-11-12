@@ -1317,7 +1317,11 @@ const nameLeaks = (name: string, haystack: string) => name.length >= 8 && haysta
 
 /** `check`: look the private-page keys up concurrently first (unless `--skip-keys`), then run the checks. */
 async function cmdCheckCommand(argv: string[]): Promise<void> {
+  const unknown = argv.filter((a) => a !== "--skip-keys");
+  if (unknown.length) throw new Error(`check: unknown argument ${unknown.map((a) => `"${a}"`).join(", ")} (the only option is --skip-keys)`);
   const skipKeys = argv.includes("--skip-keys");
+  // CI is where a stale seal must fail, so it never skips the key checks.
+  if (skipKeys && process.env.CI) throw new Error("check: --skip-keys is for the edit loop; under CI the key checks always run");
   if (!skipKeys) await warmKeys();
   cmdCheck(skipKeys);
 }
@@ -1806,6 +1810,8 @@ function cmdBundle([target]: string[]): void {
 const opTitle = (slug: string) => `beautiful-html private page: ${slug}`;
 const opGroupTitle = (name: string) => `beautiful-html private group: ${name}`;
 const itemCache = new Map<string, OpItem | null>();
+/** Lookups `prefetchItems` could not finish, so `readItem` reports that failure instead of running the same call again. */
+const prefetchFailures = new Map<string, Error>();
 /** How many `op` lookups `check` runs at once. */
 const OP_CONCURRENCY = 6;
 
@@ -1848,6 +1854,8 @@ function parseItem(json: string): OpItem {
 
 /** A 1Password item as { id, group, password } (empty strings for absent fields), or null if there is none. */
 function readItem(title: string): OpItem | null {
+  const failed = prefetchFailures.get(title);
+  if (failed) throw failed;
   if (!itemCache.has(title)) {
     let item: OpItem | null = null;
     try {
@@ -1862,15 +1870,15 @@ function readItem(title: string): OpItem | null {
 
 /**
  * Fetch items concurrently into the cache, `OP_CONCURRENCY` at a time. Only an optimisation for
- * what `readItem` would fetch one by one: a missing item is cached as missing; any other failure
- * is left uncached, so `readItem` tries again and reports it exactly as it always did.
+ * what `readItem` would fetch one by one: a missing item is cached as missing, and any other
+ * failure is kept so `readItem` throws it (the same error, without asking 1Password again).
  */
 async function prefetchItems(titles: Iterable<string>): Promise<void> {
   const todo = [...new Set(titles)].filter((t) => !itemCache.has(t));
   const worker = async () => {
     for (let title = todo.shift(); title !== undefined; title = todo.shift()) {
       try { itemCache.set(title, parseItem(await opAsync(itemGetArgs(title)))); }
-      catch (e) { if (itemMissing(e)) itemCache.set(title, null); }
+      catch (e) { if (itemMissing(e)) itemCache.set(title, null); else prefetchFailures.set(title, e as Error); }
     }
   };
   await Promise.all(Array.from({ length: Math.min(OP_CONCURRENCY, todo.length) }, worker));
