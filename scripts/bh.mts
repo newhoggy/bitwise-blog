@@ -3,7 +3,7 @@
 //
 //   node scripts/bh.mts new [--private] [--example] [--unlisted] <template> <slug> "<Title>" ["<description>"]
 //   node scripts/bh.mts index                 regenerate index.html list, social meta, feed.xml, theme/{glossary,site,search-index,unlisted-pages,unlisted-slugs}.js
-//   node scripts/bh.mts check                 lint docs/ and index.html
+//   node scripts/bh.mts check [--skip-keys]   lint docs/ and index.html (--skip-keys: no 1Password lookups)
 //   node scripts/bh.mts cards                 render docs/assets/og/<slug>.png (needs Chrome; see scripts/cards.mts)
 //   node scripts/bh.mts bundle <page|--all>   inline theme → dist/<name>.html (single file)
 //   node scripts/bh.mts seal [--show-links|--reshell]   encrypt docs/*.private.html → docs/<slug>.html (see "Private pages")
@@ -13,7 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
-import { execSync, execFileSync } from "node:child_process";
+import { execSync, execFile, execFileSync } from "node:child_process";
 import zlib from "node:zlib";
 import crypto from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
@@ -1315,7 +1315,14 @@ function logoProblems(): string[] {
 /** Whether a secret name shows in ciphertext. Names shorter than 8 characters can't be told from chance in base64, so they are not searched for. */
 const nameLeaks = (name: string, haystack: string) => name.length >= 8 && haystack.includes(name);
 
-function cmdCheck(): void {
+/** `check`: look the private-page keys up concurrently first (unless `--skip-keys`), then run the checks. */
+async function cmdCheckCommand(argv: string[]): Promise<void> {
+  const skipKeys = argv.includes("--skip-keys");
+  if (!skipKeys) await warmKeys();
+  cmdCheck(skipKeys);
+}
+
+function cmdCheck(skipKeys = false): void {
   let errors = 0, warnings = 0;
   const templates = fs.readdirSync(TEMPLATES).filter((f) => f.endsWith(".html")).sort().map((f) => path.join(TEMPLATES, f));
   const files = [INDEX, ...docFiles(), ...privateSources(), ...templates];
@@ -1424,12 +1431,15 @@ function cmdCheck(): void {
       for (const p of validateCardsFile(cardsText, new Set(sealedFiles().map((f) => path.basename(f, ".html"))))) problems.push(`${CARD_FILE} ${p}`);
     }
     const cardEntries = cardsText ? parseCardsFile(cardsText).entries : [];
+    let keysSkipped = 0;
     for (const src of privateSources()) {
       const slug = path.basename(src, PRIVATE_EXT), out = path.join(DOCS, `${slug}.html`);
       if (fs.existsSync(out) && !isSealed(out)) { problems.push(`docs/${slug}.html is public but docs/${slug}${PRIVATE_EXT} also exists`); continue; }
       const group = getMeta(stripComments(fs.readFileSync(src, "utf8")), "bh:group");
       if (group && !GROUP_RE.test(group)) problems.push(`docs/${slug}${PRIVATE_EXT}: bh:group "${group}" must be kebab-case`);
       if (group && nameLeaks(group, cardEntries.map((e) => e.blob).join("\n"))) problems.push(`${CARD_FILE} leaks the group name of ${slug}`);
+      // --skip-keys: everything below needs the key, so it needs 1Password.
+      if (skipKeys) { keysSkipped++; continue; }
       let keyText: string | null = null;
       try { keyText = readKey(slug); } catch (e) { problems.push(`can't read the key for ${slug} from 1Password: ${(e as Error).message}`); continue; }
       if (!keyText && readItem(opTitle(slug))) { problems.push(`can't read the key for ${slug}: ${missingKeyReason(slug)}`); continue; }
@@ -1441,7 +1451,9 @@ function cmdCheck(): void {
     }
     if (privateSlugs.size || problems.length) console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + `private pages (${privateSlugs.size} sealed)`);
     problems.forEach((p) => console.log(c.red("  error  ") + p));
+    if (keysSkipped) console.log(c.yellow("  warn   ") + `--skip-keys: did not check that ${keysSkipped} private page${keysSkipped === 1 ? " is" : "s are"} sealed and current (no 1Password lookup); run plain \`npm run check\` before you push`);
     errors += problems.length;
+    warnings += keysSkipped ? 1 : 0;
   }
 
   const exampleHrefs = new Set(publicDocs.filter((d) => d.example).map((d) => d.href));
@@ -1794,6 +1806,15 @@ function cmdBundle([target]: string[]): void {
 const opTitle = (slug: string) => `beautiful-html private page: ${slug}`;
 const opGroupTitle = (name: string) => `beautiful-html private group: ${name}`;
 const itemCache = new Map<string, OpItem | null>();
+/** How many `op` lookups `check` runs at once. */
+const OP_CONCURRENCY = 6;
+
+/** The error a failed `op` run is reported as. */
+function opError(e: unknown): Error {
+  const err = e as NodeJS.ErrnoException & { stderr?: unknown };
+  if (err.code === "ENOENT") return new Error("the 1Password CLI (`op`) is not installed: `brew install 1password-cli`");
+  return new Error(String(err.stderr || err.message).trim().replace(/^\[ERROR\]\s*\S+\s+\S+\s*/, ""));
+}
 
 /** Run the 1Password CLI. Secrets only ever travel on stdin/stdout, never in argv. */
 function op(args: string[], input?: string | null): string {
@@ -1803,25 +1824,63 @@ function op(args: string[], input?: string | null): string {
     // empty item). `cat |` hands op a real pipe; the secret still never appears in argv.
     return execFileSync("/bin/sh", ["-c", 'cat | op "$@"', "sh", ...args], { input, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
   } catch (e) {
-    const err = e as NodeJS.ErrnoException & { stderr?: unknown };
-    if (err.code === "ENOENT") throw new Error("the 1Password CLI (`op`) is not installed: `brew install 1password-cli`");
-    throw new Error(String(err.stderr || err.message).trim().replace(/^\[ERROR\]\s*\S+\s+\S+\s*/, ""));
+    throw opError(e);
   }
+}
+
+/** `op` without waiting for it, for reads that can overlap. No input, so no secret travels on stdin. */
+function opAsync(args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = execFile("op", args, { encoding: "utf8" }, (e, stdout, stderr) => (e ? reject(opError(Object.assign(e, { stderr }))) : resolve(stdout.trim())));
+    child.stdin?.end();
+  });
+}
+
+const itemGetArgs = (title: string) => ["item", "get", title, "--vault", OP_VAULT, "--format", "json", "--reveal"];
+const itemMissing = (e: unknown) => /isn't an item|not found/i.test((e as Error).message);
+
+/** A 1Password item as { id, group, password } (empty strings for absent fields). */
+function parseItem(json: string): OpItem {
+  const item: { id: string; fields?: { label: string; value?: string }[] } = JSON.parse(json);
+  const field = (label: string) => String((item.fields || []).find((f) => f.label === label)?.value ?? "");
+  return { id: item.id, group: field("group"), password: field("password") };
 }
 
 /** A 1Password item as { id, group, password } (empty strings for absent fields), or null if there is none. */
 function readItem(title: string): OpItem | null {
   if (!itemCache.has(title)) {
-    let item: { id: string; fields?: { label: string; value?: string }[] } | null = null;
+    let item: OpItem | null = null;
     try {
-      item = JSON.parse(op(["item", "get", title, "--vault", OP_VAULT, "--format", "json", "--reveal"]));
+      item = parseItem(op(itemGetArgs(title)));
     } catch (e) {
-      if (!/isn't an item|not found/i.test((e as Error).message)) throw e;
+      if (!itemMissing(e)) throw e;
     }
-    const field = (label: string) => String((item?.fields || []).find((f) => f.label === label)?.value ?? "");
-    itemCache.set(title, item && { id: item.id, group: field("group"), password: field("password") });
+    itemCache.set(title, item);
   }
   return itemCache.get(title) as OpItem | null;
+}
+
+/**
+ * Fetch items concurrently into the cache, `OP_CONCURRENCY` at a time. Only an optimisation for
+ * what `readItem` would fetch one by one: a missing item is cached as missing; any other failure
+ * is left uncached, so `readItem` tries again and reports it exactly as it always did.
+ */
+async function prefetchItems(titles: Iterable<string>): Promise<void> {
+  const todo = [...new Set(titles)].filter((t) => !itemCache.has(t));
+  const worker = async () => {
+    for (let title = todo.shift(); title !== undefined; title = todo.shift()) {
+      try { itemCache.set(title, parseItem(await opAsync(itemGetArgs(title)))); }
+      catch (e) { if (itemMissing(e)) itemCache.set(title, null); }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(OP_CONCURRENCY, todo.length) }, worker));
+}
+
+/** Look up, ahead of `check`, every key its private-page loop is going to read: the pages' items, then the group items they name. */
+async function warmKeys(): Promise<void> {
+  const slugs = privateSources().map((f) => path.basename(f, PRIVATE_EXT));
+  await prefetchItems(slugs.map(opTitle));
+  await prefetchItems(slugs.map((s) => itemCache.get(opTitle(s))?.group).filter((g): g is string => !!g).map(opGroupTitle));
 }
 
 const validKey = (key: string | null | undefined) => (key && KEY_RE.test(key) ? key : null);
@@ -2175,7 +2234,7 @@ function cmdServe([port = "8000"]: string[]): void {
 // ---- main -------------------------------------------------------------------------
 
 const [cmd, ...args] = process.argv.slice(2);
-const commands: Record<string, (args: string[]) => unknown> = { new: cmdNew, index: cmdIndex, check: cmdCheck, cards: cmdCards, bundle: cmdBundle, seal: cmdSeal, unseal: cmdUnseal, serve: cmdServe };
+const commands: Record<string, (args: string[]) => unknown> = { new: cmdNew, index: cmdIndex, check: cmdCheckCommand, cards: cmdCards, bundle: cmdBundle, seal: cmdSeal, unseal: cmdUnseal, serve: cmdServe };
 if (!commands[cmd]) {
   console.log(`beautiful-html
 
@@ -2183,7 +2242,8 @@ if (!commands[cmd]) {
                                                create docs/<slug>.html (or a git-ignored <slug>.private.html);
                                                --unlisted publishes it off the site's listings (see CLAUDE.md)
   index                                        regenerate the document list in index.html
-  check                                        lint docs/ and index.html (links, ids, stepper refs, a11y)
+  check [--skip-keys]                          lint docs/ and index.html (links, ids, stepper refs, a11y);
+                                               --skip-keys skips the 1Password lookups of private pages' keys
   cards [--force] [--system-fonts]             render the social card of every page whose card is missing or stale
   bundle <page | --all>                        inline the theme → dist/<page>.html (one shareable file)
   seal [--show-links | --reshell]              encrypt docs/*.private.html → docs/<slug>.html (keys in 1Password);

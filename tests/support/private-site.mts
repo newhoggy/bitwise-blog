@@ -19,6 +19,13 @@ const state = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : 
 const save = () => fs.writeFileSync(file, JSON.stringify(state));
 const [a, b, ...rest] = process.argv.slice(2);
 if (a !== "item") { console.error("[ERROR] fake op: unsupported " + a); process.exit(1); }
+// FAKE_OP_LOG: record when each call starts and ends, so a test can see how many ran at once.
+// FAKE_OP_DELAY_MS: stand in for the round trip to the 1Password app.
+const log = (mark) => process.env.FAKE_OP_LOG && fs.appendFileSync(process.env.FAKE_OP_LOG, mark + " " + [a, b, ...rest].join(" ") + "\\n");
+const delay = Number(process.env.FAKE_OP_DELAY_MS || 0);
+log("start");
+if (delay) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
+process.on("exit", () => log("end"));
 if (b === "get") {
   const item = state.items.find((i) => i.title === rest[0]);
   if (!item) { console.error('[ERROR] 2026/01/01 00:00:00 "' + rest[0] + '" isn\\'t an item in the "Private" vault.'); process.exit(1); }
@@ -43,7 +50,8 @@ interface FakeOpState { items: FakeOpItem[]; archived: FakeOpItem[]; failCreateO
 export function site(t: TestContext) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "bh-private-cards-test-"));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
-  const root = path.join(temp, "site"), bin = path.join(temp, "bin"), state = path.join(temp, "op-state.json");
+  const root = path.join(temp, "site"), bin = path.join(temp, "bin"), state = path.join(temp, "op-state.json"), opLog = path.join(temp, "op-calls.log");
+  let delayMs = 0;
   fs.mkdirSync(root); fs.mkdirSync(bin);
   for (const entry of ["scripts", "theme", "docs", "templates", "reviews", "package.json", "index.html", "feed.xml"]) {
     fs.cpSync(path.join(ROOT, entry), path.join(root, entry), { recursive: true });
@@ -54,7 +62,7 @@ export function site(t: TestContext) {
   }
   fs.writeFileSync(path.join(root, "theme/private-cards.js"), renderCardsFile([]));
   fs.writeFileSync(path.join(bin, "op"), FAKE_OP, { mode: 0o755 });
-  const env = (withOp: boolean) => ({ ...process.env, PATH: (withOp ? bin + path.delimiter : "") + path.dirname(process.execPath) + path.delimiter + "/usr/bin:/bin", FAKE_OP_STATE: state, BH_OP_VAULT: "Private", CI: "" });
+  const env = (withOp: boolean) => ({ ...process.env, PATH: (withOp ? bin + path.delimiter : "") + path.dirname(process.execPath) + path.delimiter + "/usr/bin:/bin", FAKE_OP_STATE: state, FAKE_OP_LOG: opLog, FAKE_OP_DELAY_MS: String(delayMs), BH_OP_VAULT: "Private", CI: "" });
   const run = (args: string[], { withOp = true }: { withOp?: boolean } = {}) => {
     const r = spawnSync(process.execPath, [path.join(root, "scripts/bh.mts"), ...args], { cwd: root, env: env(withOp), encoding: "utf8" });
     return { code: r.status, out: (r.stdout || "") + (r.stderr || "") };
@@ -95,7 +103,16 @@ export function site(t: TestContext) {
   const drop = (title: string) => edit((data) => { data.items = data.items.filter((i) => i.title !== title); });
   /** Make the next `op item create` for this title fail. */
   const failCreateOnce = (title: string) => edit((data) => { data.failCreateOnce = title; });
-  return { root, run, read, write, items, field, entries, newPrivate, setGroup, setMeta, seed, drop, failCreateOnce };
+  /** Every `op` call so far, and the most that ran at the same time. Needs `delay` to overlap anything. */
+  const opCalls = () => {
+    const lines = fs.existsSync(opLog) ? fs.readFileSync(opLog, "utf8").split("\n").filter(Boolean) : [];
+    let live = 0, peak = 0;
+    for (const l of lines) { live += l.startsWith("start") ? 1 : -1; peak = Math.max(peak, live); }
+    return { count: lines.filter((l) => l.startsWith("start")).length, peak, lines };
+  };
+  /** Make every fake `op` call take this long, as a round trip to the app does. */
+  const delay = (ms: number) => { delayMs = ms; };
+  return { root, opCalls, delay, run, read, write, items, field, entries, newPrivate, setGroup, setMeta, seed, drop, failCreateOnce };
 }
 
 

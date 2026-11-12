@@ -198,6 +198,9 @@ carries its key.
     shows no private cards. Header search does not include private pages.
 - Re-run `npm run seal` after every edit. `check` fails when a sealed copy is stale, when
   its shell is outdated, or when a private page was never sealed.
+  `check` reads each plaintext page's key from 1Password, all at once rather than one by one. In the
+  edit loop, `npm run check -- --skip-keys` makes no 1Password call: it still checks every sealed
+  shell, but not that a seal is current, and says so. Run plain `check` before you push.
 - Private pages stay out of the catalogue, search, backlinks, card generation and
   `bundle --all`. Public pages, glossary entries included, must not link to them; `check`
   fails if one does.
