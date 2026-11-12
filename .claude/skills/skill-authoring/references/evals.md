@@ -17,6 +17,7 @@ through `claude plugin eval`; they differ in what a case asks.
 - Fixtures: the sandbox is empty
 - Running, and reading the result (and comparing with the previous version)
 - Models, cost and thresholds
+- Running on a schedule
 - Converting skill-creator's `evals.json`
 - Where the measurements are
 
@@ -280,6 +281,13 @@ side-by-side read of two outputs, use skill-creator's comparison mode.
   a few minutes at `-j 4`. Always pass `--max-cost-usd`.
 - Threshold: the default 1.0 is too strict for judged graders. Use 0.8 once a suite is
   stable, and watch the trend in `Δ` rather than the absolute score.
+
+## Running on a schedule
+
+`npm run skill-evals` runs both kinds for every skill and records the pass rates; the monthly
+workflow uses it. Both tools above write machine-readable results for it: `run-trigger-evals.mjs
+--json <file>` and `claude plugin eval --json <file>`. What the record holds, what fails a run
+and what it costs are in [maintenance.md](maintenance.md#scheduled-run).
 
 ## Converting skill-creator's `evals.json`
 

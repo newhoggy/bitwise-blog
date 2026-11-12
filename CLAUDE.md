@@ -894,3 +894,6 @@ holds them, with the reasons; this is the short form.
   the with/without delta. A skill's rules come from a measured gap against the no-skill baseline.
 - **Check:** `npm run lint-skills` must report 0 errors, and `claude plugin validate .claude/skills`
   must pass (it parses the frontmatter, which the lint does not). Re-run the evals when a skill changes.
+- **Scheduled run:** `.github/workflows/skill-evals.yml` runs every skill's evals monthly and fails
+  when a pass rate falls (`npm run skill-evals`; off until `SKILL_EVALS_ENABLED` is `true`). It costs
+  money: see `skill-authoring/references/maintenance.md`.

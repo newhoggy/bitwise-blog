@@ -117,6 +117,13 @@ The only npm dependencies are dev ones (`typescript` and `@types/node`), used by
   The custom domain is a Pages setting (Settings → Pages → Custom domain, plus DNS), not a file in
   the repo. Pages also work under a project sub-path such as `/beautiful-html/`; a fork sets
   `homepage` in `package.json` (or `BH_SITE_URL`) to wherever it is served from.
+- **Skill evals** (`.github/workflows/skill-evals.yml`) runs every skill's trigger and output evals on
+  the 1st of each month, records the pass rates and fails when a skill's rate falls against the
+  previous run, so a model or Claude Code update that changes a skill is noticed. It calls the
+  Anthropic API (roughly US$40 to $60 a run), so it stays off until you opt in: add the secret
+  `ANTHROPIC_API_KEY` and the repository variable `SKILL_EVALS_ENABLED=true`. The same run is
+  `npm run skill-evals`; see "Scheduled run" in
+  `.claude/skills/skill-authoring/references/maintenance.md`.
 
 ## Layout
 

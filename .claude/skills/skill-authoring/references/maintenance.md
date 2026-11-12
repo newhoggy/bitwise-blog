@@ -7,6 +7,7 @@ instead of waiting for someone to notice.
 ## Contents
 
 - Re-run on every change
+- Scheduled run
 - Read transcripts after real use
 - Claude stops following a skill
 - Context cost
@@ -21,12 +22,49 @@ instead of waiting for someone to notice.
 - A new skill in the repo or in the user's configuration: re-run the trigger evals of the
   skills closest to it, since a new description can take their prompts.
 - A new model: re-run both suites on it. A rule written for a weaker model may now be dead
-  weight, and a case that scored `Δ ≈ 0` may now be one the skill no longer needs.
+  weight, and a case that scored `Δ ≈ 0` may now be one the skill no longer needs. The
+  [scheduled run](#scheduled-run) does this when the model or Claude Code changes under a skill
+  that nobody edited, but the pinned models only change when you change them.
 - Record the date, models, command and scores in the PR or the commit. A score without those
   cannot be compared next time.
 - To show that an edit helped, and not only that the skill helps, compare against the
   previous version of the skill, not just the no-skill baseline
   ([evals](evals.md#comparing-with-the-previous-version)).
+
+## Scheduled run
+
+A model or Claude Code update can change how a skill triggers with no change in the repo, and
+the evals above only run when someone edits a skill. `.github/workflows/skill-evals.yml` runs
+both kinds for every skill with evals on the 1st of each month (and from the Actions tab), through
+`npm run skill-evals` (`scripts/skill-evals.mts`), which calls `run-trigger-evals.mjs --json` and
+`claude plugin eval --json` and reads what they write.
+
+- **What it records.** `record.json` (format `bh-skill-evals/1`) holds the date, commit, Claude
+  Code version, agent and judge models, cost, and per skill the trigger pass counts and per-query
+  status and each output case's score with and without the skill. `summary.md` tables the pass
+  rates beside the previous run's and is also shown on the run's page. Both are uploaded as the
+  artifact `skill-evals-record` (kept 90 days, the most a public repository allows). The raw
+  results are not uploaded: they hold model output.
+- **What fails the run.** A skill whose trigger pass rate, or mean output score with the skill,
+  fell by more than 0.10 against the previous record (exit 1); a run that measured nothing, such
+  as an API error, a case that failed to load, a `scaffold failed` row, a partial result or a spent
+  cost ceiling (exit 2, which wins over a regression). Flipped queries, moved cases and changes
+  of model or Claude Code version are listed in the summary and never fail the run.
+- **The baseline is the last run that produced a record**, passed or failed. A regression
+  therefore alerts once and the new level becomes the baseline; read the trend in the summaries,
+  because a slow decline of less than 0.10 a month never fails.
+- **Reading a drop.** The summary names both runs' versions and models. If only Claude Code changed,
+  suspect its skill listing or system prompt; if only the model changed, run the trigger evals
+  on the new model by hand with `--keep` and read the traces. The 0.10 tolerance is a starting
+  value (`DEFAULT_TOLERANCE`); tune it from a few months of records.
+- **Cost.** About US$0.27 per trigger query (about US$33 for the 122 queries in all four skills)
+  plus a few US dollars per output suite, so roughly US$40 to $60 a run, stopped at a hard ceiling
+  (default US$75). `--kind trigger` is the cheap half. It is off until the repository variable
+  `SKILL_EVALS_ENABLED` is `true` and the secret `ANTHROPIC_API_KEY` is set; the workflow header
+  lists the setup.
+- **Locally,** `npm run skill-evals -- --skills <name> --kind trigger --out <dir>` runs the same
+  thing; add `--previous <record.json>` to compare. It spends real money, so give it
+  `--max-cost-usd`.
 
 ## Read transcripts after real use
 
