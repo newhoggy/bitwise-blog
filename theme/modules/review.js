@@ -293,6 +293,7 @@
       if (n > 1) pin.append(el("span", { class: "bh-review-pin-count", text: String(n) }));
       pinLayer.append(pin);
     });
+    pinLayer.hidden = !pinLayer.children.length; // an empty "Review comments" landmark would lead nowhere
     renderPanel();
     updateCount();
   }

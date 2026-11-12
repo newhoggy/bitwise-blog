@@ -469,6 +469,8 @@ html.bh-presenting { font-size: clamp(16px, 0.55vw + 11px, 24px); scroll-padding
   transition: opacity var(--dur-2);
   /* left: 50% would otherwise cap the bar's width at half the screen and squeeze the buttons (Full screen fell to 14px wide on a phone). */
   width: max-content;
+  flex-wrap: wrap;
+  justify-content: center;
   max-width: calc(100vw - 2 * var(--space-2));
 }
 .bh-present-bar > * { flex: none; }
