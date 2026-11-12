@@ -9,7 +9,7 @@
     "page": "docs/adr-001-rate-limit-in-each-service.html",
     "rule": "color-contrast",
     "nodes": 1,
-    "reason": "In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/adr-001-rate-limit-in-each-service.html",
@@ -38,8 +38,8 @@
   {
     "page": "docs/adr-002-rate-limit-at-the-edge.html",
     "rule": "color-contrast",
-    "nodes": 3,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/adr-002-rate-limit-at-the-edge.html",
@@ -68,8 +68,8 @@
   {
     "page": "docs/announcing-patchcov.html",
     "rule": "color-contrast",
-    "nodes": 5,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/announcing-patchcov.html",
@@ -104,8 +104,8 @@
   {
     "page": "docs/component-gallery.html",
     "rule": "color-contrast",
-    "nodes": 15,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js). Which step is dimmed depends on the scroll position, and the review panel's \"+ Comment\" buttons inside a dimmed step (visible at once on touch devices) inherit the dimming."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/component-gallery.html",
@@ -140,8 +140,8 @@
   {
     "page": "docs/deflate-format-reference.html",
     "rule": "color-contrast",
-    "nodes": 3,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/deflate-format-reference.html",
@@ -170,8 +170,8 @@
   {
     "page": "docs/edge-rate-limiting-design.html",
     "rule": "color-contrast",
-    "nodes": 14,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js). Which step is dimmed depends on the scroll position, and the review panel's \"+ Comment\" buttons inside a dimmed step (visible at once on touch devices) inherit the dimming."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/edge-rate-limiting-design.html",
@@ -206,8 +206,8 @@
   {
     "page": "docs/glossary.html",
     "rule": "color-contrast",
-    "nodes": 3,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/glossary.html",
@@ -230,8 +230,8 @@
   {
     "page": "docs/how-deflate-compresses.html",
     "rule": "color-contrast",
-    "nodes": 36,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js). Which step is dimmed depends on the scroll position, and the review panel's \"+ Comment\" buttons inside a dimmed step (visible at once on touch devices) inherit the dimming."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/how-deflate-compresses.html",
@@ -266,8 +266,8 @@
   {
     "page": "docs/how-deflate-sends-its-code.html",
     "rule": "color-contrast",
-    "nodes": 60,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js). Which step is dimmed depends on the scroll position, and the review panel's \"+ Comment\" buttons inside a dimmed step (visible at once on touch devices) inherit the dimming."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/how-deflate-sends-its-code.html",
@@ -308,8 +308,8 @@
   {
     "page": "docs/how-deflate-works.html",
     "rule": "color-contrast",
-    "nodes": 84,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js). Which step is dimmed depends on the scroll position, and the review panel's \"+ Comment\" buttons inside a dimmed step (visible at once on touch devices) inherit the dimming."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/how-deflate-works.html",
@@ -350,8 +350,8 @@
   {
     "page": "docs/pedagogical-writing.html",
     "rule": "color-contrast",
-    "nodes": 3,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/pedagogical-writing.html",
@@ -385,12 +385,6 @@
   },
   {
     "page": "docs/token-bucket-rate-limiting.html",
-    "rule": "aria-allowed-attr",
-    "nodes": 1,
-    "reason": "The anatomy figure puts aria-valuenow/aria-valuetext on a role=button stage; use a role that allows them (slider/meter) or move the readout to aria-live text."
-  },
-  {
-    "page": "docs/token-bucket-rate-limiting.html",
     "rule": "aria-prohibited-attr",
     "nodes": 1,
     "reason": "The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
@@ -398,14 +392,8 @@
   {
     "page": "docs/token-bucket-rate-limiting.html",
     "rule": "color-contrast",
-    "nodes": 3,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
-  },
-  {
-    "page": "docs/token-bucket-rate-limiting.html",
-    "rule": "label-content-name-mismatch",
     "nodes": 1,
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/token-bucket-rate-limiting.html",
@@ -434,8 +422,8 @@
   {
     "page": "docs/voice-notes-on-trial.html",
     "rule": "color-contrast",
-    "nodes": 3,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "docs/voice-notes-on-trial.html",
@@ -464,8 +452,8 @@
   {
     "page": "index.html",
     "rule": "color-contrast",
-    "nodes": 13,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are below 4.5:1 (theme/modules/search.js)."
   },
   {
     "page": "index.html",
