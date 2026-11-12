@@ -129,7 +129,21 @@ export interface State { name: string; apply: string; undo?: string; /** Repeat 
 
 const PRELUDE = `const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const until = async (f, ms = 5000) => { const t = Date.now(); while (!f()) { if (Date.now() - t > ms) return false; await new Promise((r) => setTimeout(r, 50)); } return true; };
-  const show = (e) => e.scrollIntoView({ block: "center", behavior: "instant" });
+  // Scroll a trigger to the middle. The sticky top bar hides part of whatever straddles its lower edge, and where
+  // that falls depends on how the fonts wrap (so on the machine), so nudge the page until no link or button does.
+  const show = (e) => {
+    e.scrollIntoView({ block: "center", behavior: "instant" });
+    const bar = document.querySelector(".bh-topbar");
+    if (!bar) return;
+    for (let i = 0; i < 20; i++) {
+      const edge = bar.getBoundingClientRect().bottom;
+      const hit = [...document.querySelectorAll("a[href], button")].find((x) => { const r = x.getBoundingClientRect(); return r.width > 0 && r.top < edge && r.bottom > edge && !bar.contains(x); });
+      if (!hit) return;
+      const before = hit.getBoundingClientRect().top;
+      window.scrollBy({ top: hit.getBoundingClientRect().bottom - edge + 1, behavior: "instant" });
+      if (hit.getBoundingClientRect().top === before) return;
+    }
+  };
   const tabButtons = (t) => [...t.querySelectorAll(":scope > .bh-tablist > [role=tab]")];`;
 
 /** Everything reachable by interaction that axe cannot see on load, in the order scanned. Selectors are the theme's (theme/bh.js and theme/modules). */
@@ -263,6 +277,8 @@ export async function scan(send: ChromeHandle["send"], url: string, opts: ScanOp
       await s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
     }
     await s("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile });
+    // A phone has no hover, and CI's headless Chrome reports none even at desktop width: scan the touch styles here too.
+    if (viewport.mobile) await s("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
     await s("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }, { name: "prefers-reduced-motion", value: "reduce" }] });
     await s("Page.navigate", { url });
     const deadline = Date.now() + 20000;
@@ -307,10 +323,12 @@ export async function scan(send: ChromeHandle["send"], url: string, opts: ScanOp
         out.push({ state: st.name, violations: [], error: e instanceof Error ? e.message : String(e) });
       } finally {
         // A state left open would taint every scan after it, so a failed undo is reported, not ignored.
-        if (st.undo) {
-          try { await call(st, st.undo, 0); }
-          catch (e) { out.push({ state: `${st.name} (undo)`, violations: [], error: e instanceof Error ? e.message : String(e) }); }
+        // Nor may it leave the page scrolled: every state starts from the top.
+        try {
+          if (st.undo) await call(st, st.undo, 0);
+          await evalIn(s, `window.scrollTo({ top: 0, behavior: "instant" })`);
         }
+        catch (e) { out.push({ state: `${st.name} (undo)`, violations: [], error: e instanceof Error ? e.message : String(e) }); }
       }
     }
     return out;

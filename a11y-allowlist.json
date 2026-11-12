@@ -104,8 +104,8 @@
   {
     "page": "docs/component-gallery.html",
     "rule": "color-contrast",
-    "nodes": 12,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 15,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js). Which step is dimmed depends on the scroll position, and the review panel's \"+ Comment\" buttons inside a dimmed step (visible at once on touch devices) inherit the dimming."
   },
   {
     "page": "docs/component-gallery.html",
@@ -170,8 +170,8 @@
   {
     "page": "docs/edge-rate-limiting-design.html",
     "rule": "color-contrast",
-    "nodes": 10,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 14,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js). Which step is dimmed depends on the scroll position, and the review panel's \"+ Comment\" buttons inside a dimmed step (visible at once on touch devices) inherit the dimming."
   },
   {
     "page": "docs/edge-rate-limiting-design.html",
@@ -230,8 +230,8 @@
   {
     "page": "docs/how-deflate-compresses.html",
     "rule": "color-contrast",
-    "nodes": 31,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 36,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js). Which step is dimmed depends on the scroll position, and the review panel's \"+ Comment\" buttons inside a dimmed step (visible at once on touch devices) inherit the dimming."
   },
   {
     "page": "docs/how-deflate-compresses.html",
@@ -266,8 +266,8 @@
   {
     "page": "docs/how-deflate-sends-its-code.html",
     "rule": "color-contrast",
-    "nodes": 53,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 60,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js). Which step is dimmed depends on the scroll position, and the review panel's \"+ Comment\" buttons inside a dimmed step (visible at once on touch devices) inherit the dimming."
   },
   {
     "page": "docs/how-deflate-sends-its-code.html",
@@ -308,8 +308,8 @@
   {
     "page": "docs/how-deflate-works.html",
     "rule": "color-contrast",
-    "nodes": 72,
-    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+    "nodes": 84,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js). Which step is dimmed depends on the scroll position, and the review panel's \"+ Comment\" buttons inside a dimmed step (visible at once on touch devices) inherit the dimming."
   },
   {
     "page": "docs/how-deflate-works.html",
