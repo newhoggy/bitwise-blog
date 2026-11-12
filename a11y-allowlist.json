@@ -1,1 +1,572 @@
-[]
+[
+  {
+    "page": "docs/adr-001-rate-limit-in-each-service.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 1,
+    "reason": "The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/adr-001-rate-limit-in-each-service.html",
+    "rule": "color-contrast",
+    "nodes": 1,
+    "reason": "In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/adr-001-rate-limit-in-each-service.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/adr-001-rate-limit-in-each-service.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/adr-001-rate-limit-in-each-service.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/adr-001-rate-limit-in-each-service.html",
+    "rule": "target-size",
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/adr-002-rate-limit-at-the-edge.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 1,
+    "reason": "The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/adr-002-rate-limit-at-the-edge.html",
+    "rule": "color-contrast",
+    "nodes": 3,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/adr-002-rate-limit-at-the-edge.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/adr-002-rate-limit-at-the-edge.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/adr-002-rate-limit-at-the-edge.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/adr-002-rate-limit-at-the-edge.html",
+    "rule": "target-size",
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/announcing-patchcov.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 1,
+    "reason": "The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/announcing-patchcov.html",
+    "rule": "color-contrast",
+    "nodes": 5,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/announcing-patchcov.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/announcing-patchcov.html",
+    "rule": "list",
+    "nodes": 1,
+    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
+  },
+  {
+    "page": "docs/announcing-patchcov.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/announcing-patchcov.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/announcing-patchcov.html",
+    "rule": "target-size",
+    "nodes": 28,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/component-gallery.html",
+    "rule": "aria-allowed-role",
+    "nodes": 1,
+    "reason": "<bh-versions> gives each <figure> role=tabpanel, which axe does not allow on figure; wrap or change the role in theme/bh.js."
+  },
+  {
+    "page": "docs/component-gallery.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 3,
+    "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component. The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/component-gallery.html",
+    "rule": "color-contrast",
+    "nodes": 12,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/component-gallery.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/component-gallery.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/component-gallery.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/component-gallery.html",
+    "rule": "scrollable-region-focusable",
+    "nodes": 2,
+    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
+  },
+  {
+    "page": "docs/component-gallery.html",
+    "rule": "target-size",
+    "nodes": 19,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/deflate-format-reference.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 1,
+    "reason": "The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/deflate-format-reference.html",
+    "rule": "color-contrast",
+    "nodes": 3,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/deflate-format-reference.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/deflate-format-reference.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/deflate-format-reference.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/deflate-format-reference.html",
+    "rule": "target-size",
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/edge-rate-limiting-design.html",
+    "rule": "aria-allowed-role",
+    "nodes": 1,
+    "reason": "<bh-versions> gives each <figure> role=tabpanel, which axe does not allow on figure; wrap or change the role in theme/bh.js."
+  },
+  {
+    "page": "docs/edge-rate-limiting-design.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 2,
+    "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component. The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/edge-rate-limiting-design.html",
+    "rule": "color-contrast",
+    "nodes": 10,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/edge-rate-limiting-design.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/edge-rate-limiting-design.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/edge-rate-limiting-design.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/edge-rate-limiting-design.html",
+    "rule": "scrollable-region-focusable",
+    "nodes": 2,
+    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label."
+  },
+  {
+    "page": "docs/edge-rate-limiting-design.html",
+    "rule": "target-size",
+    "nodes": 5,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/glossary.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 1,
+    "reason": "The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/glossary.html",
+    "rule": "color-contrast",
+    "nodes": 3,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/glossary.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/glossary.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/glossary.html",
+    "rule": "region",
+    "nodes": 1,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/how-deflate-compresses.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 1,
+    "reason": "The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/how-deflate-compresses.html",
+    "rule": "color-contrast",
+    "nodes": 31,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/how-deflate-compresses.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/how-deflate-compresses.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/how-deflate-compresses.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/how-deflate-compresses.html",
+    "rule": "scrollable-region-focusable",
+    "nodes": 5,
+    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
+  },
+  {
+    "page": "docs/how-deflate-compresses.html",
+    "rule": "target-size",
+    "nodes": 45,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). The stepper's copy-link button is smaller than 24px. Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/how-deflate-sends-its-code.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 3,
+    "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component. The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/how-deflate-sends-its-code.html",
+    "rule": "color-contrast",
+    "nodes": 53,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/how-deflate-sends-its-code.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/how-deflate-sends-its-code.html",
+    "rule": "list",
+    "nodes": 1,
+    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
+  },
+  {
+    "page": "docs/how-deflate-sends-its-code.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/how-deflate-sends-its-code.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/how-deflate-sends-its-code.html",
+    "rule": "scrollable-region-focusable",
+    "nodes": 3,
+    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
+  },
+  {
+    "page": "docs/how-deflate-sends-its-code.html",
+    "rule": "target-size",
+    "nodes": 59,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). The stepper's copy-link button is smaller than 24px. Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/how-deflate-works.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 3,
+    "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component. The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/how-deflate-works.html",
+    "rule": "color-contrast",
+    "nodes": 72,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/how-deflate-works.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/how-deflate-works.html",
+    "rule": "list",
+    "nodes": 1,
+    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
+  },
+  {
+    "page": "docs/how-deflate-works.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/how-deflate-works.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/how-deflate-works.html",
+    "rule": "scrollable-region-focusable",
+    "nodes": 8,
+    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label. A horizontally scrolling code block (pre, .cw-pre, .no-chrome, .al-scroll) cannot be reached by keyboard; give it tabindex=0 and a label."
+  },
+  {
+    "page": "docs/how-deflate-works.html",
+    "rule": "target-size",
+    "nodes": 106,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). The stepper's copy-link button is smaller than 24px. Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/pedagogical-writing.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 2,
+    "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component. The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/pedagogical-writing.html",
+    "rule": "color-contrast",
+    "nodes": 3,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/pedagogical-writing.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/pedagogical-writing.html",
+    "rule": "list",
+    "nodes": 2,
+    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
+  },
+  {
+    "page": "docs/pedagogical-writing.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/pedagogical-writing.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/pedagogical-writing.html",
+    "rule": "scrollable-region-focusable",
+    "nodes": 1,
+    "reason": "At phone width a wide table's scroll container (.table-wrap) cannot be reached by keyboard; give it tabindex=0 and a label."
+  },
+  {
+    "page": "docs/pedagogical-writing.html",
+    "rule": "target-size",
+    "nodes": 9,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). The stepper's copy-link button is smaller than 24px. Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/token-bucket-rate-limiting.html",
+    "rule": "aria-allowed-attr",
+    "nodes": 1,
+    "reason": "The anatomy figure puts aria-valuenow/aria-valuetext on a role=button stage; use a role that allows them (slider/meter) or move the readout to aria-live text."
+  },
+  {
+    "page": "docs/token-bucket-rate-limiting.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 1,
+    "reason": "The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/token-bucket-rate-limiting.html",
+    "rule": "color-contrast",
+    "nodes": 3,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/token-bucket-rate-limiting.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 2,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/token-bucket-rate-limiting.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/token-bucket-rate-limiting.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/token-bucket-rate-limiting.html",
+    "rule": "target-size",
+    "nodes": 6,
+    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "docs/voice-notes-on-trial.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 1,
+    "reason": "The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "docs/voice-notes-on-trial.html",
+    "rule": "color-contrast",
+    "nodes": 3,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/voice-notes-on-trial.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "docs/voice-notes-on-trial.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "docs/voice-notes-on-trial.html",
+    "rule": "region",
+    "nodes": 2,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Slide mode's .bh-present-bar toolbar sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  },
+  {
+    "page": "docs/voice-notes-on-trial.html",
+    "rule": "target-size",
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+  },
+  {
+    "page": "index.html",
+    "rule": "aria-prohibited-attr",
+    "nodes": 1,
+    "reason": "The review panel's div.bh-review-pins (shown while reviewing) has aria-label and no role; give it role=group in theme/modules/review.js."
+  },
+  {
+    "page": "index.html",
+    "rule": "color-contrast",
+    "nodes": 13,
+    "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed. In the search dialog the highlighted <mark> matches are also below 4.5:1 (theme/modules/search.js)."
+  },
+  {
+    "page": "index.html",
+    "rule": "label-content-name-mismatch",
+    "nodes": 1,
+    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
+  },
+  {
+    "page": "index.html",
+    "rule": "nested-interactive",
+    "nodes": 1,
+    "reason": "In the search dialog each li[role=option] contains an <a>, an interactive child inside an option; make the option the link or drop the role (theme/modules/search.js)."
+  },
+  {
+    "page": "index.html",
+    "rule": "region",
+    "nodes": 1,
+    "reason": "The review panel's .bh-review-pins layer sits outside any landmark. Put it in a labelled landmark (theme/modules/review.js, present.js)."
+  }
+]
