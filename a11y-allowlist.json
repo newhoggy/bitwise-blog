@@ -5,36 +5,6 @@
     "reason": "The anatomy figure puts aria-valuenow/aria-valuetext on a role=button stage; use a role that allows them (slider/meter) or move the readout to aria-live text."
   },
   {
-    "page": "docs/component-gallery.html",
-    "rule": "aria-allowed-role",
-    "reason": "<bh-versions> gives each <figure> role=tabpanel, which axe does not allow on figure; wrap or change the role in theme/bh.js."
-  },
-  {
-    "page": "docs/edge-rate-limiting-design.html",
-    "rule": "aria-allowed-role",
-    "reason": "<bh-versions> gives each <figure> role=tabpanel, which axe does not allow on figure; wrap or change the role in theme/bh.js."
-  },
-  {
-    "page": "docs/component-gallery.html",
-    "rule": "aria-prohibited-attr",
-    "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component."
-  },
-  {
-    "page": "docs/edge-rate-limiting-design.html",
-    "rule": "aria-prohibited-attr",
-    "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component."
-  },
-  {
-    "page": "docs/how-deflate-sends-its-code.html",
-    "rule": "aria-prohibited-attr",
-    "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component."
-  },
-  {
-    "page": "docs/how-deflate-works.html",
-    "rule": "aria-prohibited-attr",
-    "reason": "<bh-chart> puts aria-label on a div.chart-plot with no role; give it role=group or role=img in the chart component."
-  },
-  {
     "page": "docs/adr-002-rate-limit-at-the-edge.html",
     "rule": "color-contrast",
     "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed."
@@ -100,108 +70,8 @@
     "reason": "Computed contrast below 4.5:1, mostly dimmed inactive stepper/codewalk text, badges and links inside it; a design decision about dimming is needed."
   },
   {
-    "page": "docs/adr-001-rate-limit-in-each-service.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/adr-002-rate-limit-at-the-edge.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/announcing-patchcov.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/component-gallery.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/deflate-format-reference.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/edge-rate-limiting-design.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/glossary.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/how-deflate-compresses.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/how-deflate-sends-its-code.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/how-deflate-works.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/pedagogical-writing.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
     "page": "docs/token-bucket-rate-limiting.html",
     "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/voice-notes-on-trial.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "index.html",
-    "rule": "label-content-name-mismatch",
-    "reason": "The top-bar search button has aria-label \"Search all documents\" while its visible text is different; make the label start with the visible text (WCAG 2.5.3)."
-  },
-  {
-    "page": "docs/announcing-patchcov.html",
-    "rule": "list",
-    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
-  },
-  {
-    "page": "docs/how-deflate-sends-its-code.html",
-    "rule": "list",
-    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
-  },
-  {
-    "page": "docs/how-deflate-works.html",
-    "rule": "list",
-    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
-  },
-  {
-    "page": "docs/pedagogical-writing.html",
-    "rule": "list",
-    "reason": "The copy-link button that bh.js injects into a data-linkable ul/ol is a direct child of the list (only li is allowed); attach the button outside the list."
-  },
-  {
-    "page": "docs/how-deflate-compresses.html",
-    "rule": "scrollable-region-focusable",
-    "reason": "A horizontally scrolling code pre (.cw-pre) cannot be reached by keyboard; give it tabindex=0 and a label."
-  },
-  {
-    "page": "docs/how-deflate-sends-its-code.html",
-    "rule": "scrollable-region-focusable",
-    "reason": "A horizontally scrolling code pre (.cw-pre) cannot be reached by keyboard; give it tabindex=0 and a label."
-  },
-  {
-    "page": "docs/how-deflate-works.html",
-    "rule": "scrollable-region-focusable",
-    "reason": "A horizontally scrolling code pre (.cw-pre) cannot be reached by keyboard; give it tabindex=0 and a label."
+    "reason": "The anatomy figure's role=button stage (.iso-stage) has an aria-label that does not contain its visible text; fixed together with its aria-allowed-attr entry (#132)."
   }
 ]

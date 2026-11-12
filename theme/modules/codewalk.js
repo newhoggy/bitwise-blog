@@ -67,6 +67,10 @@
 
       // Overlays inside <pre>: gutter numbers, then one band/shade per run of lines.
       this.pre.classList.add("cw-pre");
+      // The code scrolls sideways: keyboard users need to focus it, and focus needs a name.
+      this.pre.tabIndex = 0;
+      this.pre.setAttribute("role", "group");
+      this.pre.setAttribute("aria-label", "Code");
       this.gutter = el("span", { class: "cw-gutter", "aria-hidden": "true",
         text: Array.from({ length: this.lineCount }, (_, i) => i + 1).join("\n") });
       this.layer = el("span", { class: "cw-layer", "aria-hidden": "true" });

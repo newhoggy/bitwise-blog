@@ -748,28 +748,26 @@ bh-versions.is-comparing .bh-versions-tabs [role="tab"] { background: none; colo
 
 /* Every version shares one grid cell: switching never changes the height. */
 .bh-versions-stage { position: relative; display: grid; }
-.bh-versions-stage > figure {
+.bh-versions-stage > .bh-version {
   grid-area: 1 / 1;
-  margin: 0 !important;
-  padding: 0;
-  border: 0;
-  background: none;
+  min-width: 0; /* the figure inside scrolls; the panel must not widen the grid */
   opacity: 0;
   visibility: hidden;
   transition: opacity var(--dur-3) var(--ease-out), visibility 0s linear var(--dur-3);
 }
-.bh-versions-stage > figure.is-current { opacity: 1; visibility: visible; transition-delay: 0s; }
-.bh-versions-stage > figure::before,
-.bh-versions-stage > figure > figcaption { display: none; }
+.bh-versions-stage > .bh-version.is-current { opacity: 1; visibility: visible; transition-delay: 0s; }
+.bh-version > figure { margin: 0 !important; padding: 0; border: 0; background: none; }
+.bh-version > figure::before,
+.bh-version > figure > figcaption { display: none; }
 
 .bh-versions-caption { margin-top: var(--space-3); font-size: var(--step--1); color: var(--text-muted); line-height: 1.5; }
 .bh-versions-caption strong { color: var(--text); font-weight: 600; }
 
 /* Compare: both versions visible, split at --pos (current left, proposed right). */
 bh-versions.is-comparing .bh-versions-stage { cursor: ew-resize; touch-action: pan-y; user-select: none; }
-bh-versions.is-comparing .bh-versions-stage > figure { opacity: 1; visibility: visible; transition: none; }
-bh-versions.is-comparing .bh-versions-stage > figure:first-of-type { clip-path: inset(0 calc(100% - var(--pos, 50%)) 0 0); }
-bh-versions.is-comparing .bh-versions-stage > figure:last-of-type { clip-path: inset(0 0 0 var(--pos, 50%)); }
+bh-versions.is-comparing .bh-versions-stage > .bh-version { opacity: 1; visibility: visible; transition: none; }
+bh-versions.is-comparing .bh-versions-stage > .bh-version:nth-child(1) { clip-path: inset(0 calc(100% - var(--pos, 50%)) 0 0); }
+bh-versions.is-comparing .bh-versions-stage > .bh-version:nth-child(2) { clip-path: inset(0 0 0 var(--pos, 50%)); }
 
 .bh-versions-divider, .bh-versions-tag, .bh-versions-range { display: none; }
 bh-versions.is-comparing .bh-versions-divider {
