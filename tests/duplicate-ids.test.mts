@@ -16,7 +16,7 @@ const PAGE = "docs/" + fs.readdirSync(path.join(source, "docs")).filter((f) => f
 function fixture(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bh-dupid-test-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "package.json", "index.html", "feed.xml"]) {
+  for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "package.json", "index.html", "feed.xml", "sitemap.xml", "robots.txt", "404.html"]) {
     fs.cpSync(path.join(source, entry), path.join(root, entry), { recursive: true });
   }
   // `check` asks 1Password for a private page's key; make that fail at once instead.

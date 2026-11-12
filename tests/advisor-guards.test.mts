@@ -86,7 +86,7 @@ test("the published site holds no corpus path and nothing from the private data"
   const source = path.join(temp, "source"), stage = path.join(temp, "stage");
   fs.mkdirSync(source);
   fs.mkdirSync(stage);
-  for (const entry of ["scripts", "theme", "docs", "reviews", "corpus", "package.json", "index.html", "feed.xml"]) {
+  for (const entry of ["scripts", "theme", "docs", "reviews", "corpus", "package.json", "index.html", "feed.xml", "sitemap.xml", "robots.txt", "404.html"]) {
     fs.cpSync(path.join(ROOT, entry), path.join(source, entry), { recursive: true, verbatimSymlinks: true, filter: (f) => path.basename(f) !== "private" });
   }
   const privateFile = path.join(source, "corpus", "private", "someone", "ATLAS.jsonl");

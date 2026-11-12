@@ -51,6 +51,7 @@ async function fixture(t: TestContext, { shared = false, symlinkRoot = false } =
   for (const file of ["bh.mts", "private-cards.mts", "page-size.mts"]) fs.copyFileSync(path.join(source, "scripts", file), path.join(root, "scripts", file));
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ repository: "github:example/blog" }));
   fs.writeFileSync(path.join(root, "index.html"), "<h1>Home</h1>");
+  fs.writeFileSync(path.join(root, "404.html"), "<h1>Lost</h1>");
   fs.mkdirSync(path.join(root, "docs"));
   fs.writeFileSync(path.join(root, "docs/index.html"), "<h1>Docs</h1>");
   fs.writeFileSync(path.join(root, "docs/a page.html"), "<h1>Encoded path</h1>");
@@ -144,6 +145,11 @@ test("serve rejects malformed URLs and traversal while preserving pages and buil
   assert.equal(css.status, 200);
   assert.equal(css.body, "body { color: red; }");
   assert.equal(css.headers["content-type"], "text/css");
+  // A missing path gets the generated 404 page, with status 404, as on GitHub Pages.
+  const missing = await request("/missing/deep/page.html");
+  assert.equal(missing.status, 404);
+  assert.equal(missing.body, "<h1>Lost</h1>");
+  assert.equal(missing.headers["content-type"], "text/html; charset=utf-8");
   assert.equal((await request("/missing.html")).status, 404);
   const build = await request("/theme/build.js");
   assert.equal(build.status, 200);
