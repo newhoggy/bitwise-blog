@@ -167,3 +167,24 @@ jobs:
       - id: deployment
         if: steps.fresh.outputs.current == 'true'
         uses: actions/deploy-pages@v4
+
+  a11y:
+    name: Accessibility (axe-core)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # axe-core is a pinned devDependency, so this job needs the install the render job skips.
+      - name: Install dependencies
+        run: npm ci
+
+      # Every public page, light and dark. Known findings are in a11y-allowlist.json with a
+      # reason; a new violation, or an entry that no longer fires, fails the job.
+      - name: Run axe-core on every page
+        run: npm run a11y
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
