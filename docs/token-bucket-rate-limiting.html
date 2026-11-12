@@ -1288,7 +1288,8 @@ function startStroke() {
   stroke = { t: 0, dry, tip: BAR.rest, pushed: false };
   if (dry) { refused++; flagHold = 1.3; }
   else { coinsIn--; sent++; shift = 1; holdStack = true; ejected.push({ x: C[0], v: 0 }); }
-  // Tell a screen reader what the reader's own press did. The demo tour stays silent, and so does the per-frame loop.
+  // Tell a screen reader how the machine handled the reader's own press, as the stroke starts (a queued press waits its turn, as it does on screen).
+  // The demo tour stays silent, and so does the per-frame loop.
   // The running counts keep consecutive messages different, since a live region may skip a repeat.
   if (!touring) status.textContent = (dry ? "Request rejected, 429. " : "Request admitted. ") + coinsIn + " of " + B + " tokens left. " + sent + " admitted, " + refused + " rejected.";
 }
@@ -1396,6 +1397,8 @@ const interact = () => {
 new IntersectionObserver((entries) => { visible = entries[entries.length - 1].isIntersecting; if (visible) run(); }, { rootMargin: "120px 0px" }).observe(stage);
 if (still.matches) touring = false;
 stage.addEventListener("pointerdown", (event) => { if (!event.target.closest("[data-press]")) return; interact(); request(); });
+// The corner readout is hidden from assistive technology, so say the count when the stage gains focus.
+stage.addEventListener("focus", () => { status.textContent = coinsIn + " of " + B + " tokens in the bucket."; });
 stage.addEventListener("keydown", (event) => {
   if (event.key !== " " && event.key !== "Enter") return;
   event.preventDefault();
