@@ -95,12 +95,13 @@ Node ≥ 22.18 is the requirement: it runs the TypeScript tooling by stripping t
 All npm dependencies are dev ones; run `npm ci` once to get them (`check` compares this list with `package.json`):
 <!-- bh:deps -->
 - `typescript` and `@types/node`: `npm run typecheck`.
+- `axe-core`: the accessibility pass, `npm run a11y`.
 - `cheerio`, `turndown` and `@types/turndown`: the platform ingesters behind `npm run sync-posts`.
 - `yaml`: the YAML that `sync-posts` and the advisor tooling (`npm run advisor`) read and write.
 <!-- /bh:deps -->
 
 The authoring and publishing commands (`index`, `check`, `bundle`, `seal`, …) need none of them beyond Node itself.
-(`cards` and `visual` also need a local Chrome.)
+(`cards`, `visual` and `a11y` also need a local Chrome.)
 
 ## Continuous integration & publishing
 
