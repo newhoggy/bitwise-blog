@@ -763,16 +763,24 @@ for everyone: highlights and pins, opening into threads.
   Local files fetched by script, CSS `url()`, the social cards and sealed pages (already
   compressed ciphertext) are not counted, so the budget bounds the page's own HTML and images, not
   everything it could load.
-- **`npm run a11y` runs axe-core on every public page, in light and dark** (needs Node ≥ 22 and a local
+- **`npm run a11y` runs axe-core on every public page, at desktop (1280px) and phone (390px) width, in light and dark** (needs Node ≥ 22 and a local
   Chrome, like `visual`; `--only <text>` limits the pages; web fonts are always blocked, as in CI). Run it
-  after a theme, component or page change; CI runs it as the `a11y` job. Sealed pages are skipped.
-  - Findings that exist today are tracked in `a11y-allowlist.json` (`page`, `rule`, and a `reason`
-    that names the component to fix). The run fails on a violation that is not listed, and on an entry
-    that no longer fires, so **delete the entry when you fix the cause**. Never add an entry to make a
-    new violation pass: fix the markup, or say in the reason why it can't be fixed yet.
-  - An entry covers a rule on a page, not one element, so a second element breaking the same rule
-    on that page is not caught until the entry is removed.
-  - It checks the page as loaded, in the desktop layout. It does not open popups or inactive tabs.
+  after a theme, component or page change; CI runs it as the `a11y` job (about two minutes). Sealed pages are skipped.
+  - **It also scans what interaction reveals**, in the same tab after the page as loaded: closed `details`
+    opened, every inactive tab, every later stepper step, the glossary and sidenote popups, the search
+    dialog (with results), the review panel and slide mode (first slide). The states are `STATES` in
+    `scripts/a11y.mts`; a new component that hides content needs one. A state whose trigger exists but does
+    nothing is an error, not a pass.
+  - **A page must have rendered** (one `h1`, a `main` landmark and the top bar `bh.js` builds) or its scan is an error.
+  - Findings that exist today are tracked in `a11y-allowlist.json` (`page`, `rule`, `nodes` and a `reason`
+    that names the component to fix). `nodes` is how many distinct elements the rule hits on that page,
+    counted over every size, scheme and state. The run fails when the count **rises** (a new element broke
+    the rule: fix it, never raise `nodes`), when it **falls** (lower `nodes`, so the list only shrinks), on a
+    violation that is not listed, and on an entry that no longer fires: **delete the entry when you fix the cause**.
+    Never add an entry to make a new violation pass: fix the markup, or say in the reason why it can't be fixed yet.
+  - Elements are counted by axe's selector, with generated ids (`<bh-tabs>`) and search-result positions
+    normalised (`normalizeTarget`), so the count does not move with the site's content.
+  - It checks the page with the viewport, scheme and reduced motion emulated, not other browsers or real assistive technology.
 
 ## Changing the theme
 
