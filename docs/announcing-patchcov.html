@@ -48,6 +48,7 @@
     #patch-sim .pc-diff li { margin: 0; display: grid; grid-template-columns: 2.6em 1.4em 2.2em max-content; align-items: center; min-height: 1.9em; padding-inline-end: var(--space-3); white-space: pre; transition: background-color var(--dur-2) var(--ease-out); }
     #patch-sim .pc-diff li + li { margin: 0; }
     #patch-sim .pc-diff code { background: none; border: 0; padding: 0; border-radius: 0; font-size: inherit; color: var(--text); }
+    #patch-sim .pc-diff li.miss .ln, #patch-sim .pc-diff li.miss .sign { color: var(--text); }
     #patch-sim .pc-diff .ln { color: var(--text-muted); text-align: right; padding-inline-end: .6em; }
     #patch-sim .pc-diff .sign { color: var(--text-muted); text-align: center; }
     #patch-sim .pc-diff li.add { background: color-mix(in oklab, var(--ok) 9%, transparent); }

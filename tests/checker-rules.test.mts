@@ -119,6 +119,18 @@ const THEME_CASES: ThemeCase[] = [
     contains: [], only: /(?!)/, // nothing may be reported
   },
   {
+    // #127a48 passes every token pair (on --ok-soft, --surface) but not as badge text on its own 10% tint.
+    name: "badge text too faint on its own tint",
+    file: "theme/tokens.css", find: "--ok:     light-dark(#117142,", replace: "--ok:     light-dark(#127a48,",
+    contains: ["error: tokens.css: a .badge in --ok on --bg is R:1 in light mode (needs 4.5:1)", "error: tokens.css: a .badge in --ok on --surface-2 is R:1 in light mode (needs 4.5:1)"],
+    only: /^error: tokens\.css: a \.badge in --ok on --[\w-]+ is R:1 in light mode \(needs 4\.5:1\)$/,
+  },
+  {
+    name: "a slightly darker badge tone passes",
+    file: "theme/tokens.css", find: "--ok:     light-dark(#117142,", replace: "--ok:     light-dark(#106f41,",
+    contains: [], only: /(?!)/,
+  },
+  {
     name: "a token that is no longer a light-dark() pair",
     file: "theme/tokens.css", find: "--c6: light-dark(#475569, #a0aec0);", replace: "--c6: #475569;",
     contains: ["error: tokens.css: --c6 or --surface is not a light-dark() hex pair"],

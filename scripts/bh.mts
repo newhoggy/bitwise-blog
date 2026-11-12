@@ -1157,6 +1157,18 @@ const CONTRAST_PAIRS: [string, string[], number][] = [
   ["c4", ["code-bg", "surface"], 4.5], ["c5", ["code-bg", "surface"], 4.5], ["c6", ["surface"], 3],
 ];
 
+/**
+ * Badge text is the tone colour on a 10% tint of itself over the page (`.badge` in components.css,
+ * blended in sRGB so it is plain alpha). That background is not a token, so the pairs above miss it.
+ * [tone token, backgrounds the badge can sit on]
+ */
+const BADGE_TONES: [string, string[]][] = [
+  ["info", ["bg", "surface", "surface-2"]], ["ok", ["bg", "surface", "surface-2"]],
+  ["warn", ["bg", "surface", "surface-2"]], ["danger", ["bg", "surface", "surface-2"]],
+  ["accent", ["bg", "surface", "surface-2"]], ["text-muted", ["bg", "surface", "surface-2"]],
+];
+const BADGE_TINT = 0.1;
+
 function contrastProblems(): string[] {
   const css = fs.readFileSync(path.join(ROOT, "theme", "tokens.css"), "utf8");
   const tok: Record<string, { light: string; dark: string }> = {};
@@ -1171,6 +1183,15 @@ function contrastProblems(): string[] {
     if (!tok[fg] || !tok[bg]) { out.push(`tokens.css: --${fg} or --${bg} is not a light-dark() hex pair`); continue; }
     const r = ratio(tok[fg][mode], tok[bg][mode]);
     if (r < min) out.push(`tokens.css: --${fg} on --${bg} is ${r.toFixed(2)}:1 in ${mode} mode (needs ${min}:1)`);
+  }
+  const hexOf = (c: number[]) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+  for (const [tone, bgs] of BADGE_TONES) for (const bg of bgs) for (const mode of ["light", "dark"] as const) {
+    if (!tok[tone] || !tok[bg]) { out.push(`tokens.css: --${tone} or --${bg} is not a light-dark() hex pair`); continue; }
+    const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const [fg, base] = [rgb(tok[tone][mode]), rgb(tok[bg][mode])];
+    const tinted = hexOf(fg.map((v, i) => v * BADGE_TINT + base[i] * (1 - BADGE_TINT)));
+    const r = ratio(tok[tone][mode], tinted);
+    if (r < 4.5) out.push(`tokens.css: a .badge in --${tone} on --${bg} is ${r.toFixed(2)}:1 in ${mode} mode (needs 4.5:1)`);
   }
   return out;
 }
