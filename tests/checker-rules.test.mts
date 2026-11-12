@@ -49,7 +49,7 @@ function messagesUnder(out: string, heading: string): string[] {
 // One throwaway copy of the site serves every case; each case restores what it edited.
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "bh-rules-test-"));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
-for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "package.json", "index.html", "feed.xml"]) {
+for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "package.json", "index.html", "feed.xml", "sitemap.xml", "robots.txt", "404.html"]) {
   fs.cpSync(path.join(source, entry), path.join(root, entry), { recursive: true });
 }
 // `check` asks 1Password for a private page's key; make that fail at once instead.
