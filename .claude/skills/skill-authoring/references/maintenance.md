@@ -42,17 +42,25 @@ both kinds for every skill with evals on the 1st of each month (and from the Act
 - **What it records.** `record.json` (format `bh-skill-evals/1`) holds the date, commit, Claude
   Code version, agent and judge models, cost, and per skill the trigger pass counts and per-query
   status and each output case's score with and without the skill. `summary.md` tables the pass
-  rates beside the previous run's and is also shown on the run's page. Both are uploaded as the
-  artifact `skill-evals-record` (kept 90 days, the most a public repository allows). The raw
-  results are not uploaded: they hold model output.
+  rates beside the previous run's and is also shown on the run's page. The workflow uploads
+  `summary.md` and `baseline.json` as the artifact `skill-evals-record` (kept 90 days, the most a
+  public repository allows). The raw results are not uploaded: they hold model output.
+- **`baseline.json` is `record.json` of a run that can be compared with.** The script writes it only
+  for a run of every skill and both kinds with no error. A run of one skill (a dispatch with
+  `skills` set) or one that errored is a record but not a baseline: it would hide every other
+  skill's drop for a month, or lower the bar.
 - **What fails the run.** A skill whose trigger pass rate, or mean output score with the skill,
-  fell by more than 0.10 against the previous record (exit 1); a run that measured nothing, such
-  as an API error, a case that failed to load, a `scaffold failed` row, a partial result or a spent
-  cost ceiling (exit 2, which wins over a regression). Flipped queries, moved cases and changes
-  of model or Claude Code version are listed in the summary and never fail the run.
-- **The baseline is the last run that produced a record**, passed or failed. A regression
-  therefore alerts once and the new level becomes the baseline; read the trend in the summaries,
-  because a slow decline of less than 0.10 a month never fails.
+  fell by more than 0.10 against the baseline (exit 1); a run that measured nothing, such as a case
+  that failed to load, a `scaffold failed` row, a partial result or a spent cost ceiling, or trigger
+  queries that errored again after a retry (exit 2, which wins over a regression). The script runs
+  the errored trigger queries once more before giving up on them; output evals are not retried, so
+  re-run the workflow. Flipped queries, moved cases and changes of model or Claude Code version
+  are listed in the summary and never fail the run.
+- **A regression alerts once.** The run that regressed is complete, so it is the next baseline and
+  the new level stops failing. Read the trend in the summaries, because a slow decline of less than
+  0.10 a month never fails.
+- **GitHub switches scheduled workflows off** in a public repository after 60 days without
+  repository activity, without a message. If the blog goes quiet, re-enable it in the Actions tab.
 - **Reading a drop.** The summary names both runs' versions and models. If only Claude Code changed,
   suspect its skill listing or system prompt; if only the model changed, run the trigger evals
   on the new model by hand with `--keep` and read the traces. The 0.10 tolerance is a starting

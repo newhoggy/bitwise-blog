@@ -45,7 +45,7 @@ const maxTurns = Number(flag("--max-turns", 3));
 if (!Number.isInteger(maxTurns) || maxTurns < 1) { console.error("--max-turns takes a whole number of turns, 1 or more"); process.exit(2); }
 const keep = argv.includes("--keep");
 const jsonOut = flag("--json", "");
-if (argv.includes("--json") && !jsonOut) { console.error("--json takes a file name"); process.exit(2); }
+if (argv.includes("--json") && (!jsonOut || jsonOut.startsWith("--"))) { console.error("--json takes a file name"); process.exit(2); }
 
 const repo = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
 const skillsDir = path.join(repo, ".claude", "skills");

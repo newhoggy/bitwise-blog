@@ -9,7 +9,10 @@
 //   trigger evals  .claude/skills/skill-authoring/scripts/run-trigger-evals.mjs <skill> --json
 //   output evals   claude plugin eval .claude/skills/<skill> --json   (with and without the skill)
 // and writes <out>/record.json (format bh-skill-evals/1) and <out>/summary.md, which it also appends to
-// $GITHUB_STEP_SUMMARY when that is set. The scheduled workflow is .github/workflows/skill-evals.yml.
+// $GITHUB_STEP_SUMMARY when that is set. When the run covered every skill and both kinds without an error it
+// also writes <out>/baseline.json (the same record): the file the next run should compare with. A subset run
+// or one that errored is a fine record but a bad baseline, so it never writes one.
+// The scheduled workflow is .github/workflows/skill-evals.yml.
 //
 // Exit codes: 0 clean, 1 a regression against the previous record, 2 an error (a case that failed to
 // load, a run that errored, a result that is partial or missing). An error wins over a regression: a
@@ -38,6 +41,8 @@ export const DEFAULT_MAX_COST_USD = 75;
  */
 const TRIGGER_STEP_CAP_USD = 20;
 const OUTPUT_STEP_CAP_USD = 15;
+/** The one retry of the queries that errored (an API error or a timeout): a handful of queries, not a suite. */
+const TRIGGER_RETRY_CAP_USD = 5;
 /** Below this much budget left a step is not started. */
 const MIN_BUDGET_USD = 0.5;
 /** Cases whose with-skill score moved by at least this much are listed (not failed) in the summary. */
@@ -46,7 +51,7 @@ const CASE_CHANGE = 0.3;
 export type Kind = "trigger" | "output" | "both";
 
 export interface Counts { passed: number; total: number; errored: number }
-export interface TriggerQuery { query: string; status: string; shouldTrigger: boolean; heldout: boolean }
+export interface TriggerQuery { position: number; query: string; status: string; shouldTrigger: boolean; heldout: boolean }
 export interface TriggerRecord {
   counts: { all: Counts; shouldFire: Counts; shouldStayQuiet: Counts; heldout: Counts | null };
   queries: TriggerQuery[];
@@ -87,23 +92,38 @@ const mean = (xs: number[]): number | null => (xs.length ? xs.reduce((a, b) => a
 /** The turn cap ends most trigger runs with an error after the skill was or was not called: not a failure. */
 const TURN_CAP = /maximum number of turns/i;
 
-function counts(x: unknown): Counts | null {
-  if (!isObj(x)) return null;
-  const { passed, total, errored } = x;
-  return typeof passed === "number" && typeof total === "number" && typeof errored === "number" ? { passed, total, errored } : null;
+/** The counts of a record, derived from its queries so that a retry can replace some of them. */
+export function triggerRecord(queries: TriggerQuery[], costUsd: number | null): TriggerRecord {
+  const count = (list: TriggerQuery[]): Counts => ({
+    passed: list.filter(q => q.status === "PASS").length, total: list.length, errored: list.filter(q => q.status === "ERROR").length,
+  });
+  const heldout = queries.filter(q => q.heldout);
+  return {
+    counts: { all: count(queries), shouldFire: count(queries.filter(q => q.shouldTrigger)), shouldStayQuiet: count(queries.filter(q => !q.shouldTrigger)), heldout: heldout.length ? count(heldout) : null },
+    queries, costUsd,
+  };
 }
 
 /** Reads what `run-trigger-evals.mjs --json` wrote. Null when it is not that. */
 export function triggerFromJson(j: unknown): TriggerRecord | null {
-  if (!isObj(j) || !isObj(j.totals) || !Array.isArray(j.queries)) return null;
-  const all = counts(j.totals.all), shouldFire = counts(j.totals.shouldFire), shouldStayQuiet = counts(j.totals.shouldStayQuiet);
-  if (!all || !shouldFire || !shouldStayQuiet) return null;
+  if (!isObj(j) || !Array.isArray(j.queries)) return null;
   const queries: TriggerQuery[] = [];
   for (const q of j.queries) {
-    if (!isObj(q) || typeof q.query !== "string" || typeof q.status !== "string") return null;
-    queries.push({ query: q.query, status: q.status, shouldTrigger: q.shouldTrigger === true, heldout: q.heldout === true });
+    if (!isObj(q) || typeof q.query !== "string" || typeof q.status !== "string" || typeof q.position !== "number") return null;
+    queries.push({ position: q.position, query: q.query, status: q.status, shouldTrigger: q.shouldTrigger === true, heldout: q.heldout === true });
   }
-  return { counts: { all, shouldFire, shouldStayQuiet, heldout: counts(j.totals.heldout) }, queries, costUsd: num(j.costUsd) };
+  return triggerRecord(queries, num(j.costUsd));
+}
+
+/** `first` with each ERROR query replaced by the same query from `retry`, when the retry did not error too. */
+export function mergeRetry(first: TriggerRecord, retry: TriggerRecord): TriggerRecord {
+  const again = new Map(retry.queries.map(q => [q.position, q]));
+  const queries = first.queries.map(q => {
+    const r = again.get(q.position);
+    return q.status === "ERROR" && r && r.query === q.query && r.status !== "ERROR" ? r : q;
+  });
+  const cost = first.costUsd === null && retry.costUsd === null ? null : (first.costUsd ?? 0) + (retry.costUsd ?? 0);
+  return triggerRecord(queries, cost);
 }
 
 /** Reads the errors of a trigger result: queries that errored, and cases that failed to load. */
@@ -167,11 +187,32 @@ export function outputFromResult(result: unknown, caseDirs: string[]): { record:
 
 const rate = (c: Counts): number | null => (c.total ? c.passed / c.total : null);
 
+const isCounts = (x: unknown): boolean => isObj(x) && typeof x.passed === "number" && typeof x.total === "number" && typeof x.errored === "number";
+const isNumOrNull = (x: unknown): boolean => x === null || typeof x === "number";
+
+/** Whether a stored skill has the shape `compare` reads, so an artifact edited by hand or by an older version can't make it throw. */
+function isSkillRecord(x: unknown): boolean {
+  if (!isObj(x) || !Array.isArray(x.errors)) return false;
+  if (x.trigger !== undefined) {
+    const t = x.trigger;
+    if (!isObj(t) || !isObj(t.counts) || !isCounts(t.counts.all) || !Array.isArray(t.queries)) return false;
+    if (!t.queries.every(q => isObj(q) && typeof q.query === "string" && typeof q.status === "string")) return false;
+  }
+  if (x.output !== undefined) {
+    const o = x.output;
+    if (!isObj(o) || !isNumOrNull(o.meanWith) || !Array.isArray(o.cases)) return false;
+    if (!o.cases.every(c => isObj(c) && typeof c.name === "string" && isNumOrNull(c.withSkill))) return false;
+  }
+  return true;
+}
+
 /** A record from a file, or null when it is not one (a corrupt artifact must not block every later run). */
 export function parseRecord(text: string): EvalRecord | null {
   let j: unknown;
   try { j = JSON.parse(text); } catch { return null; }
-  return isObj(j) && j.format === FORMAT && isObj(j.skills) && isObj(j.models) ? (j as unknown as EvalRecord) : null;
+  if (!isObj(j) || j.format !== FORMAT || !isObj(j.skills) || !isObj(j.models)) return null;
+  if (typeof j.models.agent !== "string" || typeof j.models.judge !== "string") return null;
+  return Object.values(j.skills).every(isSkillRecord) ? (j as unknown as EvalRecord) : null;
 }
 
 export function compare(prev: EvalRecord, cur: EvalRecord, tolerance: number): Comparison {
@@ -251,7 +292,14 @@ interface Options {
   triggerRunner: string | null;
 }
 
+const KNOWN_FLAGS = ["--skills", "--kind", "--out", "--previous", "--model", "--judge-model", "--max-cost-usd", "--tolerance", "--trigger-runner"];
+
 function parseArgs(argv: string[]): Options {
+  // Every flag takes a value. A paid command refuses what it does not know: `--skill x` must not mean "every skill".
+  for (let i = 0; i < argv.length; i++) {
+    if (!KNOWN_FLAGS.includes(argv[i])) throw new Error(`unknown argument ${argv[i]} (flags: ${KNOWN_FLAGS.join(", ")})`);
+    i++;
+  }
   const flag = (name: string): string | null => {
     const i = argv.indexOf(name);
     if (i < 0) return null;
@@ -309,7 +357,9 @@ export function main(argv: string[]): number {
   const found = fs.readdirSync(skillsDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort();
   for (const s of opt.skills ?? []) if (!found.includes(s)) { console.error(`no skill ${s} in .claude/skills`); return 2; }
 
-  fs.mkdirSync(opt.out, { recursive: true });
+  // The tools run with the repo as their working directory, so no path handed to them may depend on ours.
+  const outDir = path.resolve(opt.out);
+  fs.mkdirSync(outDir, { recursive: true });
   const record: EvalRecord = {
     format: FORMAT, date: new Date().toISOString(), commit: process.env.GITHUB_SHA ?? git(repo, "rev-parse", "HEAD"),
     claudeVersion: null, models: { agent: opt.model, judge: opt.judgeModel }, costUsd: 0, skills: {},
@@ -339,18 +389,31 @@ export function main(argv: string[]): number {
       if (cap === null) fail("trigger evals not run: the cost ceiling was spent");
       else {
         console.log(`\n== ${skill}: trigger evals (up to $${cap.toFixed(2)})`);
-        const file = path.join(opt.out, `trigger-${skill}.json`);
+        const file = path.join(outDir, `trigger-${skill}.json`);
         fs.rmSync(file, { force: true });
         // Exit 1 means some query was not a pass, which is a result. Only a missing file means it did not run.
         spawnSync(process.execPath, [triggerRunner, skill, "--json", file, "--model", opt.model, "--max-cost", String(cap)], { cwd: repo, stdio });
         const j = readJson(file);
-        const t = triggerFromJson(j);
+        let t = triggerFromJson(j);
         if (!t) { spent += cap; fail("trigger evals wrote no usable result"); }
         else {
-          rec.trigger = t;
           spent += t.costUsd ?? cap;
-          for (const e of triggerErrors(j, t)) fail(e);
           if (isObj(j) && typeof j.claudeVersion === "string") record.claudeVersion ??= j.claudeVersion;
+          // A query is ERROR when API errors or timeouts left its runs undecided. Run just those once more, so one
+          // flaky minute among 122 queries does not cost a whole skill its measurement. A run cut short is not retried.
+          const retryCap = t.counts.all.errored && !(isObj(j) && j.partial === true) ? budget(TRIGGER_RETRY_CAP_USD) : null;
+          if (retryCap !== null) {
+            const only = t.queries.filter(q => q.status === "ERROR").map(q => q.position).join(",");
+            console.log(`\n== ${skill}: running the errored trigger queries again (#${only}, up to $${retryCap.toFixed(2)})`);
+            const again = path.join(outDir, `trigger-${skill}-retry.json`);
+            fs.rmSync(again, { force: true });
+            spawnSync(process.execPath, [triggerRunner, skill, "--json", again, "--model", opt.model, "--max-cost", String(retryCap), "--only", only], { cwd: repo, stdio });
+            const t2 = triggerFromJson(readJson(again));
+            spent += t2 ? (t2.costUsd ?? retryCap) : retryCap;
+            if (t2) t = mergeRetry(t, t2);
+          }
+          rec.trigger = t;
+          for (const e of triggerErrors(j, t)) fail(e);
         }
       }
     }
@@ -360,10 +423,10 @@ export function main(argv: string[]): number {
       if (cap === null) fail("output evals not run: the cost ceiling was spent");
       else {
         console.log(`\n== ${skill}: output evals, ${caseDirs.length} cases (up to $${cap.toFixed(2)})`);
-        const file = path.join(opt.out, `output-${skill}.json`);
+        const file = path.join(outDir, `output-${skill}.json`);
         fs.rmSync(file, { force: true });
         spawnSync("claude", ["plugin", "eval", dir, "--scaffold", "--trust-plugin", "--model", opt.model, "--judge-model", opt.judgeModel,
-          "-j", "4", "--max-cost-usd", String(cap), "--no-publish", "--json", path.resolve(file)], { cwd: repo, stdio });
+          "-j", "4", "--max-cost-usd", String(cap), "--no-publish", "--json", file], { cwd: repo, stdio });
         const result = readJson(file);
         if (result === null) { spent += cap; fail("output evals wrote no result"); }
         else {
@@ -381,25 +444,39 @@ export function main(argv: string[]): number {
 
   let prev: EvalRecord | null = null;
   if (opt.previous) {
-    if (!fs.existsSync(opt.previous)) console.log(`no previous record at ${opt.previous}: this run is the baseline`);
+    const file = path.resolve(opt.previous);
+    if (!fs.existsSync(file)) console.log(`no previous record at ${opt.previous}: this run is the baseline`);
     else {
-      prev = parseRecord(fs.readFileSync(opt.previous, "utf8"));
-      if (!prev) console.log(`${opt.previous} is not a ${FORMAT} record: ignored, this run is the baseline`);
+      prev = parseRecord(fs.readFileSync(file, "utf8"));
+      if (!prev) console.log(`${opt.previous} is not a usable ${FORMAT} record: ignored, this run is the baseline`);
     }
   }
-  // An errored skill has no measurement to compare, so it is left out of the comparison.
-  const comparable: EvalRecord = { ...record, skills: Object.fromEntries(Object.entries(record.skills).filter(([, s]) => !s.errors.length)) };
-  const cmp = prev ? compare(prev, comparable, opt.tolerance) : null;
+  // Compare what was measured this run with the same skills before. A skill that errored has nothing to compare, and
+  // one that was not asked for (--skills) is not "removed", so both are taken out of both sides.
+  const measured = (name: string) => !record.skills[name]?.errors.length && (!opt.skills || opt.skills.includes(name));
+  const scoped = (r: EvalRecord): EvalRecord => ({ ...r, skills: Object.fromEntries(Object.entries(r.skills).filter(([name]) => measured(name))) });
+  const cmp = prev ? compare(scoped(prev), scoped(record), opt.tolerance) : null;
 
   const summary = renderSummary(record, prev, cmp, errors);
-  fs.writeFileSync(path.join(opt.out, "record.json"), JSON.stringify(record, null, 2) + "\n");
-  fs.writeFileSync(path.join(opt.out, "summary.md"), summary);
+  const json = JSON.stringify(record, null, 2) + "\n";
+  fs.writeFileSync(path.join(outDir, "record.json"), json);
+  // Only a run of every skill and both kinds, with no error, can be the next run's baseline. A debugging run of one
+  // skill would otherwise hide every other skill's regression for a month, and an errored one would lower the bar.
+  const baseline = path.join(outDir, "baseline.json");
+  fs.rmSync(baseline, { force: true });
+  if (!errors.length && !opt.skills && opt.kind === "both") fs.writeFileSync(baseline, json);
+  fs.writeFileSync(path.join(outDir, "summary.md"), summary);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + "\n");
   console.log("\n" + summary);
 
-  if (errors.length) { console.error(`${errors.length} errors: nothing can be concluded from the skills that errored`); return 2; }
+  if (errors.length) { console.error(`${errors.length} errors: nothing can be concluded from the skills that errored, and this run is not a baseline`); return 2; }
   if (cmp?.regressions.length) { console.error(`${cmp.regressions.length} regressions`); return 1; }
   return 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) process.exit(main(process.argv.slice(2)));
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  let code: number;
+  // An uncaught error must not look like a regression (exit 1): nothing was concluded.
+  try { code = main(process.argv.slice(2)); } catch (err) { console.error(err instanceof Error ? (err.stack ?? err.message) : String(err)); code = 2; }
+  process.exit(code);
+}

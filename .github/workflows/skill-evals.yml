@@ -15,6 +15,9 @@ name: Skill evals
 #   3. Optional variables: SKILL_EVALS_MODEL and SKILL_EVALS_JUDGE_MODEL (default
 #      claude-sonnet-5-5 and claude-haiku-5-5), SKILL_EVALS_MAX_COST_USD (default 75).
 #   4. Run it once from the Actions tab (Run workflow) to record the baseline.
+#
+# GitHub switches a scheduled workflow off in a public repository after 60 days without repository
+# activity, and says nothing when it does: if the blog goes quiet, re-enable it from the Actions tab.
 on:
   schedule:
     - cron: "17 6 1 * *"
@@ -74,8 +77,9 @@ jobs:
             exit 1
           fi
 
-      # The record of the last run that produced one, passed or failed: a regression then alerts once,
-      # and the new level becomes the baseline. Nothing to fetch on the first run.
+      # The baseline of the last run that wrote one: a complete run with no error, so a regression alerts
+      # once and the new level becomes the baseline, while a run of one skill or one that errored never
+      # replaces it. Nothing to fetch on the first run.
       - name: Fetch the previous record
         env:
           GH_TOKEN: ${{ github.token }}
@@ -100,7 +104,7 @@ jobs:
           JUDGE_MODEL: ${{ vars.SKILL_EVALS_JUDGE_MODEL }}
           MAX_COST_USD: ${{ inputs.max_cost_usd || vars.SKILL_EVALS_MAX_COST_USD }}
         run: |
-          args=(--out skill-evals --previous previous/record.json)
+          args=(--out skill-evals --previous previous/baseline.json)
           if [ -n "$SKILLS" ]; then args+=(--skills "$SKILLS"); fi
           if [ -n "$KIND" ]; then args+=(--kind "$KIND"); fi
           if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
@@ -108,14 +112,15 @@ jobs:
           if [ -n "$MAX_COST_USD" ]; then args+=(--max-cost-usd "$MAX_COST_USD"); fi
           node scripts/skill-evals.mts "${args[@]}"
 
-      # Only the record and the summary: the raw results hold model output and the artifact of a public
-      # repository is readable by any signed-in GitHub user. 90 days is the most a public repo keeps.
+      # Only the baseline and the summary (the script writes baseline.json only for a complete run with no
+      # error): the raw results hold model output and the artifact of a public repository is readable by any
+      # signed-in GitHub user. 90 days is the most a public repository keeps.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: skill-evals-record
           path: |
-            skill-evals/record.json
+            skill-evals/baseline.json
             skill-evals/summary.md
           retention-days: 90
           if-no-files-found: warn
