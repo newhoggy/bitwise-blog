@@ -56,8 +56,8 @@
   {
     "page": "docs/announcing-patchcov.html",
     "rule": "target-size",
-    "nodes": 28,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/component-gallery.html",
@@ -80,8 +80,8 @@
   {
     "page": "docs/component-gallery.html",
     "rule": "target-size",
-    "nodes": 19,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/deflate-format-reference.html",
@@ -122,8 +122,8 @@
   {
     "page": "docs/edge-rate-limiting-design.html",
     "rule": "target-size",
-    "nodes": 5,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/glossary.html",
@@ -158,8 +158,8 @@
   {
     "page": "docs/how-deflate-compresses.html",
     "rule": "target-size",
-    "nodes": 43,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/how-deflate-sends-its-code.html",
@@ -188,8 +188,8 @@
   {
     "page": "docs/how-deflate-sends-its-code.html",
     "rule": "target-size",
-    "nodes": 57,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/how-deflate-works.html",
@@ -218,8 +218,8 @@
   {
     "page": "docs/how-deflate-works.html",
     "rule": "target-size",
-    "nodes": 102,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/pedagogical-writing.html",
@@ -248,8 +248,8 @@
   {
     "page": "docs/pedagogical-writing.html",
     "rule": "target-size",
-    "nodes": 8,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/token-bucket-rate-limiting.html",
@@ -266,8 +266,8 @@
   {
     "page": "docs/token-bucket-rate-limiting.html",
     "rule": "target-size",
-    "nodes": 6,
-    "reason": "The stepper's step dots are 8px buttons, below the 24px target size (theme/components.css). Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
+    "nodes": 1,
+    "reason": "Slide mode's Full screen button is smaller than 24px at phone width (theme/modules/present.js)."
   },
   {
     "page": "docs/voice-notes-on-trial.html",
