@@ -9,7 +9,7 @@
   "bh": { "siteName": "Bitwise Engineering", "repoUrl": "https://github.com/newhoggy/bitwise-blog" },
   "engines": { "node": ">=22.18" },
   "scripts": {
-    "test": "node --test tests/*.test.mts",
+    "test": "node --test --test-timeout=180000 tests/*.test.mts",
     "typecheck": "tsc -p .",
     "new": "node scripts/bh.mts new",
     "index": "node scripts/bh.mts index",

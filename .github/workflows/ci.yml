@@ -16,6 +16,8 @@ jobs:
   check:
     name: Lint, check and bundle
     runs-on: ubuntu-latest
+    # Normally about 1.5 minutes. A hung step fails in 15 instead of running for GitHub's 360-minute default.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -68,6 +70,8 @@ jobs:
   render:
     name: Render every page in Chrome
     runs-on: ubuntu-latest
+    # Normally about 2 minutes.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -100,6 +104,8 @@ jobs:
     needs: [check, render]
     if: vars.PAGES_ENABLED == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # Normally under 30 seconds.
+    timeout-minutes: 10
     permissions:
       contents: read
       pages: write
@@ -171,6 +177,8 @@ jobs:
   a11y:
     name: Accessibility (axe-core)
     runs-on: ubuntu-latest
+    # Normally 3.5 to 4.5 minutes.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 

@@ -27,7 +27,27 @@ export interface ChromeHandle {
   close: () => Promise<void>;
 }
 
-export async function launchChrome(): Promise<ChromeHandle> {
+/** How many times to launch Chrome when it does not print its DevTools address in time. */
+const START_ATTEMPTS = 3;
+
+/**
+ * Launch headless Chrome. A cold CI runner sometimes takes more than `startTimeoutMs` to start, and
+ * that is the only failure retried: Chrome exiting, or a WebSocket that fails, is a real error and
+ * reported at once. Each failed attempt is fully closed (process and profile) before the next.
+ */
+export async function launchChrome(startTimeoutMs = 15000): Promise<ChromeHandle> {
+  for (let attempt = 1; ; attempt++) {
+    try { return await launchChromeOnce(startTimeoutMs); }
+    catch (error) {
+      if ((error as Error).message !== START_TIMEOUT_MESSAGE || attempt >= START_ATTEMPTS) throw error;
+      console.warn(dim(`(Chrome did not start within ${startTimeoutMs}ms; retrying, attempt ${attempt + 1} of ${START_ATTEMPTS})`));
+    }
+  }
+}
+
+const START_TIMEOUT_MESSAGE = "Chrome did not start";
+
+async function launchChromeOnce(startTimeoutMs: number): Promise<ChromeHandle> {
   const exe = findChrome();
   if (!exe) throw new Error("Chrome not found: set CHROME_PATH");
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "bh-chrome-"));
@@ -86,7 +106,7 @@ export async function launchChrome(): Promise<ChromeHandle> {
       };
       const onExit = (code: number | null) => finish(new Error(`Chrome exited (${code})`));
       const onError = (error: Error) => finish(error);
-      const timer = setTimeout(() => finish(new Error("Chrome did not start")), 15000);
+      const timer = setTimeout(() => finish(new Error(START_TIMEOUT_MESSAGE)), startTimeoutMs);
       proc.stderr.on("data", onData);
       proc.once("exit", onExit);
       proc.once("error", onError);

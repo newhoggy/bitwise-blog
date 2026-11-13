@@ -116,6 +116,44 @@ for (const mode of ["exit", "websocket"]) {
   });
 }
 
+test("a Chrome that is slow to start is launched again, and each failed attempt releases its profile", async (t) => {
+  // The first launch prints nothing and hangs; the second behaves.
+  const env = fixture(t, `${profileRecorder}
+const marker = require('node:path').join(require('node:path').dirname(process.env.PROFILE_RECORD), 'attempted');
+if (!fs.existsSync(marker)) { fs.writeFileSync(marker, profile); setInterval(() => {}, 1000); }
+else { console.error('DevTools listening on ws://fake'); setInterval(() => {}, 1000); }`);
+  const result = await run(["--input-type=module", "-e", `
+    globalThis.WebSocket = class {
+      static OPEN = 1;
+      readyState = 1;
+      constructor() { setTimeout(() => this.onopen(), 0); }
+      close() {}
+    };
+    const { launchChrome } = await import(${JSON.stringify(chromeModule)});
+    const chrome = await launchChrome(300);
+    await chrome.close();
+    console.log('CLOSED');
+  `], env);
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /retrying, attempt 2 of 3/);
+  assert.match(result.output, /CLOSED/);
+  assertProfileRemoved(env);
+  const first = fs.readFileSync(path.join(path.dirname(env.CHROME_PATH), "attempted"), "utf8");
+  assert.equal(fs.existsSync(first), false, `the failed attempt's profile was left behind: ${first}`);
+});
+
+test("a Chrome that never starts fails after three attempts, naming the cause", async (t) => {
+  const env = fixture(t, `${profileRecorder}\nsetInterval(() => {}, 1000);`);
+  const result = await run(["--input-type=module", "-e", `
+    const { launchChrome } = await import(${JSON.stringify(chromeModule)});
+    await launchChrome(200).then(() => { throw new Error('expected failure'); }, e => console.log(e.message));
+  `], env);
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /Chrome did not start/);
+  assert.equal((result.output.match(/retrying, attempt/g) ?? []).length, 2, result.output);
+  assertProfileRemoved(env);
+});
+
 test("renderer startup failure closes the static server and exits nonzero", async (t) => {
   const env = fixture(t, `${profileRecorder}\nprocess.exit(7);`);
   const result = await run([rendererFixture(env), "--system-fonts", "--only", "no-cases"], env);
