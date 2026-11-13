@@ -388,6 +388,83 @@
     setTimeout(() => target.classList.remove("is-target-flash"), 2000);
   }
 
+  /**
+   * Scrolling containers must be reachable by keyboard (a focusable scroll region needs a role that takes a
+   * name), but a container that fits must stay out of the tab order. So each candidate is measured, and only
+   * one that overflows gets tabindex, role and name. It is measured again when the container resizes (a phone
+   * turning, a closed details or inactive tab opening), when web fonts arrive (they change the content's size,
+   * not the container's) and when the viewport changes.
+   * Candidates: wide tables, code blocks (a <bh-codewalk>'s too), and anything marked data-scroll-region="Name"
+   * (page-specific strips). An authored tabindex is left alone.
+   */
+  const SCROLL_REGIONS = ".bh-article .table-wrap, .bh-article pre:not(.mermaid), .bh-article [data-scroll-region]";
+  function setupScrollRegions() {
+    const article = doc.querySelector(".bh-article");
+    if (!article) return;
+    const ours = new WeakSet(); // regions whose tabindex/role/label this function set
+    const watched = new WeakSet();
+    const regions = () => article.querySelectorAll(SCROLL_REGIONS);
+    const nameOf = (r) => {
+      if (r.dataset.scrollRegion) return r.dataset.scrollRegion;
+      if (r.matches("pre")) return "Code";
+      const cap = r.querySelector("caption");
+      return (cap && cap.textContent.replace(/\s+/g, " ").trim()) || "Table";
+    };
+    function sync(r) {
+      // A pixel of slack: sub-pixel sizes round, and a container that fits must not become a tab stop.
+      const scrolls = r.scrollWidth - r.clientWidth > 1 || r.scrollHeight - r.clientHeight > 1;
+      if (scrolls && !r.hasAttribute("tabindex")) {
+        r.tabIndex = 0;
+        r.setAttribute("role", "group");
+        r.setAttribute("aria-label", nameOf(r));
+        ours.add(r);
+      } else if (!scrolls && ours.has(r)) {
+        r.removeAttribute("tabindex");
+        r.removeAttribute("role");
+        r.removeAttribute("aria-label");
+        ours.delete(r);
+      }
+    }
+    const ro = new ResizeObserver((entries) => entries.forEach((e) => { const r = e.target.closest(SCROLL_REGIONS); if (r) sync(r); }));
+    /** Start watching regions not seen before, and measure them now: rendering (and so the observer) may be throttled. */
+    function scan() {
+      regions().forEach((r) => {
+        if (watched.has(r)) return;
+        watched.add(r);
+        ro.observe(r);
+        if (r.firstElementChild) ro.observe(r.firstElementChild); // a table growing inside its wrapper changes no box of the wrapper's
+        sync(r);
+      });
+    }
+    scan();
+    let queued = false;
+    const syncAll = () => regions().forEach(sync);
+    if (doc.fonts) {
+      doc.fonts.addEventListener("loadingdone", syncAll);
+      if (doc.fonts.ready) doc.fonts.ready.then(syncAll);
+    }
+    // Components add regions after load (charts and matrices build their tables), and code or table content
+    // changes (highlighting, a script) can overflow a box whose own size did not change: look at what was touched.
+    const touched = new Set();
+    new MutationObserver((records) => {
+      for (const m of records) {
+        const node = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+        const r = node && node.closest(SCROLL_REGIONS);
+        if (r) touched.add(r);
+        for (const n of m.addedNodes) if (n.nodeType === 1 && (n.matches(SCROLL_REGIONS) || n.querySelector(SCROLL_REGIONS))) touched.add(article);
+      }
+      if (!touched.size || queued) return;
+      queued = true;
+      setTimeout(() => {
+        queued = false;
+        const list = [...touched];
+        touched.clear();
+        if (list.includes(article)) scan();
+        list.forEach((r) => { if (r !== article) sync(r); });
+      }, 0);
+    }).observe(article, { childList: true, subtree: true, characterData: true });
+  }
+
   function setupDeepLinks() {
     buildLinkTargets();
     addEventListener("hashchange", () => revealTarget(false));
@@ -1547,9 +1624,10 @@
       }
       // ?present opens straight into slides (at the slide holding #id, if any).
       if (new URLSearchParams(location.search).has("present") && doc.querySelector(".bh-article > h2")) {
-        return loadModule("present.js").then(() => { setupDeepLinks(); window.bh.present && window.bh.present.enter(); });
+        return loadModule("present.js").then(() => { setupDeepLinks(); setupScrollRegions(); window.bh.present && window.bh.present.enter(); });
       }
       setupDeepLinks();
+      setupScrollRegions();
     });
     if (doc.fonts && doc.fonts.ready) settle(doc.fonts.ready);
     signalWhenSettled();

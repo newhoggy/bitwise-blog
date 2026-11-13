@@ -737,6 +737,10 @@ for everyone: highlights and pins, opening into threads.
 - Everything respects `prefers-reduced-motion`, and every page must still read
   correctly with JavaScript disabled.
 - Controls are real `<button>` and `<input>` elements, with visible labels and the keyboard working.
+- **Scrolling containers are keyboard-reachable only while they scroll.** `bh.js` gives a `.table-wrap`, a
+  code block or a `data-scroll-region="Name"` element `tabindex="0"`, `role="group"` and a name when it
+  overflows, and removes them when it fits. Mark a page-specific scroll strip with `data-scroll-region`
+  rather than adding `tabindex` by hand.
 
 ## Page scripts & simulations
 
