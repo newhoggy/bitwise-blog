@@ -707,3 +707,25 @@ Claude write one"), four trigger queries (#39 to #42, two held-out) and the outp
   moved between −0.28 and +0.17 across earlier runs with no change to the skill, and its with-skill score (0.80) is in its
   earlier range (0.81 to 0.87), so this is read as noise, not a regression from a reading-list line.
 - **#25 missed in all three runs**, as it has before (1 of 3, then 2 of 3): it names an explainer the empty sandbox lacks.
+
+**Cases for the other three models**, added the same day. Their graders were written before any answer to them had been
+read, so unlike `prompt-sol-explainers` the gaps are not the reference grading answers it had already seen.
+
+| Case | With | Without | Δ | Cost |
+| --- | --- | --- | --- | --- |
+| `prompt-sonnet-setup` | 0.93 | 0.47 | +0.47 | $1.82 |
+| `prompt-opus-explainers` | 0.93 | 0.67 | +0.27 | $1.68 |
+| `prompt-astra-tutorials` | 1.00 | 0.87 | +0.13 | $0.51 |
+
+- **Sonnet:** the baseline knew that `between_tools` with no tools means no thinking (3 of 3), but never tied the missing
+  steps to literal instruction following and never split drafting from a scoped revision. The with-skill miss is one run of
+  the literal-following grader.
+- **Opus:** the gap is mostly the effort setting (no baseline run raised effort) plus one run each of point-first and
+  showing the consequence. One with-skill run failed "don't rely on its own revision" (votes PASS FAIL FAIL).
+- **Astra measures little.** Its prompt gives away most answers: it quotes the nominalised sentence and points at the
+  2,000-line style skill, and the baseline passed the skill-file audit in every run. Only "asks for depth" separates the
+  arms. Δ +0.13 is under the 0.2 noise rule. It is kept as recorded; a rewrite with fewer hints would be a change to the
+  case after seeing it score, and should be recorded as one.
+- `--case` takes one glob: repeating the flag kept only the last, and a brace glob (`prompt-{opus,astra}-*`) or a bracket
+  glob (`prompt-[oa]*`) matched nothing and printed nothing. Run such cases one `--case` at a time.
+
