@@ -27,6 +27,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-11-10: `pedagogical-diagrams` added, and the boundary with `pedagogical-writing` (#80)
 - 2026-11-12: what the scheduled run costs, measured through `npm run skill-evals` (#122)
 - 2026-11-13: `pedagogical-writing` gets guidance for drafting with GPT and Claude models (#150)
+- 2026-11-13: the per-model cases on Haiku and Opus, and a prose base prompt (#152)
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -740,4 +741,44 @@ graders were written before the run.
 No baseline run gave a rule for abstract-noun sentences or a way to simplify without losing conditions and exceptions
 (0 of 3 each), and one missed the other instruction files Codex reads. The hinted case was deleted, since it measured under
 the noise rule and the new case covers the same ground; its result above stays as the record.
+
+## 2026-11-13: the per-model cases on Haiku and Opus, and a prose base prompt (#152)
+
+Claude Code 2.1.318, judge `claude-haiku-5-5`, three runs per arm, each case run on its own (`--case` takes one glob).
+The two commits that added `prompt-opus-explainers`, `prompt-sonnet-setup` and `prompt-astra-unhinted` were pushed after
+#151 merged, so they land here.
+
+**The four cases with other agent models** (with / without the skill; "fired" is the with-skill runs that called `Skill`):
+
+| Case | Haiku | Haiku fired | Opus | Opus fired |
+| --- | --- | --- | --- | --- |
+| `prompt-sol-explainers` | 0.94 / 0.39 | 3 of 3 | 0.89 / 0.28 | 3 of 3 |
+| `prompt-astra-unhinted` | 0.94 / 0.33 | 3 of 3 | 1.00 / 0.50 | 3 of 3 |
+| `prompt-opus-explainers` | 0.60 / 0.80 | **1 of 3** | 0.80 / 0.73 | 3 of 3 |
+| `prompt-sonnet-setup` | 0.67 / 0.47 | 3 of 3 | 0.93 / 0.60 | 3 of 3 |
+
+Haiku $0.33, Opus $8.10.
+
+- **Haiku's −0.20 on `prompt-opus-explainers` is a loading failure, not a worse answer.** The skill fired in one run of
+  three, and even an answer written with the skill in view said it "didn't open the skill's `drafting-with-models.md`
+  reference" and answered from the core loop instead (need, naive attempt, crack, fix), which the point-first grader does
+  not reward. The prompt reads as a question about an API model's system prompt. The same gap as #86: Haiku needs a more
+  explicit pointer, or a trigger query that measures it (`--model claude-haiku-5-5`).
+- **Opus without the skill already gets most of `prompt-opus-explainers`** (Δ +0.07, under the noise rule); no arm on any
+  model raised effort, so that grader fails everywhere and may be asking for a fact the reference states too quietly.
+- **Sol and Astra hold on both models** (Δ +0.50 to +0.61).
+
+**Prose versus list base prompt** (Sonnet agent, `--ablation none`, with the skill only):
+
+| Case | List | Prose |
+| --- | --- | --- |
+| `prompt-sol-explainers` | 0.95 | 1.00 |
+| `prompt-astra-unhinted` | 0.95 | 1.00 |
+| `prompt-opus-explainers` | 0.89 | 0.89 |
+| `prompt-sonnet-setup` | 0.89 | 0.83 |
+| Mean | 0.92 | 0.93 |
+
+List $2.30, prose $2.41. Equal within noise, so the prose version was kept: no worse on Claude's advice, and in the
+form Anthropic's guide recommends. **This does not test what the change is for.** Whether a prose prompt makes Astra write
+fewer bullets needs Astra's own output; a direct API run was not made here.
 
