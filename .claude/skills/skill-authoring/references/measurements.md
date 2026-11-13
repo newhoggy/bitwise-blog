@@ -729,3 +729,15 @@ read, so unlike `prompt-sol-explainers` the gaps are not the reference grading a
 - `--case` takes one glob: repeating the flag kept only the last, and a brace glob (`prompt-{opus,astra}-*`) or a bracket
   glob (`prompt-[oa]*`) matched nothing and printed nothing. Run such cases one `--case` at a time.
 
+**`prompt-astra-unhinted` replaces `prompt-astra-tutorials`.** The new prompt names only the symptom (readers find the
+tutorials hard to follow although the content is right), with no quoted sentence and no mention of a skill file. Its six
+graders were written before the run.
+
+| Case | With | Without | Δ | Cost |
+| --- | --- | --- | --- | --- |
+| `prompt-astra-unhinted` | 1.00 | 0.61 | +0.39 | $0.51 |
+
+No baseline run gave a rule for abstract-noun sentences or a way to simplify without losing conditions and exceptions
+(0 of 3 each), and one missed the other instruction files Codex reads. The hinted case was deleted, since it measured under
+the noise rule and the new case covers the same ground; its result above stays as the record.
+
