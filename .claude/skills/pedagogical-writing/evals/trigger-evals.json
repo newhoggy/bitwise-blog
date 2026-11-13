@@ -36,5 +36,9 @@
   {"query": "is the token bucket playground worth building at all, or would plain prose do? the page explains refill rate and burst size", "should_trigger": true},
   {"query": "my diagram shows the same code as a tree and as a table side by side, and readers keep asking which one to look at. how do I tie them together?", "should_trigger": false, "heldout": true},
   {"query": "the arrows in my pipeline figure point both ways and nobody can tell which are data and which are control. help me redesign it", "should_trigger": false, "heldout": true},
-  {"query": "after the stepper on the rank page, what question should I ask the reader to check they got it, before I reveal the answer?", "should_trigger": true, "heldout": true}
+  {"query": "after the stepper on the rank page, what question should I ask the reader to check they got it, before I reveal the answer?", "should_trigger": true, "heldout": true},
+  {"query": "write a system prompt for GPT-6.1 Sol so the tutorials it drafts for my blog are easier to follow without losing precision", "should_trigger": true},
+  {"query": "write a system prompt for a customer support chatbot built on Claude Sonnet 5.5 that answers billing questions", "should_trigger": false},
+  {"query": "Opus 5.5 keeps burying the point in the explainer drafts it writes for me. what should I put in my prompt so it leads with it?", "should_trigger": true, "heldout": true},
+  {"query": "which is cheaper per token for bulk summarisation, GPT-6.1 Sol or Claude Sonnet 5.5?", "should_trigger": false, "heldout": true}
 ]
