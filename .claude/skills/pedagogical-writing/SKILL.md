@@ -1,6 +1,6 @@
 ---
 name: pedagogical-writing
-description: Guidelines for writing and revising explanations whose purpose is teaching. Covers ordering ideas, pacing, example choice, vocabulary, sentence and paragraph flow, interactives, checks for the reader, voice, and scoping a page, a series, or a video. Use when drafting, outlining, restructuring, rewriting or reviewing an explainer, tutorial, lesson, or technical blog page, or a passage of one, or when asked why a page is hard to follow, even if the request doesn't say "pedagogy". Triggers on requests like "write an explainer", "teach", "tutorial", "make this easier to understand", "the reader gets lost here", "3blue1brown style", "review this page for clarity". Not for explaining code, errors or command output in conversation, ADR or design-doc review (review-adr), diagram design (pedagogical-diagrams), charts (dataviz), isometric figures (anatomy), or editing skills, CLAUDE.md or settings (skill-authoring, update-config).
+description: Guidelines for writing and revising explanations whose purpose is teaching. Covers ordering ideas, pacing, example choice, vocabulary, sentence and paragraph flow, interactives, checks for the reader, voice, and scoping a page, a series, or a video. Use when drafting, outlining, restructuring, rewriting or reviewing an explainer, tutorial, lesson, or technical blog page, or a passage of one, or a prompt that makes GPT or Claude write one, or when asked why a page is hard to follow, even if the request doesn't say "pedagogy". Triggers on requests like "write an explainer", "teach", "tutorial", "make this easier to understand", "the reader gets lost here", "3blue1brown style", "review this page for clarity". Not for explaining code, errors or command output in conversation, ADR or design-doc review (review-adr), diagram design (pedagogical-diagrams), charts (dataviz), isometric figures (anatomy), or editing skills, CLAUDE.md or settings (skill-authoring, update-config).
 ---
 
 # Pedagogical writing
@@ -32,6 +32,10 @@ Read the reference file the task needs:
   keeping the reader oriented past ~3,000 words, and multi-page series.
 - [references/review.md](references/review.md): the review procedure, its audits
   and calibration numbers. Read it before reviewing a page.
+- [references/drafting-with-models.md](references/drafting-with-models.md): the
+  prompt and checks for having another model (GPT-6.1 Sol, GPT-6 Astra, Claude
+  Opus 5.5 or Sonnet 5.5) draft or revise teaching prose, and what each gets wrong.
+  Read it before writing such a prompt or diagnosing a model's drafts.
 - [references/sources.md](references/sources.md): where each rule comes from, how
   strong the evidence is, and how conflicts between sources are resolved.
 

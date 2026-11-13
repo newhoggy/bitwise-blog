@@ -14,6 +14,7 @@ seem to disagree.
 - Learning research
 - Video educators
 - Programming and functional programming
+- Drafting with another model
 - Tensions with the 3Blue1Brown rules, and how the skill resolves them
 - Looked at and left out
 
@@ -102,6 +103,15 @@ seem to disagree.
 | Graham Hutton | Preface stated; method observed | Specialised types first; each step annotated with its reason; the naive version as oracle; the simplification you decline | *Programming in Haskell* front matter, *The Countdown Problem*, Computerphile |
 | Bartosz Milewski | Stated (preface) and observed | Code the reader already writes; "you've already been using it"; several notations, one reading | *Category Theory for Programmers* |
 | *Haskell Programming from First Principles*; Gabriella Gonzalez | Stated (book site) and observed | Abstract by asking which part is common and which varies; minimal pairs; let the reader verify with the real tool | haskellbook.com sample; haskellforall.com |
+
+## Drafting with another model
+
+The per-model findings in [drafting-with-models.md](drafting-with-models.md) have their own
+sources table there, dated 2026-11-13. They are weaker than everything above: vendor prompting
+guides, single-outlet reviews on their own prompt sets (mostly general prose or fiction, not
+explanations), and forum reports. None is a controlled test on teaching prose, so the file
+treats each finding as a hypothesis to test on the author's passages. The base prompt in that
+file restates this skill's rules; it adds no new evidence.
 
 ## Tensions with the 3Blue1Brown rules, and how the skill resolves them
 

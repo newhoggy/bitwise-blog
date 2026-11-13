@@ -26,6 +26,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-10-30: three `pedagogical-writing` graders that passed in few or unstable runs (#97)
 - 2026-11-10: `pedagogical-diagrams` added, and the boundary with `pedagogical-writing` (#80)
 - 2026-11-12: what the scheduled run costs, measured through `npm run skill-evals` (#122)
+- 2026-11-13: `pedagogical-writing` gets guidance for drafting with GPT and Claude models (#150)
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -677,3 +678,32 @@ what the two eval tools write; they are not a comparison of any skill version.
 - **An earlier attempt with a $5 cap stopped at 21 of 26 queries** ($5.58, the ceiling is checked before each run
   starts so it can be passed by the runs in flight). The runner reported the other five as missing, which the script first
   called "failed to load". `--json` now records `partial`, so a run cut short by the ceiling says so.
+
+## 2026-11-13: `pedagogical-writing` gets guidance for drafting with GPT and Claude models (#150)
+
+Claude Code 2.1.317, agent `claude-sonnet-5-5`, judge `claude-haiku-5-5`, three runs per arm. The change adds
+`references/drafting-with-models.md`, a reading-list entry, a clause in the description ("or a prompt that makes GPT or
+Claude write one"), four trigger queries (#39 to #42, two held-out) and the output case `prompt-sol-explainers`.
+
+| Run | Result | Cost |
+| --- | --- | --- |
+| New trigger queries only (`--only 39,40,41,42`) | 4 of 4 (train 2/2, held-out 2/2) | $1.69 |
+| `prompt-sol-explainers`, first version | with 0.80, without 0.87, Δ −0.07 | $0.46 |
+| `prompt-sol-explainers`, after the fixes below | with 1.00, without 0.56, Δ +0.44 | $0.47 |
+| Full trigger suite, 42 queries | 41 of 42 (train 29/29, held-out 12/13); the miss is #25, 0 of 3 | $8.83 |
+| Full output suite, 6 cases | mean Δ +0.34 | $4.24 |
+
+- **The first version of the case caught a defect in the reference.** Every with-skill run failed "drops the brevity
+  rule": the base prompt said "Keep it short by choosing what to include" while the Sol lines said "Length is not a
+  constraint". That is the conflicting pair the reference itself warns a literal model obeys both halves of. The base
+  prompt now says what to leave out, not how long to be.
+- **Two graders measured what Claude already does.** The baseline proposed a "confused reader" second pass in 2 of 3
+  runs, so that grader was replaced by one for checking a rewrite for lost claims, conditions and exceptions, and a grader
+  was added for removing leftover or conflicting rules elsewhere because the model follows instructions literally. No
+  baseline run passed either. **Caution:** both were written after reading with-skill answers, so part of the +0.44 is
+  the reference grading itself, as with `pedagogical-diagrams` above.
+- **Per case** in the full suite: `design-rank-interactive` +0.48, `rewrite-token-bucket` +0.47, `outline-bloom-filters`
+  +0.46, `prompt-sol-explainers` +0.44, `plan-rank-select-series` +0.33, `review-deflate-page` −0.13. The review case has
+  moved between −0.28 and +0.17 across earlier runs with no change to the skill, and its with-skill score (0.80) is in its
+  earlier range (0.81 to 0.87), so this is read as noise, not a regression from a reading-list line.
+- **#25 missed in all three runs**, as it has before (1 of 3, then 2 of 3): it names an explainer the empty sandbox lacks.
