@@ -293,6 +293,7 @@
       if (n > 1) pin.append(el("span", { class: "bh-review-pin-count", text: String(n) }));
       pinLayer.append(pin);
     });
+    pinLayer.hidden = !pinLayer.children.length; // an empty "Review comments" landmark would lead nowhere
     renderPanel();
     updateCount();
   }
@@ -651,7 +652,7 @@
       if (!started) {
         started = true;
         load();
-        pinLayer = el("div", { class: "bh-review-pins bh-review-ui", "aria-label": "Review comments" });
+        pinLayer = el("div", { class: "bh-review-pins bh-review-ui", role: "region", "aria-label": "Review comments" });
         selBtn = el("button", { type: "button", class: "btn primary bh-review-selbtn bh-review-ui", text: "Comment", hidden: true, onmousedown: (e) => e.preventDefault(), onclick: commentOnSelection });
         liveRegion = el("p", { class: "visually-hidden bh-review-ui", "aria-live": "polite" });
         doc.body.append(pinLayer, selBtn, liveRegion);

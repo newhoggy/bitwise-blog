@@ -467,7 +467,13 @@ html.bh-presenting { font-size: clamp(16px, 0.55vw + 11px, 24px); scroll-padding
   transform: translateX(-50%);
   opacity: 0.55;
   transition: opacity var(--dur-2);
+  /* left: 50% would otherwise cap the bar's width at half the screen and squeeze the buttons (Full screen fell to 14px wide on a phone). */
+  width: max-content;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: calc(100vw - 2 * var(--space-2));
 }
+.bh-present-bar > * { flex: none; }
 .bh-present-bar:hover, .bh-present-bar:focus-within { opacity: 1; }
 .bh-present-count { min-width: 4.5ch; text-align: center; font-size: var(--step--1); font-variant-numeric: tabular-nums; color: var(--text-muted); }
 
