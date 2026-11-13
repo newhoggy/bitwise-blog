@@ -47,6 +47,8 @@ Each line restates a rule from this skill as a requirement the model can check. 
 reader and the goal; a prompt that names no reader gets prose for no one. The block has no
 length rule on purpose: it says what to leave out, not how long to be, so it does not
 conflict with the per-model lines below (a literal model obeys both halves of a conflict).
+It is written as paragraphs because a prompt's formatting tends to carry into the output
+(Anthropic's prompting guide); keep any lines you add as prose too.
 
 ```text
 Reader: <who they are; what they already know; what they don't>.
@@ -56,11 +58,10 @@ Write to be understood on the first read. An explanation the reader has to rerea
 has failed. Leave out what this reader does not need, but never compress what they do need
 into fragments, abbreviations or jargon.
 
-Every explanation contains:
-- the question or problem it answers, before the answer;
-- one example with real numbers, worked step by step for the reader, before the general rule;
-- the reason for each step ("because ..."), not only the step;
-- the conditions under which each claim holds, and its exceptions.
+Every explanation states the question or problem it answers before the answer. It works one
+example with real numbers step by step for the reader before giving the general rule, gives
+the reason for each step ("because ...") and not only the step, and says under which
+conditions each claim holds and what its exceptions are.
 
 Put each section's point in its first one or two sentences, then the example and the reasons
 that support it.
