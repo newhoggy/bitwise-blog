@@ -111,6 +111,16 @@ and give each added component one concrete need. Generalise last.
 - "That's a fact I'd like you to tuck away, we'll return to it later." (EK32jo7i5LQ)
 - Page: give the planted fact an `id` (a `data-linkable` callout or a caption sentence); at the payoff, restate it in a clause and `data-ref` back.
 
+### Uses named in the opening are promises
+A concrete use in the hook (a named system, a place, a cost in numbers) makes the page
+relevant without a sweeping claim, and commits it: return to each use by name, later, with
+the mechanism now in hand.
+- Beyond The Graph names bananas, rocks and the air in its first minute, then returns to each
+  by name (potassium in bananas, potassium-argon dating of rocks, the argon in the air) once
+  the mechanism is built.
+- Page: "the same index answers this in 2 µs on a laptop" in the hook, and that 2 µs measured
+  in the section that builds the index.
+
 ### Defer out loud
 - "You might naturally wonder where on earth does this grid come from, but I actually want to postpone that question and skip ahead to step three" (ldxFjLJ3rVY)
 - Page: one sentence in the prose plus a forward link, or "not covered here" with the search term.
@@ -217,6 +227,22 @@ part of the mechanism; history as colour is not.
   (Sundararajan & Adesope, 2020, via a summary).
 - Muller's study added "interesting information" to an exposition; it did not help.
 
+### Applications in order of dose
+After the mechanism, order its uses by one principle under which each is the same mechanism
+pushed further: more nodes, more load, a failure, all at once. Each then needs no new framing,
+and the order itself is an argument. Say the principle where the applications begin.
+- Beyond The Graph, on an electron forced into a proton: a lone hydrogen atom (it cannot
+  happen), then a crowded nucleus (now and then), the sun (slowly), a collapsing star (all at
+  once), then a lab (on demand). Each section reuses the energy argument already built.
+- Page: rank on one 64-bit word, then on 2^20 bits with a directory, then on 2^32 bits where
+  the directory itself must shrink; not "where it is used: search engines, genomics, databases".
+
+### Find the cause by elimination
+List the candidate causes the reader knows, give each its everyday role, and rule each out
+before naming the one that can.
+- Beyond The Graph: "Gravity can't do that. Electromagnetism can't." The weak force is named
+  only after the other three fail.
+
 ## Examples and numbers
 
 ### Concrete values, finite first
@@ -292,6 +318,25 @@ carries quirks a cooked toy hides.
 One running example builds the model. Once it holds, two or three deliberately different
 worked cases help it transfer. Varying earlier adds load (the variability effect, Sweller).
 - Page: after the running bit vector, a sparse one and a dense one, each a short worked case.
+
+### Two kinds of analogy
+A *mapping* analogy carries a relation the argument computes with; a *summary* analogy
+compresses an insight the reader must already have. They go in different places.
+- Gentner's structure-mapping theory: what an analogy transfers is relations, not the
+  attributes of objects, and connected systems of relations rather than isolated ones. So a
+  mapping analogy is chosen for the relation it carries (a deficit, a balance, a rate in and a
+  rate out), not for looking like the thing.
+- A mapping analogy leads. Beyond The Graph's shop (you have $100 and the item costs $100 and
+  a few cents) arrives before the mechanism, explains why nothing happens, then returns by name
+  ("Remember the shop?") twice, extended rather than replaced: a crowded nucleus releases
+  "enough to pay the bill", and a lab can "simply bring more money". The whole second half is organised by it.
+- Say where it stops matching. Glynn's Teaching-With-Analogies model has the teacher "indicate
+  where the analogy breaks down" as one of its six steps (via secondary summaries).
+- A summary analogy goes last: see "Your aha is not their explanation" and "Analogies that
+  survive the quantitative step".
+- Page: a buffer as a bathtub, level = inflow − outflow, introduced with the first queue
+  trace, reused for backpressure ("the tap is turned down") and for a burst ("a bucket poured
+  in at once"); stated limit: a real buffer has a hard edge, a bathtub overflows smoothly.
 
 ### Specialised types first
 For FP pages, type generality is one more abstraction to delay: `length :: [a] -> Int` before
@@ -413,6 +458,32 @@ examples that produced the intuition; give the analogy at the end as a summary.
   really quite simple".
 - Offer several intuitions, say where each fails, and keep returning the reader to the
   definition. Typeclassopedia: "a `Functor` is simply what it is defined to be".
+- This is about the *summary* analogy. A mapping analogy, which carries a relation the
+  argument computes with, leads instead: see "Two kinds of analogy".
+
+### Reconcile a refuted guess that comes back
+A page that breaks a folk belief often meets the belief again later, true in a nearby sense.
+Unreconciled, the reader concludes the refutation was wrong. Say there what was refuted and
+when the belief does hold.
+- Beyond The Graph refutes "they explode" in its opening, then shows a supernova, and its
+  recap repeats "They don't explode" without separating the two.
+- Page: "a hash lookup is not a scan" in the opening; at the collision chain, "this is the
+  scan we ruled out, confined to one bucket: it stays short while the load factor stays low".
+
+### A minimal pair
+Set two cases side by side that differ in exactly one part, and say which part.
+- Beyond The Graph: a proton is up, up, down and a neutron up, down, down; "the only difference
+  … is one single quark".
+- Page: two bit vectors one bit apart and their rank directories, with the one changed count lit.
+
+### Personification has a cost
+"Wants", "tries" and "decides" make a mechanism memorable and can plant a purpose it does not
+have. Use them where the mechanism is already stated, and pair each with the causal sentence.
+- Talanquer found that chemistry textbooks' teleological explanations have heuristic value but
+  may lead to alternative conceptions and overgeneralisation (abstract); he later suggested
+  having students compare teleological and causal explanations (via a secondary summary).
+- Page: "the allocator wants a large block" next to "it searches the free list for the first
+  block of at least n bytes".
 
 ## Visuals
 
@@ -436,6 +507,7 @@ examples that produced the intuition; give the analogy at the end as a summary.
 ### Analogies that survive the quantitative step
 - "although it's a very visceral and memorable analogy, it's not like light has wheels, and it also tells you nothing about how to be more quantitative and derive the formula describing exactly how much light bends." (Cz4Q4QOuoo8)
 - An analogy that needs the answer goes last: "it turned out to be just a terrible idea. The whole thing only really made sense if you already understood Grover's algorithm." (RQWpF2Gb-gU)
+- Both are summary analogies. The placement rules for a mapping analogy are under "Two kinds of analogy" in Examples and numbers.
 
 ### Build visuals from the real computation
 - "when those mismatch, that's actually what's most interesting, when it's not computationally viable to give a perfect illustration of what I'm describing" (QvuQH4_05LI)
