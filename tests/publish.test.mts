@@ -165,7 +165,9 @@ test("published artifact keeps unlisted pages and their cards, and leaves them o
   // An unlisted page of its own (a copy of a post) and an unlisted page that is also an example.
   const quiet = "docs/quiet-demo.html", quietExample = "docs/quiet-example.html";
   const original = fs.readFileSync(path.join(f.source, post), "utf8");
-  const withMarker = (html: string, extra = "") => html.replace(/^(  <meta name="bh:tags" content="[^"]*">\n)/m, `$1  ${marker}\n${extra}`).replace(/<title>[^<]*<\/title>/, "<title>Quiet words</title>");
+  // `index` writes no JSON-LD on an unlisted page, so the copy drops the post's.
+  const withMarker = (html: string, extra = "") => html.replace(/^(  <meta name="bh:tags" content="[^"]*">\n)/m, `$1  ${marker}\n${extra}`).replace(/<title>[^<]*<\/title>/, "<title>Quiet words</title>")
+    .replace(/^[ \t]*<script type="application\/ld\+json">.*<\/script>\n/m, "");
   fs.writeFileSync(path.join(f.source, quiet), withMarker(original));
   fs.writeFileSync(path.join(f.source, quietExample), withMarker(original, '  <meta name="bh:example" content="true">\n').replace("<title>Quiet words</title>", "<title>Quiet example</title>"));
   for (const page of [quiet, quietExample]) {
@@ -335,5 +337,34 @@ test("GoatCounter: the source tree, templates and theme contain no analytics ref
   assert.ok(files.length > 20);
   for (const file of files) {
     assert.ok(!/<script\b[^>]*(?:data-goatcounter|gc\.zgo\.at)/i.test(fs.readFileSync(file, "utf8")), `${path.relative(ROOT, file)} must not carry the analytics tag`);
+  }
+});
+
+test("JSON-LD: posts and the home page ship their blocks; an unlisted page carrying one stops the publish", (t) => {
+  const ld = (html: string) => [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]!));
+  {
+    const f = fixture(t);
+    f.assemble();
+    preparePublishedSite(f.stage, f.source);
+    const home = ld(fs.readFileSync(path.join(f.stage, "index.html"), "utf8"));
+    assert.deepEqual(home.map((d) => d["@type"]), ["WebSite"]);
+    const published = fs.readFileSync(path.join(f.stage, post), "utf8");
+    const social = (html: string) => (html.match(/<!-- bh:social:start\b[\s\S]*?<!-- bh:social:end -->/) || [""])[0];
+    assert.equal(social(published), social(fs.readFileSync(path.join(f.source, post), "utf8")), "a post's social block ships as written");
+    assert.deepEqual(ld(published).map((d) => d["@type"]), ["TechArticle"]);
+    for (const page of fs.readdirSync(path.join(f.stage, "docs")).filter((n) => n.endsWith(".html"))) {
+      const html = fs.readFileSync(path.join(f.stage, "docs", page), "utf8");
+      if (/<meta name="bh:unlisted" content="true">/.test(html)) assert.equal(ld(html).length, 0, `${page} is unlisted and carries no JSON-LD`);
+    }
+  }
+  {
+    // A copy of a post marked unlisted without re-running `index` still holds the post's block.
+    const f = fixture(t);
+    const quiet = path.join(f.source, "docs/quiet-stale.html");
+    fs.writeFileSync(quiet, fs.readFileSync(path.join(f.source, post), "utf8").replace("</title>", '</title>\n  <meta name="bh:unlisted" content="true">'));
+    assert.equal(ld(fs.readFileSync(quiet, "utf8")).length, 1, "the copy holds a block");
+    f.assemble();
+    assert.throws(() => preparePublishedSite(f.stage, f.source), /Refusing to publish JSON-LD on the unlisted page docs\/quiet-stale\.html/);
+    assert.ok(fs.existsSync(path.join(f.stage, example)), "failure before pruning");
   }
 });

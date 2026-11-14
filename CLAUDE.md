@@ -102,6 +102,15 @@ nothing for this; two generated things do the work.
   fails on them, and on a missing or stale block. Keep the marker pair in the `<head>`
   (the templates have it). Keep descriptions under about 200 characters, since previews cut
   them off (`check` warns).
+- **Structured data.** The block also ends with one `<script type="application/ld+json">` line
+  of schema.org data, for search engines: a `TechArticle` on each post (headline, description,
+  `datePublished`, authors, keywords, url, card image, publisher) and a `WebSite` on the home
+  page. Posts are the feed's: example, unlisted and `reference` pages get none, and sealed
+  shells never have a block. The text is decoded from the page's HTML, and `</` and `<!--` are
+  JSON-escaped so a title cannot end the script. **Never write JSON-LD by hand**: `check` fails
+  on one outside the block, and the block's equality check catches a missing or stale one.
+  `bundle` drops its `url` and `image` (the publisher's site link stays, like the footer's
+  attribution link); `publish` refuses an unlisted page that carries one.
 - **The card image**, `docs/assets/og/<slug>.png`, 1200×630. `npm run cards` renders it in
   the local Chrome (Node ≥ 22; `CHROME_PATH` if it isn't found, and it needs network for the
   web fonts). It frames a **visual taken from the page itself** with the logo, the title, the
