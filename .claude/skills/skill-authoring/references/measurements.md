@@ -28,6 +28,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-11-12: what the scheduled run costs, measured through `npm run skill-evals` (#122)
 - 2026-11-13: `pedagogical-writing` gets guidance for drafting with GPT and Claude models (#150)
 - 2026-11-13: the per-model cases on Haiku and Opus, and a prose base prompt (#152)
+- 2026-11-14: `pedagogical-writing` no longer claims to scope a video
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -781,4 +782,19 @@ Haiku $0.33, Opus $8.10.
 List $2.30, prose $2.41. Equal within noise, so the prose version was kept: no worse on Claude's advice, and in the
 form Anthropic's guide recommends. **This does not test what the change is for.** Whether a prose prompt makes Astra write
 fewer bullets needs Astra's own output; a direct API run was not made here.
+
+## 2026-11-14: `pedagogical-writing` no longer claims to scope a video
+
+Claude Code 2.1.318, agent `claude-sonnet-5-5`, three runs per query. The description's "scoping a page, a series, or a
+video" became "scoping a page or a series" (973 characters). Every concrete rule in the skill is for a web page (folds,
+`details.predict`, sidenotes, `data-ref`), and none says how a script differs (no scroll-back, a spoken pause for a
+prediction, no fold for an aside), so the claim was not served. 3Blue1Brown videos stay the skill's main source; only
+the claim that it scopes a video goes.
+
+| Run | Result | Cost |
+| --- | --- | --- |
+| Full trigger suite, 42 queries | 41 of 42 (train 29/29, held-out 12/13); the miss is #25, 0 of 3 | $8.50 |
+
+The same result as the last full run (#150), with the same miss: #25 names an explainer the empty sandbox lacks. No
+query mentions a video, so the suite shows only that the shorter description loses nothing.
 
