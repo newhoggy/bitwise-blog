@@ -153,6 +153,9 @@ async function launchChromeOnce(startTimeoutMs: number): Promise<ChromeHandle> {
   return { send, close };
 }
 
+/** The theme's self-hosted font files, as a `Network.setBlockedURLs` pattern: block it to render with the system fonts. */
+export const FONT_FILES = "*/theme/fonts/*";
+
 /** Static server for `root` on a free port. `routes` maps a URL path to { type, body } and wins over files.
  * Symlinked roots and in-root targets are supported; targets outside the canonical root return 403.
  * Unresolvable paths return 404. Directories do not automatically select index.html.
@@ -160,7 +163,7 @@ async function launchChromeOnce(startTimeoutMs: number): Promise<ChromeHandle> {
 export function serveStatic(root: string, routes: Map<string, { type: string; body: string | Buffer }> = new Map()): Promise<http.Server> {
   root = fs.realpathSync(root);
   const contains = (file: string) => file === root || file.startsWith(root + path.sep);
-  const types: Record<string, string> = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png" };
+  const types: Record<string, string> = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2" };
   const server = http.createServer((req, res) => {
     let pathname: string;
     try { pathname = decodeURIComponent(new URL(req.url!, "http://x").pathname); } catch { res.writeHead(400).end(); return; }

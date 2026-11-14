@@ -20,9 +20,9 @@ Bitwise Engineering is licensed in parts.
     The IBM Plex Sans outlines in the wordmark stay under the SIL Open Font License 1.1,
     which the font is published under.
 
-Third-party fonts (Fraunces, IBM Plex Sans, JetBrains Mono, from Google Fonts) and Mermaid
-are loaded from their CDNs when a page is viewed. They are not part of this repository and
-keep their own licences.
+Third-party files served from this repository keep their own licences, which sit beside them:
+  theme/fonts/     Fraunces, IBM Plex Sans and JetBrains Mono (SIL Open Font License 1.1)
+  theme/vendor/    Prism and Mermaid (MIT)
 
 ----------------------------------------------------------------------------------------
 

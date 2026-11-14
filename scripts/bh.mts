@@ -29,6 +29,8 @@ import { arrowTipFindings, diagramLabelFindings } from "./check/diagram-geometry
 import { contrastFindings } from "./check/contrast.mts";
 import { feedContent, feedInteractives } from "./feed-content.mts";
 import { LEAK_ALLOWED } from "./leak-allowed.mts";
+import { remoteAssetProblems, themeRemoteProblems, vendoredPrismLanguages, codeLanguageProblems } from "./remote-assets.mts";
+import { VENDOR } from "./vendor.mts";
 import type { Doc, SocialMeta, JsonLd, Visual, CardJob, GlossaryEntry, TreeNode, ReviewComment, ReviewFile, ReviewRecord, OpItem, Finding } from "./types.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -359,11 +361,15 @@ function pickVisual(file: string, raw: string): Visual {
   return { tier: "logo", image: LOGO_TILE, label: "", source: "logo", files: [LOGO_TILE] };
 }
 
-/** Hash of the shared files every card is drawn from: the card layout, the logo, the theme CSS and bh.js (which adds a diagram's arrowhead markers). */
+/** Hash of the shared files every card is drawn from: the card layout, the logo, the theme CSS, the fonts and bh.js (which adds a diagram's arrowhead markers). */
 let sharedCardInputs: string | null = null;
 const cardInputsHash = (withModules: boolean): string => {
-  sharedCardInputs ??= sha256(["scripts/cards.mts", "theme/logo/mark.svg", "theme/bh.js", ...["tokens", "base", "layout", "components", "diagrams"].map((f) => `theme/${f}.css`)]
-    .map((f) => fs.readFileSync(path.join(ROOT, f))).join("\0"));
+  if (sharedCardInputs === null) {
+    const fontDir = path.join(ROOT, "theme", "fonts");
+    const fonts = fs.existsSync(fontDir) ? fs.readdirSync(fontDir).filter((f) => f.endsWith(".woff2")).sort().map((f) => `theme/fonts/${f}`) : [];
+    sharedCardInputs = sha256(["scripts/cards.mts", "theme/logo/mark.svg", "theme/bh.js", ...["fonts", "tokens", "base", "layout", "components", "diagrams"].map((f) => `theme/${f}.css`), ...fonts]
+      .map((f) => sha256(fs.readFileSync(path.join(ROOT, f)))).join("\0")); // per-file hashes: the fonts are binary
+  }
   if (!withModules) return sharedCardInputs;
   // <bh-…> components (charts, sequences, …) are drawn by the on-demand modules.
   const dir = path.join(ROOT, "theme", "modules");
@@ -1278,9 +1284,10 @@ function cmdCheck(skipKeys = false): void {
       ...contrastFindings(fs.readFileSync(path.join(ROOT, "theme", "tokens.css"), "utf8"), fs.readFileSync(path.join(ROOT, "theme", "components.css"), "utf8")).map((f) => f.message),
       ...logoProblems(),
       ...siteUrlProblems(),
+      ...themeRemoteProblems(ROOT),
       ...orphanCards().map((f) => `docs/assets/og/${f} belongs to no public page: run \`npm run cards\` to remove it`),
     ];
-    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + "theme (import order, token contrast, logo, site base, card files)");
+    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + "theme (import order, token contrast, logo, site base, card files, self-hosted fonts and scripts)");
     problems.forEach((p) => console.log(c.red("  error  ") + p));
     errors += problems.length;
   }
@@ -1420,6 +1427,7 @@ function cmdCheck(skipKeys = false): void {
 
   const exampleHrefs = new Set(publicDocs.filter((d) => d.example).map((d) => d.href));
   const unlistedHrefs = new Set(publicDocs.filter((d) => d.unlisted).map((d) => d.href));
+  const prismLanguages = vendoredPrismLanguages(ROOT);
   for (const file of files) {
     const rel = path.relative(ROOT, file);
     const raw = fs.readFileSync(file, "utf8");
@@ -1443,6 +1451,9 @@ function cmdCheck(skipKeys = false): void {
       const href = (m[0].match(/\bhref="([^"]+)"/) || [])[1];
       if (href && !/^(https?:|data:)/.test(href) && !fs.existsSync(path.resolve(path.dirname(file), href))) err(`icon ${href} does not exist`);
     }
+    // Third-party scripts and stylesheets: an exact version and an integrity hash, or served from theme/ (scripts/remote-assets.mts).
+    for (const p of remoteAssetProblems(html)) err(p);
+    if (prismLanguages) for (const p of codeLanguageProblems(html, prismLanguages)) warn(p);
 
     // The feed: one autodiscovery link in <head> and a visible Subscribe link in the footer (the home page, public pages, templates).
     if (!isPrivateSource(file)) {
@@ -1659,7 +1670,13 @@ function cmdCheck(skipKeys = false): void {
 function inlineCss(file: string, remote: Set<string>, seen = new Set<string>()): string {
   if (seen.has(file)) return "";
   seen.add(file);
-  const css = fs.readFileSync(file, "utf8");
+  // Files a stylesheet names with url() (the theme's fonts) resolve against it, so a standalone file carries them as data: URIs.
+  const css = fs.readFileSync(file, "utf8").replace(/(?<!@import\s+)url\(\s*(["']?)([^"')]+)\1\s*\)/g, (m, q, href) => {
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(href)) return m;
+    const p = path.resolve(path.dirname(file), href.split(/[?#]/)[0]);
+    const mime = CSS_MIME[path.extname(p).toLowerCase()];
+    return mime && fs.existsSync(p) ? `url("data:${mime};base64,${fs.readFileSync(p).toString("base64")}")` : m;
+  });
   return css.replace(/@import\s+url\(\s*["']?([^"')]+)["']?\s*\)\s*(?:layer\(([^)]+)\))?\s*;/g, (m, href, layer) => {
     if (/^https?:/.test(href)) { remote.add(m.trim()); return ""; }
     const body = inlineCss(path.resolve(path.dirname(file), href), remote, seen);
@@ -1668,6 +1685,7 @@ function inlineCss(file: string, remote: Set<string>, seen = new Set<string>()):
 }
 
 const MIME: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp", ".avif": "image/avif" };
+const CSS_MIME: Record<string, string> = { ...MIME, ".woff2": "font/woff2", ".woff": "font/woff" };
 
 function bundleOne(file: string): void {
   const dir = path.dirname(file);
@@ -1691,6 +1709,9 @@ function bundleOne(file: string): void {
       const mine = path.relative(ROOT, file).split(path.sep).join("/");
       const own = { [mine]: compileReviews().byDoc[mine] || [] };
       if (own[mine].length) scripts.push(`window.BH_REVIEWS = ${JSON.stringify(own)};`.replace(/<\/script/gi, "<\\/script"));
+      // bh.js loads the vendored Prism and Mermaid from theme/vendor/; inline the ones this page uses.
+      const needs = { prism: /<code\b[^>]*\sclass=["']?[^"'>]*\blanguage-/i.test(html), mermaid: /<pre\b[^>]*\sclass=["']?[^"'>]*\bmermaid\b/i.test(html) };
+      for (const [name, rel] of Object.entries(VENDOR)) if (needs[name as keyof typeof VENDOR]) scripts.push(fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/<\/script/gi, "<\\/script"));
     }
     scripts.push(fs.readFileSync(abs, "utf8").replace(/<\/script/gi, "<\\/script"));
     // On-demand modules can't be fetched from a standalone file: inline them all after bh.js.
@@ -1736,7 +1757,8 @@ function bundleOne(file: string): void {
   html = html.replace("</head>", `  <meta name="bh:source" content="${escapeHtml(source)}">\n</head>`);
   scripts.unshift(buildScript(buildInfo()));
   html = html.replace(/<a href="\.\.\/index\.html">← All documents<\/a>/g, "");
-  html = html.replace("</body>", scripts.map((s) => `<script>\n${s}\n</script>`).join("\n") + "\n</body>");
+  // A function, so `$&` and friends in a script (Mermaid has dozens) are not read as replacement patterns.
+  html = html.replace("</body>", () => scripts.map((s) => `<script>\n${s}\n</script>`).join("\n") + "\n</body>");
 
   fs.mkdirSync(DIST, { recursive: true });
   const out = path.join(DIST, path.basename(file));

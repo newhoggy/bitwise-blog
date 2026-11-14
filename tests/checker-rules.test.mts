@@ -155,6 +155,20 @@ const THEME_CASES: ThemeCase[] = [
     contains: ["error: theme/bh.css: @import of missing file nope.css"],
     only: /^error: theme\/bh\.css: @import of missing file nope\.css$/,
   },
+  {
+    // The fonts are self-hosted; a Google Fonts @import would send every reader's IP address to Google again.
+    name: "a stylesheet imported from another host",
+    file: "theme/bh.css", find: '@import url("fonts.css");', replace: '@import url("https://fonts.googleapis.com/css2?family=Inter");\n@import url("fonts.css");',
+    contains: ["error: theme/bh.css: loads https://fonts.googleapis.com/css2?family=Inter from another host: serve it from theme/ (fonts go in theme/fonts/, declared in theme/fonts.css)"],
+    only: /^error: theme\/bh\.css: loads https:\/\/fonts\.googleapis\.com\//,
+  },
+  {
+    // Theme code cannot carry an integrity hash, so it loads nothing from a CDN; it also stops naming the vendored file.
+    name: "a theme script loaded from a CDN",
+    file: "theme/bh.js", find: '"theme/vendor/mermaid-', replace: '"https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js#',
+    contains: ["error: theme/bh.js: names https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js#11.17.2/mermaid.min.js on another host: vendor what it loads under theme/vendor/ (scripts/vendor.mts)"],
+    only: /^error: theme\/bh\.js(?:: names https:\/\/cdn\.jsdelivr\.net\/| does not load theme\/vendor\/mermaid-)/,
+  },
 ];
 
 for (const c of THEME_CASES) {
