@@ -107,8 +107,11 @@ The authoring and publishing commands (`index`, `check`, `bundle`, `seal`, …) 
 
 - **CI** (`.github/workflows/ci.yml`) runs on every push and pull request. It
   syntax-checks the browser scripts, type-checks the Node tooling (`npm run typecheck`), runs `npm run check` (which also verifies each page's social
-  meta and card), uploads all documents bundled as single files, and renders every page in
-  Chrome (light, dark and phone layouts).
+  meta and card), uploads all documents bundled as single files, and renders the key pages in
+  Chrome (light, dark and phone layouts). On a pull request the renders are diffed against the
+  latest build of `main`, and the render job's summary lists the pages that changed, with the
+  images in the `renders` artifact's `report.html`. The diff only reports; a page that fails to
+  render fails the job.
 - **GitHub Pages** (the `deploy` job in `.github/workflows/ci.yml`) publishes a copy of the repo to
   [bitwise.john-ky.io](https://bitwise.john-ky.io/) from `main`, only after the `check` and `render`
   jobs pass on that commit, so a commit that fails type-checking, tests, `npm run check` or the
@@ -181,6 +184,8 @@ scripts/stats.mts       `npm run stats`: views per page from GoatCounter's expor
 scripts/sync-posts.mts  `npm run sync-posts`: pull a writer's posts into corpus/<writer>/posts/ (git-ignored); see corpus/README.md
 scripts/ingest/         The platform ingesters sync-posts runs: Substack, LessWrong, Medium, WordPress, Ghost
 scripts/visual.mts      Visual regression: Chrome via DevTools protocol, PNG diff, HTML report
+scripts/visual-report.mts    What a visual run concluded: the CI job summary and the exit code
+scripts/visual-baseline.mts  CI: fetch main's renders (artifact `visual-baseline`) as a pull request's baseline
 dist/                   Bundled single-file outputs (git-ignored)
 ```
 

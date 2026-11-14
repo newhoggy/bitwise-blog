@@ -72,6 +72,10 @@ jobs:
     runs-on: ubuntu-latest
     # Normally about 2 minutes.
     timeout-minutes: 10
+    # actions: read lets a pull request download the baseline another run (a build of main) uploaded.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
 
@@ -79,18 +83,57 @@ jobs:
         with:
           node-version: 22
 
-      # Baselines are machine-specific and live outside git, so CI renders without
-      # comparing: the run fails if any page throws before signalling data-bh-ready.
+      # A pull request is compared with the renders of the latest build of main (the artifact
+      # `visual-baseline`, below), preferring the build of its base commit. None yet (before
+      # main's first build with this step, or after the artifact expires) is a warning, not a
+      # failure: every page then renders as new.
+      - name: Fetch main's renders as the baseline
+        if: github.event_name == 'pull_request'
+        run: node scripts/visual-baseline.mts --dir .visual/system-fonts/baseline --base "$BASE_SHA"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+      # Report only: a visual difference shows in the job summary and the report, but only a page
+      # that throws or never signals data-bh-ready fails the job. Diffs come from the CI image on
+      # both sides, though a Chrome update between the two builds can add noise (the summary says).
       - name: Render light, dark and phone layouts
-        run: npm run visual -- --system-fonts
+        run: |
+          args=(--system-fonts --report-only --base "$BASE_SHA")
+          if [ "$SAVES_BASELINE" = true ]; then args+=(--saves-baseline); fi
+          npm run visual -- "${args[@]}"
         env:
           CHROME_PATH: /usr/bin/google-chrome
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SAVES_BASELINE: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
 
+      # report.html with the baseline, current and diff images of every change.
       - uses: actions/upload-artifact@v4
+        id: report
         if: always()
         with:
           name: renders
           path: .visual/system-fonts/
+
+      # The baseline for pull requests: only from main, and only when every page rendered.
+      # 90 days is the most a public repository keeps.
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          name: visual-baseline
+          path: .visual/system-fonts/current/
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Summarise the visual changes
+        if: always()
+        env:
+          REPORT_URL: ${{ steps.report.outputs.artifact-url }}
+        run: |
+          summary=.visual/system-fonts/summary.md
+          if [ -f "$summary" ]; then cat "$summary" >> "$GITHUB_STEP_SUMMARY"; else echo "## Visual regression"$'\n\n'"The renders did not finish, so there is nothing to compare (see the log)." >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -n "$REPORT_URL" ]; then echo $'\n'"[Download the report](${REPORT_URL}) (open \`report.html\`)." >> "$GITHUB_STEP_SUMMARY"; fi
 
   # Off until you opt in (a repository setting, so it's yours to change):
   #   1. Settings → Pages → Build and deployment → Source: GitHub Actions

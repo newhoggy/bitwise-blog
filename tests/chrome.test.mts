@@ -62,7 +62,7 @@ function fixture(t: TestContext, body: string): FixtureEnv {
 function rendererFixture(env: FixtureEnv, renderer = "visual.mts"): string {
   const scripts = path.join(path.dirname(env.CHROME_PATH), "repo", "scripts");
   fs.mkdirSync(scripts, { recursive: true });
-  for (const file of [renderer, "chrome.mts"]) fs.copyFileSync(path.join(root, "scripts", file), path.join(scripts, file));
+  for (const file of [renderer, "chrome.mts", "visual-report.mts"]) fs.copyFileSync(path.join(root, "scripts", file), path.join(scripts, file));
   return path.join(scripts, renderer);
 }
 
@@ -162,7 +162,7 @@ test("renderer startup failure closes the static server and exits nonzero", asyn
   assertProfileRemoved(env);
 });
 
-test("rendering errors report failures and exit nonzero without lingering resources", async (t) => {
+for (const reportOnly of [false, true]) test(`rendering errors report failures and exit nonzero without lingering resources${reportOnly ? " (also with --report-only)" : ""}`, async (t) => {
   const env = fixture(t, `${profileRecorder}
 console.error('DevTools listening on ws://fake');
 setInterval(() => {}, 1000);`);
@@ -177,10 +177,14 @@ setInterval(() => {}, 1000);`);
       queueMicrotask(() => this.onmessage({ data: JSON.stringify({ id, error: { message: 'injected rendering failure' } }) }));
     }
   };`);
-  const result = await run(["--import", preload, rendererFixture(env), "--system-fonts", "--only", "index--light"], env);
+  const renderer = rendererFixture(env);
+  const result = await run(["--import", preload, renderer, "--system-fonts", "--only", "index--light", ...(reportOnly ? ["--report-only"] : [])], env);
   assert.equal(result.code, 1, result.output);
   assert.match(result.output, /injected rendering failure/);
-  assert.match(result.output, /1 cases .*1 changed/);
+  assert.match(result.output, /1 cases .*0 changed .*1 failed/);
+  // The CI job summary names the failure.
+  const summary = fs.readFileSync(path.join(path.dirname(renderer), "..", ".visual", "system-fonts", "summary.md"), "utf8");
+  assert.match(summary, /\*\*1 render failed\*\*[^]*- index--light: .*injected rendering failure/);
   assert.ok(result.reportDelay !== undefined && result.reportDelay < 2000, `report-to-exit took ${result.reportDelay}ms`);
   assertProfileRemoved(env);
 });

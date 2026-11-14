@@ -12,7 +12,8 @@ import { parse } from "yaml";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const WORKFLOWS = path.join(ROOT, ".github", "workflows");
 
-interface Job { needs?: string | string[]; if?: string; uses?: string; "timeout-minutes"?: number; permissions?: Record<string, string>; steps?: Array<{ uses?: string; run?: string }> }
+interface Step { name?: string; id?: string; if?: string; uses?: string; run?: string; with?: Record<string, unknown> }
+interface Job { needs?: string | string[]; if?: string; uses?: string; "timeout-minutes"?: number; permissions?: Record<string, string>; steps?: Step[] }
 interface Workflow { on: Record<string, unknown>; permissions?: Record<string, string>; jobs: Record<string, Job> }
 
 const load = (file: string): Workflow => parse(fs.readFileSync(path.join(WORKFLOWS, file), "utf8")) as Workflow;
@@ -49,6 +50,29 @@ test("the deploy job publishes only while its commit is still the head of main",
   const publishing = steps.filter((s) => s.uses?.startsWith("actions/deploy-pages") || s.uses?.startsWith("actions/upload-pages-artifact"));
   assert.ok(publishing.length === 2, "the deploy job uploads and deploys the Pages artifact");
   for (const step of publishing) assert.match(JSON.stringify(step), /steps\.fresh\.outputs\.current == 'true'/);
+});
+
+// The render job compares a pull request with main's renders (issue #165). It reads another run's artifact,
+// so it needs `actions: read`, and nothing that writes: a fork's pull request runs it too.
+test("the render job can read other runs' artifacts and write nothing", () => {
+  assert.deepEqual(load("ci.yml").jobs["render"]?.permissions, { contents: "read", actions: "read" });
+});
+
+test("only a build of main saves the visual baseline, and only a pull request fetches one", () => {
+  const steps = load("ci.yml").jobs["render"]?.steps ?? [];
+  const save = steps.filter((s) => s.uses?.startsWith("actions/upload-artifact") && s.with?.["name"] === "visual-baseline");
+  assert.equal(save.length, 1, "the render job uploads `visual-baseline` once");
+  assert.equal(save[0]?.if, "github.event_name != 'pull_request' && github.ref == 'refs/heads/main'");
+  assert.equal(save[0]?.with?.["path"], ".visual/system-fonts/current/");
+  const fetch = steps.filter((s) => s.run?.includes("scripts/visual-baseline.mts"));
+  assert.equal(fetch.length, 1, "the render job fetches the baseline once");
+  assert.equal(fetch[0]?.if, "github.event_name == 'pull_request'");
+  // The fetch must come before the render that compares with it.
+  const render = steps.findIndex((s) => s.run?.includes("npm run visual"));
+  assert.ok(steps.indexOf(fetch[0]!) < render, "the baseline is fetched before the pages are rendered");
+  assert.match(steps[render]?.run ?? "", /--report-only/);
+  // The summary says "saved as the baseline" exactly when the upload step runs.
+  assert.equal((steps[render] as { env?: Record<string, string> } | undefined)?.env?.["SAVES_BASELINE"], `\${{ ${save[0]?.if} }}`);
 });
 
 // A job with no `timeout-minutes` runs until GitHub's 360-minute default when a step hangs, keeps the
