@@ -6,7 +6,7 @@
 //   node scripts/bh.mts check [--skip-keys]   lint docs/ and index.html (--skip-keys: no 1Password lookups)
 //   node scripts/bh.mts cards                 render docs/assets/og/<slug>.png (needs Chrome; see scripts/cards.mts)
 //   node scripts/bh.mts bundle <page|--all>   inline theme → dist/<name>.html (single file)
-//   node scripts/bh.mts seal [--show-links|--reshell]   encrypt docs/*.private.html → docs/<slug>.html (see "Private pages")
+//   node scripts/bh.mts seal [--show-links|--reshell]   encrypt docs/*.private.html → docs/<slug>.html (see contracts/private-pages.md)
 //   node scripts/bh.mts unseal [slug…]        decrypt docs/<slug>.html → docs/<slug>.private.html
 //   node scripts/bh.mts serve [port]          static server (pages also work from file://)
 
@@ -2489,7 +2489,7 @@ if (!commands[cmd]) {
 
   new [--private] [--example] [--unlisted] <template> <slug> "<Title>" ["<desc>"]
                                                create docs/<slug>.html (or a git-ignored <slug>.private.html);
-                                               --unlisted publishes it off the site's listings (see CLAUDE.md)
+                                               --unlisted publishes it off the site's listings (see contracts/unlisted-pages.md)
   index                                        regenerate the document list in index.html
   check [--skip-keys]                          lint docs/ and index.html (links, ids, stepper refs, a11y);
                                                --skip-keys skips the 1Password lookups of private pages' keys

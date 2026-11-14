@@ -11,8 +11,8 @@ from it rather than inventing new markup.
 
 1. `npm run new -- <template> <slug> "<Title>" "<one-sentence description>"`
    - Templates: `explainer`, `design-doc`, `adr`, `incident`, `review`
-   - Add `--example` for a page that only demonstrates the theme (see [Example pages](#example-pages))
-   - Add `--unlisted` for a page that is published but not surfaced (see [Unlisted pages](#unlisted-pages))
+   - Add `--example` for a page that only demonstrates the theme (see [Example pages](contracts/example-pages.md))
+   - Add `--unlisted` for a page that is published but not surfaced (see [Unlisted pages](contracts/unlisted-pages.md))
    - This creates `docs/<slug>.html` and refreshes `index.html`
 2. Replace every placeholder section. Delete sections that don't earn their place.
 3. `npm run check`. It must report 0 errors. Fix the warnings unless there is a reason not to.
@@ -20,7 +20,7 @@ from it rather than inventing new markup.
    A clean `check` says nothing about rendering, so never skip this step. See
    [Verifying changes](#verifying-changes).
 5. `npm run cards` renders the page's social card (needs Chrome). Look at the PNG, then commit
-   it with the page. See [Social cards](#social-cards).
+   it with the page. See [Social cards](contracts/social-cards.md).
 6. For sharing outside the repo, run `npm run bundle -- docs/<slug>.html` and send `dist/<slug>.html`.
 
 Once per clone, run `npm run hooks`: it points `core.hooksPath` at the tracked `.githooks/`, whose
@@ -35,7 +35,7 @@ social meta block and feed autodiscovery link in every page's `<head>`, `feed.xm
 `theme/search-index.js`, `theme/unlisted-pages.js`, `theme/unlisted-slugs.js` and
 `theme/unlisted-reviews.js`. `check` fails while any of these are stale. Never edit the
 generated files by hand. `theme/private-cards.js` is generated too, but by `npm run seal`, not
-`index` (it needs the keys; see [Private pages](#private-pages)).
+`index` (it needs the keys; see [Private pages](contracts/private-pages.md)).
 
 `check` also compares two lists in `README.md`, fenced by `<!-- bh:deps -->` and `<!-- bh:examples -->`
 comments, with `package.json` and the `bh:example` markers. Edit the fenced list when either changes
@@ -44,502 +44,41 @@ comments, with `package.json` and the `bh:example` markers. Edit the fenced list
 Run `npm run cards` after changing a page's title, kind, date, or its first diagram or image
 (or the card layout, or the theme tokens): it re-renders every card that `check` calls stale.
 
-## Tooling
+## Feature contracts
 
-The Node tooling (`scripts/*.mts`, `tests/**/*.mts`) is TypeScript, type-checked with TypeScript 7 and run
-by Node itself, which strips the types (on by default from Node 22.18). There is still no build step.
+Each feature's full contract is a file in `contracts/` (outside `docs/`, so it is never published).
+Read it before you change the feature.
 
-- `npm ci` once, then `npm run typecheck` (`tsc -p .`, `noEmit`, `strict`). It must report 0 errors; CI runs it.
-- **Erasable syntax only**: no enums, namespaces or constructor parameter properties. Import types with
-  `import type` (`verbatimModuleSyntax`), and write relative imports with the real extension
-  (`./chrome.mts`, not `./chrome.mjs`).
-- Shared data shapes (a page, its `bh:*` metas, the records passed between `index`, `check`, `cards`,
-  `publish` and `bundle`) are named types, not inline objects. Prefer `unknown` and narrow it; `any` only for genuinely dynamic data (JSON, code run in `vm`, DevTools payloads), at the narrowest point.
-- **Nothing may hang.** Every job in `.github/workflows/*.yml` sets `timeout-minutes` (a few times its normal
-  run, at most 120: `tests/workflows.test.mts` fails otherwise), so a hung step fails in minutes rather than after
-  GitHub's 360-minute default. `npm test` passes `--test-timeout=180000`, so a test that is waiting on
-  something asynchronous (a request, a child's output) fails by name. It cannot interrupt a blocking
-  call such as `spawnSync` without its own `timeout`: the job timeout is the backstop for those. Give a new job a
-  timeout, and a test that legitimately needs longer its own `{ timeout }`.
-- The browser code stays plain JavaScript, because TypeScript there would need a build step:
-  `theme/bh.js`, `theme/modules/*.js`, and the per-page `<script>` blocks. So do `.claude/skills/**` and `figures/**`.
-- `scripts/cards.mts` is a social-card staleness input, so editing it (types included) makes every card stale:
-  re-run `npm run cards`.
-
-## Brand assets
-
-The logo is a "B" made of two bits: a solid upper bowl (1) over a hollow lower bowl (0).
-Files live in `theme/logo/`; `theme/logo/README.md` says which to use where.
-
-- **On a page, use the inline mark**, never an `<img>`: it takes its colour from the page,
-  so it follows both the `data-theme` toggle and `prefers-color-scheme`. The top bar already
-  has it. For a decorative mark elsewhere write
-  `<span class="bh-hero-mark" data-bh-logo aria-hidden="true"></span>`; `bh.js` fills it in.
-- **Standalone SVGs** (`mark.svg`, `mark-tile.svg`, `lockup.svg`) carry their own colours and
-  switch with `prefers-color-scheme` only: an `<img>` or a favicon cannot see page CSS
-  variables or the manual toggle. Use `mark-tile.svg` wherever the background is unknown.
-- Every page links the favicon (`<link rel="icon">`) and touch icon; the templates already do,
-  and so does the sealed-page shell (they name the site, not the page, so they leak nothing).
-  `check` fails without them. `bundle` inlines both so a standalone file keeps its icon.
-- `theme/logo/og.png` is the shared social card: the home page's, the fallback when Chrome is
-  missing, and every sealed page's. Per-page cards are generated by `npm run cards`; see
-  [Social cards](#social-cards).
-- The glyph paths in `bh.js` (`LOGO_SVG`), `mark-tile.svg`, `lockup.svg` and `og-card.svg` must equal those in `theme/logo/mark.svg`, and the SVG colours the `--accent` tokens; `check` fails on drift. The PNGs are renders of them: re-render after a change (sizes are checked, content is not).
-- No raster, `<text>` or fonts inside the SVGs (`check` enforces it): the wordmark is converted to paths.
-
-## Social cards
-
-Every public page unfurls into a rich preview (Open Graph and Twitter `summary_large_image`)
-when its link is pasted into Slack, Discord, iMessage, LinkedIn, X or Mastodon. Authors write
-nothing for this; two generated things do the work.
-
-- **The social meta block.** `npm run index` writes it into each page's `<head>`, between
-  `<!-- bh:social:start … -->` and `<!-- bh:social:end -->`: `canonical`, `og:type`,
-  `og:site_name`, `og:title`, `og:description`, `og:url`, `og:image` (+ type, size, alt),
-  `article:published_time`, `article:author`, `article:tag` and `twitter:card`. It is derived
-  from the page's own `title`, `description` and `bh:*` metas, so fix a preview by fixing
-  those. **Never write `og:`, `article:`, `twitter:` or `canonical` tags by hand**: `check`
-  fails on them, and on a missing or stale block. Keep the marker pair in the `<head>`
-  (the templates have it). Keep descriptions under about 200 characters, since previews cut
-  them off (`check` warns).
-- **Structured data.** The block also ends with one `<script type="application/ld+json">` line
-  of schema.org data, for search engines: a `TechArticle` on each post (headline, description,
-  `datePublished`, authors, keywords, url, card image, publisher) and a `WebSite` on the home
-  page. Posts are the feed's: example, unlisted and `reference` pages get none, and sealed
-  shells never have a block. The text is decoded from the page's HTML, and `</` and `<!--` are
-  JSON-escaped so a title cannot end the script. **Never write JSON-LD by hand**: `check` fails
-  on one outside the block, and the block's equality check catches a missing or stale one.
-  `bundle` drops its `url` and `image` (the publisher's site link stays, like the footer's
-  attribution link); `publish` refuses an unlisted page that carries one.
-- **The card image**, `docs/assets/og/<slug>.png`, 1200×630. `npm run cards` renders it in
-  the local Chrome (Node ≥ 22; `CHROME_PATH` if it isn't found, and it needs network for the
-  web fonts). It frames a **visual taken from the page itself** with the logo, the title, the
-  kind and the date, so a bare diagram still says something in a chat unfurl. The visual is
-  the first match of:
-  1. `<meta name="bh:image" content="#element-id">` (an element on the page) or
-     `content="path/to/image.png"` (relative to the page): the author's override, for when
-     the automatic pick is wrong;
-  2. the first `<figure>` with an `<svg>`, `<img>`, `<bh-sequence>` or `<bh-chart>`;
-  3. a standalone `<img>` in the article;
-  4. the hero glyph (`bh-hero-mark`);
-  5. the logo tile (`theme/logo/mark-tile.svg`).
-
-  The element is screenshot from the real page in the light theme, so diagrams keep their
-  theme colours. Because the choice is made from the source, put the diagram that best
-  explains the page first, or set `bh:image`.
-- **Staleness.** Each PNG records a hash (a `tEXt` chunk named `bh-card`) of the chosen
-  visual's source and image files, the title, kind, date, site name, the page's `<style>`,
-  `theme/{tokens,base,layout,components,diagrams}.css`, `theme/bh.js`, the logo and
-  `scripts/cards.mts` (plus `theme/modules/*.js` when the visual is a `<bh-…>` component).
-  So a theme change makes every card stale: re-run `npm run cards` along with
-  `npm run visual`. `check` recomputes the hash with no browser and fails on a missing,
-  wrong-sized or stale card, and on a card whose page is gone or private. `npm run cards`
-  skips cards that are current, deletes orphans, and keeps going when one page can't be drawn
-  (it then exits non-zero and names it; a figure hidden in an inactive tab needs `bh:image`).
-  Commit the PNGs. They differ slightly from machine to machine; only the hash is compared.
-- **No Chrome.** `npm run cards` then replaces each missing or stale card with a copy of the
-  shared site card (`theme/logo/og.png`), tagged `fallback`. `check` accepts that locally with
-  a warning, so you are not blocked, but **fails under `CI`**: render the card where Chrome
-  exists before the PR merges. Rendering needs Node ≥ 22.
-- **The home page** uses the shared site card. **Bundles** (`npm run bundle`) keep
-  `og:title`, `og:description` and `article:*` but drop `canonical`, `og:url`, `og:image*` and
-  `twitter:*`, since a standalone file has no URL or card of its own.
-- **Absolute URLs** come from one place: `homepage` in `package.json`
-  (`https://bitwise.john-ky.io/`). A fork sets that, or `BH_SITE_URL`. The site
-  name is `bh.siteName` in `package.json`. Changing either makes the block and every sealed
-  shell stale: run `npm run index`, `npm run cards` and `npm run seal -- --reshell`.
-- **Private pages** unfurl as one generic "Private page" card: see below.
-- Render the cards and look at them when you change `scripts/cards.mts`, the theme tokens or
-  a diagram's colours. `docs/assets/og/` holds only cards, one per public page.
-
-## Private pages
-
-The repo and its GitHub Pages site are public, so a page that must stay private is never
-committed as plain HTML. The committed copy is encrypted, and it opens only from a link that
-carries its key.
-
-- Write it as `docs/<slug>.private.html` (`npm run new -- --private <template> <slug> "<Title>"`).
-  That name is git-ignored. Preview it locally like any page.
-- `npm run seal` gzips and AES-256-GCM-encrypts each private page into `docs/<slug>.html`,
-  which is committed and published. Its link is `docs/<slug>.html#k=<key>`; add `&<id>`
-  after the key to link to a section. `seal -- --show-links` prints the full links. The key
-  is in the URL fragment, which browsers never send to the server. Opened without it, the
-  page shows only a notice.
-- **Keys live in 1Password**, never on disk: one Password item per page, titled
-  `beautiful-html private page: <slug>`, in the vault `$BH_OP_VAULT` (default `Private`).
-  `seal` creates the item the first time and reads it back to confirm it was stored. The
-  key stays the same across re-seals, so links keep working. Needs the `op` CLI with
-  1Password's desktop-app integration turned on.
-- **The sealed file is the copy of record.** In a fresh clone, `npm run unseal` (or
-  `unseal -- <slug>`) recreates `docs/<slug>.private.html` from the sealed page and its key.
-  It refuses to overwrite unsealed edits unless you pass `--force`.
-- **Groups.** Several private pages can share one key. Put `<meta name="bh:group" content="<name>">`
-  (kebab-case) in each page's `<head>`; a page with no group keeps its own key, as before. The
-  meta is valid only in `docs/*.private.html` (`check` fails on a public page or template) and is
-  encrypted along with the page, so the group name never reaches the repo (`check` fails if it
-  shows up in a sealed file or in `theme/private-cards.js`; a name shorter than 8 characters can't be
-  told from chance in base64, so it isn't searched for: pick a longer one).
-  - The group's key is one Password item, `beautiful-html private group: <name>`, in the same
-    vault. A grouped page's own item, `beautiful-html private page: <slug>`, then holds no key,
-    only a `group` field naming the group; `readKey`, `unseal` and `check` follow it. `seal`
-    creates the group item on first use.
-  - **Anyone with a group key opens every page in the group** and sees every card in it. Use a
-    separate group (or none) for pages with a different audience.
-  - **Adding, removing or renaming `bh:group` re-keys the page**: it is re-encrypted under the new
-    key and every old `#k=` link to it stops working. `seal` prints a warning naming the page.
-    It archives the page's old item (it never edits a secret through argv) and creates the new one;
-    if that fails it puts the old item back. If a page's group item is missing while the page still
-    points at it, `seal` refuses (it would re-key the whole group) and `check` and `unseal` say the
-    group item is missing: restore it from the 1Password archive.
-  - Archive a group's item only once no page uses the group.
-- **Cards on the home page.** `npm run seal` also writes `theme/private-cards.js` (generated;
-  never edit it, and `index` never touches it): one blob per sealed page, holding its card
-  (title, description, kind, status, date, tags and any `supersededBy`) as gzip(JSON) under
-  AES-256-GCM, with the page's key (the group's, for a grouped page) and the additional data
-  `bh-card/1:<slug>`, so a blob can't pass for a page payload or for another page's card. Opening
-  `index.html#k=<key>` (repeat `k=` for several keys) decrypts the blobs that key opens and merges
-  their cards into the catalogue, with a lock and "Private" label; filters and the filter box work
-  on them. The home page is unchanged without a key: nothing is requested.
-  - The browser also uses keys remembered in the tab (`sessionStorage["bh-index-keys"]`, set when
-    a key opened cards, and the `bh-sealed-key:*` keys of sealed pages opened in this tab), so
-    opening a private page and going back to the home page shows its card. The key is removed
-    from the address bar; a key that opens nothing shows a toast and is not remembered.
-  - The card file is public: it reveals each page's slug and the rough length of its card (the
-    sealed filename and payload already do). A card link, `docs/<slug>.html#k=<key>`, is assembled
-    in the browser, so a key is never in committed HTML.
-  - `seal -- --show-links` also prints the home page link for each group. Never put one in a
-    commit, PR, issue or any public place.
-  - `check` verifies the file's structure everywhere (CI included): it parses, is sorted and
-    unique, every blob is plausible, every sealed page has one and every blob has a sealed page.
-    Where the key and plaintext are at hand, it also decrypts each blob and compares it with the
-    card the plaintext gives ("private card for `<slug>` is stale: run `npm run seal`").
-  - A bundled page (`npm run bundle`) never carries the card file, so a bundled `index.html`
-    shows no private cards. Header search does not include private pages.
-- Re-run `npm run seal` after every edit. `check` fails when a sealed copy is stale, when
-  its shell is outdated, or when a private page was never sealed.
-  `check` reads each plaintext page's key from 1Password, all at once rather than one by one. In the
-  edit loop, `npm run check -- --skip-keys` makes no 1Password call: it still checks every sealed
-  shell, but not that a seal is current, and says so. It is refused under `CI`. Run plain `check` before you push.
-- Private pages stay out of the catalogue, search, backlinks, card generation and
-  `bundle --all`. Public pages, glossary entries included, must not link to them; `check`
-  fails if one does.
-- **A sealed page unfurls as a generic card**: title "Private page", a fixed description, the
-  shared site card, `noindex, nofollow`, and no URL, date, author or tags. Its title,
-  description and tags are inside the ciphertext only. `check` requires everything outside
-  the payload and digest to equal the generic shell, and that a local plaintext's title and
-  description don't appear in it. If the shell changes (for example a new site base), run
-  `npm run seal -- --reshell`: it rewraps the existing ciphertext in the new shell without
-  needing the key. A plain `seal` does the same when only the shell is outdated.
-- A page that becomes private must lose its card: `npm run cards` deletes cards that have no
-  public page, and `check` fails on any that remain (a card shows the title in clear).
-- Private pages stay out of the published review threads too. `index` skips any review whose
-  `document` is a private page (`docs/<slug>.private.html`, or a sealed `docs/<slug>.html`), so
-  its quotes and comments never reach `theme/reviews.js` or `theme/site.js`. The review file
-  itself would be public in git, so `check` fails if one under `reviews/` targets a private
-  page: keep such review files out of the repo.
-- After decrypting, the page removes the key from the address bar and remembers it for the
-  browser session. Copied section links therefore have no key: share the full `#k=` link.
-- Never put a `#k=` link in a commit message, PR, issue or any other public place.
-- Making a page public: rename it to `docs/<slug>.html` (replacing the sealed copy), archive
-  its 1Password item (and its group's item, once no page uses the group), and run
-  `npm run seal` (it drops the page's blob from `theme/private-cards.js`) then `npm run index`.
-
-## Example pages
-
-Some pages only demonstrate the theme and the templates (the rate-limiting design doc and its two
-ADRs). They are not posts. They are hidden by default, where
-you work as well as on the published site, and opt-in with `?examples`. Pages deployment builds a
-separate published copy without them; local source files and committed generated data keep every
-example.
-
-- **Mark one** with `<meta name="bh:example" content="true">` in the `<head>`, or create it with
-  `npm run new -- --example <template> <slug> "<Title>"`. The marker is the only thing that
-  counts. `check` fails on the `examples` tag, which is reserved: the index adds the
-  "Examples" topic and the "Example · …" label itself.
-- **Hidden by default, on every host**, local ones included (`localhost`, `127.0.0.1`, `[::1]`,
-  `*.localhost`, `*.local`, `file://`), so an author sees what readers see. Open any page with
-  `?examples` to show them; `npm run serve` prints the hint. The theme still tells a local host
-  from a domain (`bhExamples.local`): an example page opened on one offers a "Show example pages"
-  link. Anything that renders example pages itself (`cards`, `visual`) adds `?examples`.
-- **What hidden means**: no home-page card, kind or topic chip; no search
-  result; no "Referenced by" entry; links to the page become plain text (also inside glossary
-  popups); and opening the page's address shows a short "This is an example page" notice with a
-  link to the posts. Review threads on the page go with the page. This describes the source
-  copy. **On deployed Pages**, `scripts/publish.mts` removes the
-  example HTML and social cards, strips links to examples while keeping their text/markup,
-  and rebuilds the index, glossary, search, backlinks and review data in the artifact only.
-  Example URLs return 404. Publication fails on zero examples or missing expected files.
-- **One place decides.** `theme/examples.js` holds the only list of local hosts and the default. It is a
-  synchronous script in every page's `<head>`, after the theme script, so `<html data-examples>`
-  is set before first paint and nothing flashes. `check` fails if a page or template lacks it, or
-  if the `bh:example` marker comes after it (the script reads the marker as it runs).
-  `bh.js` and the search module read `window.bhExamples`; never copy the list.
-- **Override.** `?examples` (or `=on`) shows them, `?examples=off` hides them,
-  and `?examples=auto` forgets the choice (back to hidden). It is remembered for the tab session
-  (`sessionStorage`), so it survives following links. Overrides apply to the source copy;
-  they cannot restore examples removed from the deployed Pages artifact.
-- **Without JavaScript** the home page hides its example cards (fails closed, as by default),
-  and an example page opened directly stays readable, since only script can swap in the notice.
-- **Linking to an example** from an ordinary page is allowed; `check` warns, because the link
-  becomes plain text on the published site. The glossary is exempt: its definitions point at
-  examples by design. An example may link to other examples freely.
-- **Bundles** (`npm run bundle`) always show their own content, wherever the file is opened or
-  hosted: `<html data-bundled>` overrides the host. A bundle has no index, search or backlinks.
-- **Cards and private pages.** Example pages keep their social cards (`check` still requires
-  them locally; deployment removes their cards). Private and sealed pages are never examples and are
-  unaffected.
-
-## Unlisted pages
-
-An unlisted page is published and opens from its direct link, but the site itself does not
-surface it. **This is discoverability control, not access control.** The page's HTML, the repo,
-its history, the deployed artifact and `theme/unlisted-pages.js` are all public. Use a private
-(sealed) page when the content itself must stay secret, and never describe an unlisted page as
-private.
-
-| Mechanism             | Direct link works?           | Content hidden? | Listed on the site?        |
-| --------------------- | ---------------------------- | --------------- | -------------------------- |
-| normal page           | yes                          | no              | yes                        |
-| example page          | no on the published site (404) | no            | local only                 |
-| private (sealed) page | yes, but shows a notice      | yes (encrypted) | no                         |
-| **unlisted page**     | **yes, readable**            | no              | **only with `#unlisted=true`** |
-
-- **Mark one** with `<meta name="bh:unlisted" content="true">` in the `<head>`, or create it with
-  `npm run new -- --unlisted <template> <slug> "<Title>"`. The marker is the only thing that
-  counts. `check` fails on the `unlisted` tag (reserved), on a marker that is not `true`, and on
-  a private source (a private page already stays off the site). A page may be both an example and
-  unlisted: the stricter rule (removed from the published site) wins.
-- **What stays.** The page is published at its normal address and is checked like any other. It
-  keeps a social card, so a pasted link unfurls well. The build adds
-  `<meta name="robots" content="noindex, nofollow">` to its generated social block; write nothing.
-  `noindex` stops compliant crawlers, not anyone who has the URL.
-- **What is left out** unless the flag is on: the home page's cards (`cmdIndex` does not write them
-  into `index.html`), header search (`theme/search-index.js`), backlinks and "Referenced by"
-  (`theme/site.js`), review summaries, and `bundle --all` (naming a page still bundles it).
-  Links to an unlisted page are inert text (no `href`, not focusable, `aria-disabled`).
-- **The flag** is `#unlisted=true` (also `on`, `1`, `yes`) in the fragment of any page. It is kept
-  for the tab session in `sessionStorage["bh-unlisted"]`, so following links keeps it; a new tab
-  does not. `#unlisted=false` turns it off and `#unlisted=auto` forgets it. It is not secret, so it
-  stays in the address bar; the "copy link" controls still copy only `#id`. **Default is off
-  everywhere, local hosts included**, so an author sees what readers see; `npm run serve` prints
-  the hint. Pasting a new `#unlisted=…` into an open tab reloads the page.
-- **One script decides.** `theme/unlisted.js` is a synchronous script in every page's `<head>`,
-  after `examples.js`. It sets `<html data-unlisted="on|off">` (and `data-unlisted-page` on an
-  unlisted page) before first paint and owns the fragment parser. `check` fails if a page or
-  template lacks it, or if the marker comes after it.
-- **Two generated data files, never edited by hand.** `theme/unlisted-pages.js` (`BH_UNLISTED`:
-  card data, search text and backlinks of every unlisted page) is fetched **only when the flag is
-  on**, so with it off no unlisted title is in any file the page loads. `theme/unlisted-slugs.js`
-  holds their paths alone, so `bh.js` can make links to them inert when the flag is off.
-  `check` fails when either is stale. An unlisted page's published review threads are in neither
-  `site.js` nor `theme/reviews.js` (which every listed page may load): they are in the generated
-  `theme/unlisted-reviews.js`, which only the unlisted page itself loads.
-- **Cards.** On the home page `theme/modules/unlisted-cards.js` adds one card per unlisted page
-  (text only, never `innerHTML`), labelled "Unlisted · <Kind>" in words, before `<bh-filter>`
-  re-reads the list (`BhFilter.refresh()`), so chips and the search box cover them.
-  `data-bh-ready` waits for it. The card builder is `bh.cards.build`; keep its markup equal to
-  `cardHtml` in `scripts/bh.mts` (`tests/unlisted.test.mts` compares them).
-- **Links.** A listed page that links to an unlisted one gets a `check` warning: the link is inert
-  by default. An unlisted page (and the glossary) may link to one freely; on an unlisted page
-  links to other unlisted pages stay live, so a series can be shared as one. Without JavaScript
-  every `href` still works: the neutralising is script-only. A decision chain
-  (`bh:supersedes` / `bh:superseded-by`) must be all listed or all unlisted.
-- **The published site.** `scripts/publish.mts` keeps unlisted pages and their cards, and applies
-  the same rules when it rebuilds the index, search, backlinks and the two data files.
-- **Prefer a non-guessable slug** (for example a random suffix) for a page meant to be shared by
-  link: it is the only protection against guessing.
-- **Bundles** show their own content wherever they are opened (`<html data-bundled>`).
-
-### The page fragment
-
-A fragment is a list of `&`-separated tokens, parsed in one place (`parseFragment` in
-`theme/unlisted.js`, used through `bh.fragment()`). Reserved: `k=<43-char key>` (a private page's
-key, repeatable) and `unlisted=<value>`. The first other token without `=` is a section id to
-scroll to, so `#k=<key>&unlisted=true&my-section` works on a sealed page. **Write `k` first**:
-the sealed-page shell (frozen, so as not to make every sealed page stale) reads
-`#k=<key>[&rest]` and, after decrypting, keeps `rest` (`unlisted=true&my-section`) in the address
-bar for `bh.js`; `#unlisted=true&k=<key>` does not open a sealed page.
-
-## Atom feed
-
-The site publishes an Atom 1.0 feed at `feed.xml` in the site root
-(`https://bitwise.john-ky.io/feed.xml`; the host comes from `homepage` in `package.json`, as for
-[Social cards](#social-cards)). It is generated by `npm run index` and never edited by hand;
-`check` fails while it is stale.
-
-- **Entries** are the posts the site surfaces: public pages that are listed, not examples and
-  not `bh:kind` `reference` (the glossary and the component gallery are the `reference` pages),
-  newest first by `bh:date`. Left out, so the feed can never reveal them: example pages
-  (`bh:example`), unlisted pages (`bh:unlisted`), private and sealed pages, and `reference`
-  pages. A new kind of non-post page is added to `FEED_NON_POST_KINDS` in `scripts/bh.mts`.
-  `bh:status` does not filter: the home page lists drafts, so the feed does too. A page whose
-  `bh:date` is not a real calendar date is left out.
-- **Each entry** has `id` and `link` = the page's canonical URL, `title`, `summary` = the page's
-  `description` (summary-only, so readers come to the page: the interactive parts do not survive
-  in a reader), `published` and `updated` = `bh:date`, one `author` per `bh:authors` entry and one
-  `category` per `bh:tags` entry. The feed's own `updated` is the newest entry's `bh:date`; all
-  timestamps are `T00:00:00Z`, so the file only changes when the posts do (not on every commit).
-  Text is the page's HTML text decoded and XML-escaped.
-- **Autodiscovery.** Every public page, the home page and every template carries
-  `<link rel="alternate" type="application/atom+xml" title="<site name>" href="../feed.xml">`
-  (`feed.xml` on the home page), next to the icon links. It is relative, so it needs no
-  `homepage`, and it is a plain line in the template, not part of the generated social block.
-  `npm run index` inserts or repairs it in the home page and public docs; `check` requires exactly
-  one, with the expected `href` and `title` (a template may keep an older title: `new` and `index` set the site's), in each of them and in the templates. Sealed shells
-  are frozen and have none.
-- **Subscribe.** The footer of the home page, every public page and every template has a
-  `<a href="../feed.xml">Subscribe</a>` (`feed.xml` on the home page) in its own `<span>`; `check`
-  requires it. It is static markup, so it needs no JavaScript and no change to `theme/bh.js`.
-- **`check`** also parses `feed.xml` (tags balance, no stray `<`, no unescaped `&`), compares it
-  with a fresh build, and fails if an entry is not an eligible page: a private, sealed, unlisted,
-  example or `reference` page, or no page at all.
-- **Publishing.** `scripts/publish.mts` rebuilds `feed.xml` in the Pages artifact together with
-  the index and the other generated data, from the pages that remain after example pages are
-  removed. The workflows copy no feed themselves. The site should be validated once it is live
-  (the W3C Feed Validation Service needs a public URL).
-- **Bundles** (`npm run bundle`) drop the autodiscovery link and the Subscribe link, since a
-  standalone file has no feed.
-
-## Sitemap, robots.txt and the 404 page
-
-Three more files at the site root are generated by `npm run index` and never edited by hand;
-`check` fails while any is missing or stale. They give search engines what they look for and
-readers a page to land on.
-
-- **`sitemap.xml`** lists the home page and every public page the site surfaces, newest first,
-  with `<lastmod>` = `bh:date` (left off when the date is not a real calendar date). Left out:
-  example pages, unlisted pages, private and sealed pages: the feed's exclusions, except that
-  `reference` pages (glossary, component gallery) stay in, since they are real pages and not
-  posts. `check` also fails if it lists a page that is not eligible.
-- **`robots.txt`** allows everything and names the sitemap. It lists no page and no path: an
-  unlisted page stays out of search through its own `noindex`, which a crawler can only read if
-  robots.txt lets it fetch the page, and naming the slug would disclose it.
-- **`404.html`** is what GitHub Pages serves for every missing path, example pages included
-  (they are removed at deploy). It is `noindex`, has no canonical or social block, and its assets
-  are root-relative from `homepage`, because it is served from any depth. `npm run serve` answers
-  a missing path with it too (status 404). A fork under a sub-path sets `homepage` and runs
-  `npm run index`.
-- **Publishing.** `scripts/publish.mts` rebuilds all three in the Pages artifact from the pages
-  that remain after examples are removed, so the published sitemap never lists an example.
-- The 404 page is not counted by GoatCounter (only the home page and `docs/*.html` are tagged).
-
-## Attribution link
-
-Every footer carries a link back to the blog and its repo, because the posts are CC BY 4.0 and a
-copy (a bundle, a fork, a saved page) should still say where it came from. It is generated:
-
-- **The markup** is `<span data-attribution>From <a href="<site>">Bitwise Engineering</a> · <a
-  href="<repo>">source</a></span>`, in the footer of the home page, every public page and every
-  template. The links are **absolute**, so they work from a bundle or a file on disk. `npm run
-  index` writes it (after the Subscribe span) and repairs a stale one; `check` requires exactly
-  one, equal to what `index` would write. Don't edit it by hand, and keep it in your footer.
-- **Where the URLs come from:** the site from `homepage` in `package.json` (or `BH_SITE_URL`), the
-  repo from `bh.repoUrl` there (or `BH_REPO_URL`), the name from `bh.siteName`. A fork sets those
-  and runs `npm run index`.
-- **Bundles** keep it (unlike the feed links, which a standalone file has no use for).
-- Sealed shells are frozen and have none; a private page's own footer is encrypted with it, and
-  `check` does not require it there.
-
-## Page-view counting
-
-The published site counts page views with [GoatCounter](https://www.goatcounter.com/): cookieless,
-no consent banner. It is **added at deploy time and nowhere else**.
-
-- **Switch.** The repository variable `GOATCOUNTER_CODE` (Settings → Secrets and variables →
-  Actions → Variables; a variable, not a secret) is passed to `scripts/publish.mts` by
-  the `deploy` job in `ci.yml`. Unset or empty means no tag, and the published artifact is byte-identical to one
-  built without this feature. A value that is not `[a-z0-9-]+` fails the publish before anything
-  is written.
-- **Injection.** After everything else, `preparePublishedSite` adds one
-  `<script data-goatcounter="https://<code>.goatcounter.com/count" async src="https://gc.zgo.at/count.js">`
-  before `</head>` in the staged `index.html` and every staged `docs/*.html` that is not a sealed
-  shell. Sources, templates, `theme/`, generated data, local previews, `npm run check` and
-  `npm run bundle` never contain it. **Never put the tag in a page, template or theme file.**
-- **Sealed pages are excluded by construction.** A sealed shell (recognised by
-  `id="sealed-payload"`) is skipped, and the decrypted page comes from the source, which has no
-  tag. This matters: after decrypting, the shell does `document.write`, so a tag in the source
-  would run in the decrypted page, and `count.js` sends `document.title`, which is the private
-  page's real title.
-- **What is sent:** the path, the page title, the referrer, the screen size and the user agent
-  (for browser and system statistics). No cookies, and GoatCounter stores no IP address. `count.js`
-  takes the path from `<link rel="canonical">`, which every public page has, and excludes the URL
-  fragment, so `#unlisted=true`, section ids and `#k=` keys never reach GoatCounter. It skips
-  `localhost` by default.
-- **Unlisted pages are counted.** Their paths reach GoatCounter and its dashboard lists their
-  slugs, so keep the dashboard private and unshared: never enable public stats or the public visitor counter.
-- **Trade-off.** `count.js` is a moving file on `gc.zgo.at` and is deliberately not pinned with
-  SRI. If that matters later, host a copy and add an integrity hash.
-- **Owner setup:** create a free GoatCounter site, then set `GOATCOUNTER_CODE=<code>`.
-
-### Reading the numbers: `npm run stats`
-
-`npm run stats` exports the hits from GoatCounter and prints views per page, sorted by views,
-joined with each page's title, kind and tags from `docs/*.html` (`scripts/stats.mts`; no
-dependencies, nothing written to disk).
-
-- **Needs** `GOATCOUNTER_CODE` (the site code) and an API token. Create the token in
-  GoatCounter under *Username → API*, with the **export** permission. The CSV export also needs
-  *Individual pageviews* switched on in the site settings (off by default); without it the export
-  fails and the error says so.
-- **Token:** `GOATCOUNTER_TOKEN` in the environment, or a Password item titled
-  `beautiful-html goatcounter token` in the 1Password vault `$BH_OP_VAULT` (default `Private`),
-  read with `op` like the private-page keys. It is sent only as a `Bearer` header and is never
-  printed, written to disk or committed. With no token the command says so and exits 1.
-- **The join** matches GoatCounter's paths (from `<link rel="canonical">`; query, fragment and the
-  site's sub-path removed) to the page heads in `docs/`. Bot hits and events are not counted;
-  visitors are distinct sessions. Pages nobody viewed print with 0. A path that matches no page
-  (removed, or an example page that is not published) prints under its path as "not in the repo".
-  Sealed pages carry no tag, so they are never counted: they are left out unless a hit shows up
-  for one (then it prints as `(private page)` with its path only, since its title is not in the repo).
-- **It prints unlisted pages by title.** The output, like the dashboard and the export, is private:
-  never paste it into a commit, issue, PR or any public place.
-- `npm run stats -- --file export.csv` (or `.csv.gz`, as the dashboard saves it) reads an export you already have, with no token and no network.
-- **GoatCounter allows one new export per hour** (HTTP 429 otherwise). The run prints the export's id
-  as soon as it starts; if it then fails, `npm run stats -- --export-id <id>` continues that export
-  instead of starting another.
-  Each run is a full export; there is no stored cursor, because keeping the hits locally would put
-  private analytics on disk.
-
-## External links
-
-`check` verifies internal links and ids; `npm run links` (`scripts/links.mts`) checks the external ones, and
-`.github/workflows/links.yml` runs it every Monday (and from the Actions tab). It is never a PR check, so a slow
-or bot-hostile site cannot make a PR flaky.
-
-- **What it reads:** `href` and `src` in the markup of the home page and every published, readable page
-  (unlisted ones included; not sealed shells, private sources or example pages, whose links no reader of the
-  deployed site can follow). Comments, `<script>` and `<style>` bodies are skipped; so are the site's own URLs,
-  `preconnect` links and fragments (only that the document answers is checked).
-- **How:** one request per URL, HEAD then GET, redirects followed by hand, 15 s timeout, 3 attempts for network
-  errors, timeouts, 429 and 5xx, at most 8 at once and 2 per host, with a generic User-Agent that names no one.
-- **What it reports:** per URL, its status, the redirect chain and target, and the pages that use it. *Broken* is
-  no response or >= 400 (exit 1); *moved* is a link whose own first answer is a 301/308: update it to the target
-  shown. A permanent hop behind a temporary one (a DOI's 302 to the publisher) is not the link's move.
-- **`links-allowlist.json`** is for sites that refuse automated clients but work in a browser: `url` (exact, or a
-  prefix ending in `*`), `accept` (the status codes, `"timeout"`, `"error"` or `"redirect"` it tolerates) and a
-  `reason`. Never allowlist a link that is really gone: fix it. An entry that tolerated nothing in a run is
-  listed as unused; remove it once its site answers reliably.
-- **The issue.** The workflow keeps one issue, labelled `link-check`: it opens or reopens it and rewrites its
-  description while something is broken or moved (with a comment when the findings change, since an edit
-  notifies nobody) and closes it when a run is clean. The issue is public, so it names unlisted pages only as
-  "an unlisted page", and so does the job's log. The job goes red, and leaves the issue alone, when the check
-  itself fails, when the issue can't be updated, or when most URLs got no response at all (a network problem on
-  the runner, not hundreds of broken links).
+- Editing `scripts/`, `tests/` or `.github/workflows/` (TypeScript rules, job and test timeouts)? Read [`contracts/tooling.md`](contracts/tooling.md).
+- The logo, favicon, touch icon, `theme/logo/` or `LOGO_SVG`? Read [`contracts/brand-assets.md`](contracts/brand-assets.md).
+- The social meta block, `bh:image`, `npm run cards` or `docs/assets/og/`? Read [`contracts/social-cards.md`](contracts/social-cards.md).
+- Sealing, `seal`, `unseal`, `bh:group`, `*.private.html` or `theme/private-cards.js`? Read [`contracts/private-pages.md`](contracts/private-pages.md).
+- `bh:example`, `?examples` or `theme/examples.js`? Read [`contracts/example-pages.md`](contracts/example-pages.md).
+- `bh:unlisted`, `#unlisted=true`, `theme/unlisted.js` or the page fragment (`#k=…&…`)? Read [`contracts/unlisted-pages.md`](contracts/unlisted-pages.md).
+- `feed.xml`, its autodiscovery link or the footer's Subscribe link? Read [`contracts/feed.md`](contracts/feed.md).
+- `sitemap.xml`, `robots.txt` or `404.html`? Read [`contracts/sitemap-robots-404.md`](contracts/sitemap-robots-404.md).
+- The footer's attribution link, `homepage`, `bh.siteName` or `bh.repoUrl`? Read [`contracts/attribution.md`](contracts/attribution.md).
+- External links, `npm run links`, `links-allowlist.json` or the weekly link-check issue? Read [`contracts/external-links.md`](contracts/external-links.md).
+- GoatCounter, `GOATCOUNTER_CODE` or `npm run stats`? Read [`contracts/page-views.md`](contracts/page-views.md).
+- Defining a term, `docs/glossary.html`, or the glossary popup in `bh.js`? Read [`contracts/glossary.md`](contracts/glossary.md).
+- Applying or answering a review file, `reviews/`, or the Review panel? Read [`contracts/reviews.md`](contracts/reviews.md).
+- An `npm run a11y` failure, `scripts/a11y.mts` or `a11y-allowlist.json`? Read [`contracts/a11y.md`](contracts/a11y.md).
+- Anything in `.claude/skills/`? Read [`contracts/skills.md`](contracts/skills.md), then load the `skill-authoring` skill.
 
 ## Page contract
 
-- Pages are flat files in `docs/` and link `../theme/bh.css` and `../theme/bh.js`. Don't add a build step (the Node tooling is type-stripped TypeScript; see [Tooling](#tooling)).
+- Pages are flat files in `docs/` and link `../theme/bh.css` and `../theme/bh.js`. Don't add a build step (the Node tooling is type-stripped TypeScript; see [Tooling](contracts/tooling.md)).
 - Keep the `<head>` from the template:
   - `title` and `description`
   - `bh:kind`, `bh:status`, `bh:date` (YYYY-MM-DD), `bh:authors`, `bh:tags`
-  - optionally `bh:image` (which picture the social card shows; see [Social cards](#social-cards))
-  - optionally `bh:example` (`true` for an example page; see [Example pages](#example-pages))
-  - optionally `bh:unlisted` (`true` for an unlisted page; see [Unlisted pages](#unlisted-pages))
+  - optionally `bh:image` (which picture the social card shows; see [Social cards](contracts/social-cards.md))
+  - optionally `bh:example` (`true` for an example page; see [Example pages](contracts/example-pages.md))
+  - optionally `bh:unlisted` (`true` for an unlisted page; see [Unlisted pages](contracts/unlisted-pages.md))
   - the synchronous `<script src="…/theme/examples.js">` after the theme script, then
     `<script src="…/theme/unlisted.js">` (the `bh:unlisted` marker must come before it)
   - the generated social meta block between its two `bh:social` markers: leave it alone
   - the feed autodiscovery `<link rel="alternate" type="application/atom+xml">` after the icon
-    links, and the "Subscribe" link in the footer (both in the templates; see [Atom feed](#atom-feed))
+    links, and the "Subscribe" link in the footer (both in the templates; see [Atom feed](contracts/feed.md))
   - the inline theme script that prevents a flash of the wrong theme
 - Use exactly one `<h1>`, inside `.bh-hero`.
 - Content lives as **direct children** of `<article class="bh-article">`. Don't wrap
@@ -669,92 +208,6 @@ colours ignore the theme toggle. Details, and what to check afterwards, are in
 `.claude/skills/anatomy/references/bitwise-blog.md`. Use one per page, and only where the machine
 is the explanation.
 
-## Glossary
-
-- **`docs/glossary.html` is the only place terms are defined.** It holds one
-  `<dt id="kebab-id" data-aliases="plural, other spelling">Term</dt><dd>…</dd>` per term,
-  kept A–Z. `npm run index` compiles it into `theme/glossary.js`. That file is generated,
-  so never edit it by hand.
-- Defined words are underlined automatically in article prose: the first occurrence per
-  page, and the first per definition on the glossary page itself. Hover, focus or tap
-  shows the definition.
-- Change the marking per page with `<body data-glossary="page|section|every|off">`.
-  Force a mark with `data-term="id"`; keep a passage unmarked with `class="no-glossary"`.
-  Headings, links, code, labels, `summary` and diagrams are never marked.
-- Definitions: one to three plain sentences a newcomer can follow, then a link to go
-  deeper. Write relative links relative to `docs/`; they are rebased for other pages.
-- List every plural and alternate spelling in `data-aliases`, because matching is
-  whole-word and case-insensitive. Never let a name or alias belong to two terms;
-  `check` fails on that.
-- A page may add its own terms with a local `<dl class="glossary">`. These override
-  shared terms with the same id on that page only.
-- **Popup behaviour is a contract. Keep it when changing `bh.js`:**
-  - It is placed once when it opens and never follows the pointer.
-  - The pointer can cross the gap into it (an invisible bridge plus a hide delay).
-  - Pressing inside it, clicking the term, or Enter/Space pins it until Esc or a click
-    elsewhere.
-  - Esc returns focus to the term without reopening the popup.
-
-## Reviews
-
-Readers comment **on the page itself**: the top bar's Review button (or `?review`) lets
-them select text or use "+ Comment" on a section or block. Comments stay in their browser,
-reappear on later visits, and are exported from the Review panel as a `bh-review/1` file
-(`.json`, or `.json.gz`). The format is defined in `reviews/schema.json`. Reviewers submit a
-file by adding it to `reviews/inbox/` in a pull request. `check` validates every review file.
-
-**Published threads.** Every review file in `reviews/` is compiled by `npm run index` into
-`theme/reviews.js`, so once a review PR is merged its comments show on the published page
-for everyone: highlights and pins, opening into threads.
-- Anyone can **Reply** in a thread. A reply is a draft in their browser until exported;
-  it's a message with `inReplyTo` (and no target). A reply with `resolves: true` resolves
-  the thread, and `false` reopens it.
-- Resolved threads are hidden unless "Show resolved threads" is ticked.
-- Drafts that have since been merged are dropped from the browser automatically.
-- Re-exporting drafts is safe: unchanged messages on the same document are published
-  once, even across multiple files. JSON property order and export-time `outdated` status
-  do not affect identity; effective author and every other comment field do. Editing an
-  already-submitted draft causes an id conflict: submit a new reply instead.
-- `check` rejects ids reused for different content or documents, and requires every
-  `inReplyTo` to point at a message that exists on the same document.
-
-**Applying a review file (for an agent or a person):**
-1. Read it (`gunzip` if it's `.json.gz`). For each comment, see the page as the reviewer
-   saw it with `git show <comment.commit>:<document>` (if `commit` is null, use the
-   current file).
-2. Locate the target:
-   - Start inside `target.anchor`: the section from that heading to the next one
-     (`anchorKind` "section"), or that element ("block"), or before the first heading
-     ("top").
-   - Find `target.quote.exact` there, using `prefix`/`suffix` (then `position`) to choose
-     between repeats. The quote is rendered text with whitespace collapsed, so match
-     against the text, not the raw HTML.
-   - If it isn't in the current version, find where that passage went. If it's gone,
-     say so.
-3. Act by `kind`:
-   - `suggestion`: apply `suggestion` if it's right, or explain why not.
-   - `question`: answer it in the document if a reader would ask it too, otherwise in
-     the reply.
-   - `blocker`: must be resolved or argued.
-   - `comment`: use judgement.
-   - Keep every house rule; `npm run check` must still pass.
-4. **Reply on the page, not only in the pull request.** Add a review file of your own,
-   `reviews/inbox/response-<document-slug>-<date>.json`, holding one reply per comment:
-   - `reviewer` is your name (for example "Claude");
-   - `inReplyTo` is the comment's id;
-   - the `body` says what changed (quote the new wording) or why not;
-   - set `resolves: true` when the comment is fully dealt with.
-   After merge, readers see the answer in the thread on the page. The file is a full
-   `bh-review/1` file (see `reviews/schema.json`); each reply needs `id`, `created`
-   (ISO date-time), `kind` and `body` as well, and `document` must be the path of the
-   page the comment is on, and every `inReplyTo` must be a comment on that same page:
-   ```json
-   {"format": "bh-review/1", "document": "docs/<slug>.html", "reviewer": "Claude",
-    "build": {"commit": null}, "comments": [{"id": "r-1", "kind": "comment", "created": "2026-10-11T09:00:00Z",
-                  "inReplyTo": "<comment id>", "resolves": true, "body": "Reworded to …"}]}
-   ```
-5. Leave the reviewer's file in the PR as the record. Don't edit it.
-
 ## Charts
 
 - **Pick the form before any colour.** One number → a `.metric` tile, not a chart. A trend
@@ -811,21 +264,7 @@ for everyone: highlights and pins, opening into threads.
 - **`npm run a11y` runs axe-core on every public page, at desktop (1280px) and phone (390px) width, in light and dark** (needs Node ≥ 22 and a local
   Chrome, like `visual`; `--only <text>` limits the pages; web fonts are always blocked, as in CI). Run it
   after a theme, component or page change; CI runs it as the `a11y` job (about two minutes). Sealed pages are skipped.
-  - **It also scans what interaction reveals**, in the same tab after the page as loaded: closed `details`
-    opened, every inactive tab, every later stepper step, the first glossary term's and the first sidenote's
-    popup, the search dialog (with results), the review panel and slide mode (first slide only). The states are `STATES` in
-    `scripts/a11y.mts`; a new component that hides content needs one. A state whose trigger exists but does
-    nothing, or that cannot be closed again, is an error, not a pass.
-  - **A page must have rendered** (one `h1`, a `main` landmark and the top bar `bh.js` builds) or its scan is an error.
-  - Findings that exist today are tracked in `a11y-allowlist.json` (`page`, `rule`, `nodes` and a `reason`
-    that names the component to fix). `nodes` is how many distinct elements the rule hits on that page,
-    counted over every size, scheme and state. The run fails when the count **rises** (a new element broke
-    the rule: fix it, never raise `nodes`), when it **falls** (lower `nodes`, so the list only shrinks), on a
-    violation that is not listed, and on an entry that no longer fires: **delete the entry when you fix the cause**.
-    Never add an entry to make a new violation pass: fix the markup, or say in the reason why it can't be fixed yet.
-  - Elements are counted by axe's selector, with generated ids (`<bh-tabs>`) and search-result positions
-    normalised (`normalizeTarget`), so the count does not move with the site's content.
-  - It checks the page with the viewport, scheme and reduced motion emulated, not other browsers or real assistive technology.
+  What it scans beyond the loaded page, and how `a11y-allowlist.json` counts findings: [`contracts/a11y.md`](contracts/a11y.md).
 
 ## Changing the theme
 
@@ -949,24 +388,3 @@ Theme files (`theme/*`) are shared by every page. These rules come from bugs alr
 - Leave no test state behind: clear a forced theme (`localStorage` key `bh-theme`), close
   test tabs, stop `serve`, and delete throwaway pages, then run `npm run index` and
   `npm run cards` again (the second removes their cards).
-
-## Skills
-
-The agent skills in `.claude/skills/` have their own house rules. The `skill-authoring` skill
-holds them, with the reasons; this is the short form.
-
-- **Layout:** `SKILL.md` (at most 500 lines), `references/`, `scripts/`, `evals/`. Reference
-  bundled files relative to the skill directory, never by a `.claude/skills/<name>/…` path.
-- **Frontmatter:** `name` (at most 64 characters, matches the directory, no `claude` or
-  `anthropic`) and `description` (at most 1,024 characters, third person, says what and when,
-  names what it is not for). Add Claude Code-only fields only when they earn their place.
-- **Evals:** both kinds run through `claude plugin eval`. Trigger queries live in
-  `evals/trigger-evals.json` (skill-creator's format) and are measured with
-  `npm run trigger-evals -- <skill>` (set about 40% of the queries aside as `"heldout": true`
-  before tuning a description); output cases are `evals/<case>/` directories, which also give
-  the with/without delta. A skill's rules come from a measured gap against the no-skill baseline.
-- **Check:** `npm run lint-skills` must report 0 errors, and `claude plugin validate .claude/skills`
-  must pass (it parses the frontmatter, which the lint does not). Re-run the evals when a skill changes.
-- **Scheduled run:** `.github/workflows/skill-evals.yml` runs every skill's evals monthly and fails
-  when a pass rate falls (`npm run skill-evals`; off until `SKILL_EVALS_ENABLED` is `true`). It costs
-  money: see `skill-authoring/references/maintenance.md`.

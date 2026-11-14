@@ -9,7 +9,7 @@
 //
 // It is not part of `check` or of PR CI on purpose: a slow or bot-hostile third-party site must never turn
 // a PR red. `.github/workflows/links.yml` runs it weekly. Zero dependencies (Node's fetch). See
-// "External links" in CLAUDE.md.
+// contracts/external-links.md.
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -494,7 +494,7 @@ export function formatMarkdown(report: LinkReport): string {
     "",
     "Fix or remove each broken link. A site that works in a browser but refuses automated clients gets an entry in " +
       "`links-allowlist.json`, with the outcome it gives and the reason. The workflow updates this issue on every run, " +
-      "and closes it when a run finds nothing that needs attention. See \"External links\" in `CLAUDE.md`.",
+      "and closes it when a run finds nothing that needs attention. See `contracts/external-links.md`.",
   ].join("\n");
 }
 
