@@ -5,6 +5,7 @@ advisor tools.
 
 ```
 corpus/README.md                committed: this file
+corpus/leak-hashes.txt          committed (once generated): keyed hashes for CI's leak check, meaningless without the key
 corpus/<writer>/sources.yaml    committed: where to fetch this writer's posts from
 corpus/<writer>/voice_model.json, stance_model.json   committed (once built): numbers only
 corpus/private                  NOT committed: everything else; a symlink to a clone of a private data repo
@@ -14,12 +15,14 @@ corpus/private                  NOT committed: everything else; a symlink to a c
 
 This repository and its site are public. The posts are other people's writing, and what is derived from
 them can misrepresent them: paraphrases, imitations of a voice, even imitations arguing against the
-writer's own views. So all of it stays in the private data, and only URLs and numbers are public.
+writer's own views. So all of it stays in the private data, and only URLs and numbers are public, plus keyed hashes that say nothing
+without their key.
 
 | Artifact | Holds | Where |
 | --- | --- | --- |
 | `sources.yaml` | URLs | Public |
 | `voice_model.json`, `stance_model.json` | Numbers only | Public |
+| `leak-hashes.txt` | Keyed hashes (HMAC-SHA256, 64 bits) of the 8-word runs, padded to a power of two: no text, and without the key they confirm no guess | Public |
 | Code, prompts, schemas | No corpus text | Public |
 | `posts/` | Full text | Private |
 | `ATLAS.jsonl` | Verbatim quotes and close paraphrase | Private |
@@ -50,9 +53,24 @@ Guards, because a rule that must hold every time belongs in a check:
   pushed history, so it is still caught: drop or rewrite the commit. When the remote is given as a URL rather than
   a remote name there are no tracking refs, so everything reachable from the pushed refs is read. Tracking refs are
   what this clone last fetched, so a stale one counts as what the remote has.
-  It is local and per clone: `git push --no-verify`, a clone that never ran `npm run hooks`, and merges made on
-  GitHub skip it. CI can't do better without committing something derived from the private text (hashes of 8-word
-  runs are guessable), which this repo's rule forbids; `tests/githooks.test.mts` pins the hook with real pushes.
+  It is local and per clone: `git push --no-verify`, a clone that never ran `npm run hooks`, a checkout with no
+  private data linked (the usual case for worktrees and other machines), the web editor and merges made on GitHub
+  skip it. `tests/githooks.test.mts` pins the hook with real pushes.
+- `.github/workflows/leak-check.yml` repeats the check in CI for what the hook misses: on every pull request (the
+  blobs its commits add to its base), every push to `main`, and by hand (everything reachable). CI can't hold the
+  private text, so it compares with `corpus/leak-hashes.txt`: HMAC-SHA256, truncated to 64 bits, of every run
+  `leak-check` would look for, under a key that is a GitHub Actions secret, `BH_LEAK_KEY` (the owner's copy is the
+  1Password item `beautiful-html leak-check key`). The text a blob holds is read by the same code as locally and
+  `LEAK_ALLOWED` applies the same way; only the lookup differs, and a hit can't say which source it came from.
+  Without the key the list confirms nothing about a guessed phrase. It is padded with entries derived from the key
+  to the next power of two (at least 4,096), so what it still shows is the number of distinct runs to within a
+  factor of two, and, between two committed versions, how many entries changed. With no secret (a pull request
+  from a fork, or before set-up) the job passes with a notice; the push to `main` that merges it is checked. The
+  reasoning is in `docs/leak-check-in-ci.html`; `tests/leak-hashes.test.mts` pins it with a fixture corpus.
+  `npm run advisor -- leak-hashes` regenerates the list from the private data and the key (`$BH_LEAK_KEY`, or the
+  1Password item) and leaves a stamp, `leak-hashes.stamp.json`, in the private data. Every `leak-check` then says
+  when the list is stale (the corpus or the list changed since), without the key. Regenerate and commit it after
+  adding posts or other private text.
 - `npm run advisor -- leak-check --history` does the same for every text blob reachable from any ref, so it finds
   text that was committed once and later removed. A blob is held to its own path's `LEAK_ALLOWED` cap. It only
   reports: removing text from history means rewriting it, which is the owner's decision, and it keeps failing
@@ -90,6 +108,9 @@ npm run advisor -- link <path> [--force]         point corpus/private at a clone
 npm run advisor -- index [<writer>]              regenerate the INDEX.md catalogues
 npm run advisor -- holdout <writer> [--check]    choose the eval holdout, or check it is current
 npm run advisor -- leak-check [--history]        see above
+npm run advisor -- leak-check --hashed [--head <rev>] [--base <rev>]
+                                                 CI's check, against corpus/leak-hashes.txt; the key in $BH_LEAK_KEY
+npm run advisor -- leak-hashes                   regenerate corpus/leak-hashes.txt (needs the private data and the key)
 npm run advisor -- parity                        compare with the Python reference; skips without private data
 ```
 

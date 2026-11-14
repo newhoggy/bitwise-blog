@@ -7,6 +7,7 @@
 // file names, line numbers and run lengths, never the matched words.
 
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { CORPUS_DIR, dataDir, markdownFiles } from "./corpus.mts";
@@ -47,8 +48,11 @@ function decoded(text: string): string {
 /** What a run came from, worded to follow "run from" in a message. Never the text itself. */
 export type LeakSource = "an atlas quote" | "an atlas statement" | "a voice negative" | "an authored sample" | "post text";
 
-/** Runs seen so far, with where each came from, or just the runs. */
-export type RunSet = ReadonlySet<string> | ReadonlyMap<string, LeakSource>;
+/**
+ * The runs to look for: with where each came from, or anything that can say whether it holds a run (a set of
+ * runs, or the keyed hash list CI compares with, which can't say where a run came from).
+ */
+export type RunSet = ReadonlyMap<string, LeakSource> | { has(run: string): boolean };
 
 /** The parsed lines of a .jsonl file, with their line numbers. An error names the line only: JSON.parse's own message would repeat the start of the text. */
 function jsonlLines(name: string, text: string): [line: number, entry: unknown][] {
@@ -268,7 +272,13 @@ export interface LeakAllowed { file: string; blob?: string; words: number; reaso
 
 export type LeakCheckResult =
   | { status: "skipped"; reason: string }
-  | { status: "done"; sources: LeakSources; files: number; hits: LeakHit[]; allowed: LeakAllowed[]; /** Blobs over the size limit, which a history scan counts but does not read. */ unread: number };
+  | {
+    status: "done"; sources: LeakSources; files: number; hits: LeakHit[]; allowed: LeakAllowed[];
+    /** Blobs over the size limit, which a history scan counts but does not read. */
+    unread: number;
+    /** `runsDigest` of the private runs compared with, computed only if asked for (to tell whether CI's hash list is current). */
+    digest: () => string;
+  };
 
 const readIfThere = (file: string) => (fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null);
 
@@ -277,9 +287,9 @@ const LABEL_ORDER: LeakSource[] = ["an atlas quote", "an atlas statement", "an a
 
 /**
  * The runs of every private text of every writer, each with where it came from. Null when there is
- * nothing to compare with.
+ * nothing to compare with. CI's keyed hash list is built from exactly these runs (scripts/advisor/leak-hashes.mts).
  */
-function privateRuns(corpusRoot: string): { runs: Map<string, LeakSource>; sources: LeakSources } | null {
+export function privateRuns(corpusRoot: string): { runs: Map<string, LeakSource>; sources: LeakSources } | null {
   const sources: LeakSources = { "atlas entries": 0, "voice negatives": 0, "authored samples": 0, posts: 0 };
   const found: [LeakSource, Set<string>][] = [];
   const lines = (text: string) => text.split("\n").filter((l) => l.trim()).length;
@@ -311,6 +321,19 @@ function privateRuns(corpusRoot: string): { runs: Map<string, LeakSource>; sourc
   return { runs, sources };
 }
 
+/** A SHA-256 of a set of runs, the same whatever their order. It stays in the private data: never commit it. */
+export function runsDigest(runs: Iterable<string>): string {
+  const hash = createHash("sha256");
+  for (const run of [...new Set(runs)].sort()) hash.update(run).update("\n");
+  return hash.digest("hex");
+}
+
+/** The digest of `found`'s runs, computed once and only when asked for. */
+function lazyDigest(runs: ReadonlyMap<string, LeakSource>): () => string {
+  let digest: string | undefined;
+  return () => (digest ??= runsDigest(runs.keys()));
+}
+
 function compare(texts: Iterable<Text>, runs: RunSet, allowances: Record<string, LeakAllowance>): Pick<Extract<LeakCheckResult, { status: "done" }>, "files" | "hits" | "allowed"> {
   const hits: LeakHit[] = [];
   const allowed: LeakAllowed[] = [];
@@ -333,7 +356,7 @@ const SKIPPED = "no posts, atlas, voice negatives or authored samples in the pri
 export function leakCheck(repoRoot: string, corpusRoot: string = CORPUS_DIR, allowances: Record<string, LeakAllowance> = LEAK_ALLOWED): LeakCheckResult {
   const found = privateRuns(corpusRoot);
   if (!found) return { status: "skipped", reason: SKIPPED };
-  return { status: "done", sources: found.sources, unread: 0, ...compare(trackedTexts(repoRoot), found.runs, allowances) };
+  return { status: "done", sources: found.sources, unread: 0, digest: lazyDigest(found.runs), ...compare(trackedTexts(repoRoot), found.runs, allowances) };
 }
 
 /**
@@ -345,9 +368,7 @@ export function leakCheck(repoRoot: string, corpusRoot: string = CORPUS_DIR, all
 export function leakCheckHistory(repoRoot: string, corpusRoot: string = CORPUS_DIR, allowances: Record<string, LeakAllowance> = LEAK_ALLOWED): LeakCheckResult {
   const found = privateRuns(corpusRoot);
   if (!found) return { status: "skipped", reason: SKIPPED };
-  const stats: HistoryStats = { tooLarge: 0 };
-  const compared = compare(historyTexts(repoRoot, stats, ["--all"]), found.runs, allowances);
-  return { status: "done", sources: found.sources, unread: stats.tooLarge, ...compared };
+  return { status: "done", sources: found.sources, digest: lazyDigest(found.runs), ...compareRevs(repoRoot, ["--all"], found.runs, allowances) };
 }
 
 /** One line git gives a pre-push hook: what is being pushed to which ref, and what the remote has there. */
@@ -381,16 +402,29 @@ export function parsePushUpdates(stdin: string): PushUpdate[] {
 export function leakCheckPushed(repoRoot: string, updates: PushUpdate[] | (() => PushUpdate[]), remote: string, corpusRoot: string = CORPUS_DIR, allowances: Record<string, LeakAllowance> = LEAK_ALLOWED): LeakCheckResult {
   const found = privateRuns(corpusRoot);
   if (!found) return { status: "skipped", reason: SKIPPED };
-  const stats: HistoryStats = { tooLarge: 0 };
   if (typeof updates === "function") updates = updates();
   const pushed = [...new Set(updates.filter((u) => !ZERO_SHA.test(u.localSha)).map((u) => u.localSha))];
-  if (pushed.length === 0) return { status: "done", sources: found.sources, unread: 0, files: 0, hits: [], allowed: [] };
+  const digest = lazyDigest(found.runs);
+  if (pushed.length === 0) return { status: "done", sources: found.sources, digest, unread: 0, files: 0, hits: [], allowed: [] };
   // The remote's current value for each ref, where this clone has that commit (one call, whatever the number of refs).
   const remoteShas = [...new Set(updates.map((u) => u.remoteSha).filter((sha) => !ZERO_SHA.test(sha)))];
   const onRemote = remoteShas.length === 0 ? [] : spawnSync("git", ["-C", repoRoot, "cat-file", "--batch-check=%(objectname) %(objecttype)"], { input: remoteShas.map((sha) => `${sha}^{commit}`).join("\n") + "\n", encoding: "utf8" }).stdout
     .split("\n").filter((line) => line.endsWith(" commit")).map((line) => line.split(" ")[0]);
   // `--remotes=<pattern>` is a glob, so only a plain remote name is passed; a URL has no tracking refs anyway.
   const revs = [...pushed, "--not", ...(/^[\w.-]+$/.test(remote) ? [`--remotes=${remote}`] : []), ...onRemote];
-  const compared = compare(historyTexts(repoRoot, stats, revs), found.runs, allowances);
-  return { status: "done", sources: found.sources, unread: stats.tooLarge, ...compared };
+  return { status: "done", sources: found.sources, digest, ...compareRevs(repoRoot, revs, found.runs, allowances) };
+}
+
+/** What a comparison of blobs found, without the private sources it compared with. */
+export type BlobComparison = Pick<Extract<LeakCheckResult, { status: "done" }>, "files" | "hits" | "allowed" | "unread">;
+
+/**
+ * Every text blob reachable from `revs` (arguments to `git rev-list`, such as `[head, "--not", base]`) compared
+ * with `runs`, each blob judged by each path it was committed at against that path's allowance. The local checks
+ * and CI's hashed check (scripts/advisor/leak-hashes.mts) all come through here, so they read text the same way.
+ */
+export function compareRevs(repoRoot: string, revs: string[], runs: RunSet, allowances: Record<string, LeakAllowance> = LEAK_ALLOWED): BlobComparison {
+  const stats: HistoryStats = { tooLarge: 0 };
+  const compared = compare(historyTexts(repoRoot, stats, revs), runs, allowances);
+  return { ...compared, unread: stats.tooLarge };
 }

@@ -38,9 +38,10 @@ function walk(dir: string, base = dir): string[] {
 
 // ---- what git tracks ------------------------------------------------------------------
 
-const ALLOWED_CORPUS_FILE = /^corpus\/(?:README\.md|[^/]+\/(?:sources\.yaml|voice_model\.json|stance_model\.json))$/;
+// leak-hashes.txt holds keyed hashes, which say nothing without the key (scripts/advisor/leak-hashes.mts).
+const ALLOWED_CORPUS_FILE = /^corpus\/(?:README\.md|leak-hashes\.txt|[^/]+\/(?:sources\.yaml|voice_model\.json|stance_model\.json))$/;
 
-test("git tracks nothing under corpus/ except the README, sources.yaml and the two model files", () => {
+test("git tracks nothing under corpus/ except the README, the CI hash list, sources.yaml and the two model files", () => {
   const tracked = git(ROOT, "ls-files", "corpus").split("\n").filter(Boolean);
   assert.ok(tracked.includes("corpus/README.md"), "the check is looking in the right place");
   assert.deepEqual(tracked.filter((f) => !ALLOWED_CORPUS_FILE.test(f)), []);
@@ -50,8 +51,9 @@ test("the allowed-file pattern rejects what must stay private", () => {
   for (const bad of [
     "corpus/private", "corpus/private/x/ATLAS.jsonl", "corpus/x/posts/a.md", "corpus/x/ATLAS.jsonl", "corpus/x/PROFILE.md", "corpus/x/INDEX.md",
     "corpus/x/corpus_meta.yaml", "corpus/x/items.jsonl", "corpus/x/y/sources.yaml", "corpus/sources.yaml",
+    "corpus/x/leak-hashes.txt", "corpus/private/leak-hashes.stamp.json", "corpus/leak-hashes.stamp.json",
   ]) assert.equal(ALLOWED_CORPUS_FILE.test(bad), false, bad);
-  for (const good of ["corpus/README.md", "corpus/x/sources.yaml", "corpus/x/voice_model.json", "corpus/x/stance_model.json"]) {
+  for (const good of ["corpus/README.md", "corpus/leak-hashes.txt", "corpus/x/sources.yaml", "corpus/x/voice_model.json", "corpus/x/stance_model.json"]) {
     assert.equal(ALLOWED_CORPUS_FILE.test(good), true, good);
   }
 });
