@@ -5,7 +5,7 @@
 //   node scripts/a11y.mts --only deflate     pages whose path contains "deflate"
 //   node scripts/a11y.mts --json             print the full result as JSON on stdout
 //
-// Each page is opened with the system fonts (web fonts blocked), reduced motion, in both colour schemes
+// Each page is opened with the system fonts (the theme's font files blocked), reduced motion, in both colour schemes
 // and at two sizes (desktop 1280px, phone 390px), and waited on until <html data-bh-ready>. It must have
 // rendered (one h1, a main landmark, the top bar bh.js builds), or the scan is an error rather than a pass.
 // axe-core (a pinned devDependency) is injected and run against the whole document with the WCAG 2.0/2.1/2.2
@@ -25,7 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AddressInfo } from "node:net";
-import { findChrome, launchChrome, serveStatic, sleep, type ChromeHandle } from "./chrome.mts";
+import { findChrome, launchChrome, serveStatic, sleep, FONT_FILES, type ChromeHandle } from "./chrome.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
@@ -220,7 +220,7 @@ export const STATES: State[] = [
 export interface ScanOptions {
   scheme: Scheme;
   axeSource: string;
-  /** Block the Google Fonts hosts, so every machine lays the page out with the same fonts. */
+  /** Block the theme's font files, so the page is laid out with the system fonts (the allowlist is counted that way). */
   blockFonts: boolean;
   /** Defaults to desktop. */
   viewport?: Viewport;
@@ -274,7 +274,7 @@ export async function scan(send: ChromeHandle["send"], url: string, opts: ScanOp
     await s("Page.bringToFront");
     if (blockFonts) {
       await s("Network.enable");
-      await s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
+      await s("Network.setBlockedURLs", { urls: [FONT_FILES] });
     }
     await s("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile });
     // Scan with no hover at every width: controls that wait for hover to appear (the review "+ Comment" buttons, a
@@ -359,7 +359,7 @@ async function main() {
   const onlyAt = args.indexOf("--only");
   const only = onlyAt < 0 ? null : args[onlyAt + 1];
   if (onlyAt >= 0 && (!only || only.startsWith("--"))) { console.error("--only needs a value, for example --only deflate"); process.exitCode = 2; return; }
-  // Google Fonts are always blocked, as in CI: the same layout everywhere, so the allowlist means the same thing.
+  // The web fonts are always blocked, as in CI, so the allowlist (counted with the system fonts) means the same thing.
   const blockFonts = true;
   const json = args.includes("--json");
   const log = (s: string) => (json ? console.error(s) : console.log(s));

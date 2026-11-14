@@ -4,7 +4,7 @@
 //   node scripts/visual.mts                compare against baselines (missing ones are created)
 //   node scripts/visual.mts --update       accept the current renders as the new baselines
 //   node scripts/visual.mts --only gallery run cases whose name contains "gallery"
-//   node scripts/visual.mts --system-fonts block Google Fonts (offline / hermetic runs)
+//   node scripts/visual.mts --system-fonts block the theme's fonts and render with the system ones
 //   node scripts/visual.mts --report-only  differences do not fail the run (a page that fails to render still does)
 //   node scripts/visual.mts --base <sha>   the commit a pull request is based on, for the summary
 //   node scripts/visual.mts --saves-baseline  say in the summary that these renders become the baseline (a build of main)
@@ -28,7 +28,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import { launchChrome, serveStatic, sleep, type ChromeHandle } from "./chrome.mts";
+import { launchChrome, serveStatic, sleep, FONT_FILES, type ChromeHandle } from "./chrome.mts";
 import { exitCode, summaryMarkdown, type RenderInfo, type Result, type Variant } from "./visual-report.mts";
 import { fileURLToPath } from "node:url";
 import type { AddressInfo } from "node:net";
@@ -214,7 +214,7 @@ async function capture(send: ChromeHandle["send"], url: string, v: Variant): Pro
     await s("Page.bringToFront");
     if (!webFonts) {
       await s("Network.enable");
-      await s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
+      await s("Network.setBlockedURLs", { urls: [FONT_FILES] });
     }
     await s("Emulation.setDeviceMetricsOverride", { width: v.width, height: v.height, deviceScaleFactor: 1, mobile: v.mobile });
     await s("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: v.scheme }, { name: "prefers-reduced-motion", value: "reduce" }] });
@@ -229,8 +229,8 @@ async function capture(send: ChromeHandle["send"], url: string, v: Variant): Pro
     // Load every face the theme uses up front (fonts load lazily, so a weight first used
     // late could otherwise arrive between two runs' screenshots), then hide live regions.
     // document.fonts.load() only waits for faces that are already registered, and they
-    // come from the Google Fonts stylesheet bh.css imports, so first wait (≤ 8s) for every
-    // family to be declared. Offline, this times out and the run is consistently fallback.
+    // come from theme/fonts.css, which bh.css imports, so first wait (≤ 8s) for every
+    // family to be declared.
     if (webFonts) await s("Runtime.evaluate", { expression: `(async () => {
       const families = ${JSON.stringify([...new Set(FONT_FACES.map((f) => f.match(/"([^"]+)"/)![1]))])};
       const t0 = Date.now();

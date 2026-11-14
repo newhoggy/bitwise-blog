@@ -89,6 +89,21 @@
     });
   }
 
+  // Third-party scripts, served from the repo at exact versions (scripts/vendor.mts writes them; `check`
+  // keeps these paths equal to its VENDOR). A bundle inlines the ones its page needs, so they are already there.
+  const VENDOR = {
+    prism: "theme/vendor/prism-1.30.0/prism.min.js",
+    mermaid: "theme/vendor/mermaid-11.17.2/mermaid.min.js",
+  };
+
+  const VENDOR_READY = { prism: () => window.Prism && window.Prism.highlightAll, mermaid: () => window.mermaid && window.mermaid.run };
+
+  function loadVendor(name) {
+    if (VENDOR_READY[name]()) return Promise.resolve();
+    if (!SITE_ROOT) return Promise.reject(new Error(name + " is not inlined in this bundle"));
+    return loadScript(new URL(VENDOR[name], SITE_ROOT).href);
+  }
+
   function storage(fn) { try { return fn(); } catch (_) { return null; } }
 
   /** The page fragment as { id, unlisted, keys }: the section to scroll to ("" if none), the unlisted=
@@ -556,21 +571,11 @@
       wrap.append(el("div", { class: "code-head" }, [el("span", { text: label }), btn]), pre);
     }
 
-    const codes = doc.querySelectorAll('code[class*="language-"]');
-    if (codes.length) {
-      const base = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/";
-      window.Prism = window.Prism || { manual: true };
-      settle(loadScript(base + "components/prism-core.min.js")
-        .then(() => loadScript(base + "plugins/autoloader/prism-autoloader.min.js"))
-        .then(() => new Promise((resolve) => {
-          // Languages load asynchronously: settle once every block has highlighted (or 4s).
-          let done = 0;
-          window.Prism.hooks.add("complete", () => { if (++done >= codes.length) resolve(); });
-          setTimeout(resolve, 4000);
-          window.Prism.plugins.autoloader.languages_path = base + "components/";
-          window.Prism.highlightAll();
-        }))
-        .catch(() => { /* offline: plain monospace is fine */ }));
+    if (doc.querySelector('code[class*="language-"]')) {
+      // The core and every language in one file (scripts/vendor.mts), so highlighting is synchronous.
+      settle(loadVendor("prism")
+        .then(() => window.Prism.highlightAll())
+        .catch(() => { /* not loaded: plain monospace is fine */ }));
     }
   }
 
@@ -602,7 +607,7 @@
       nodes.forEach((n) => { n.removeAttribute("data-processed"); n.textContent = n.dataset.src; });
       return m.run({ nodes });
     };
-    settle(loadScript("https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js")
+    settle(loadVendor("mermaid")
       .then(() => { doc.addEventListener("bh-themechange", () => requestAnimationFrame(render)); return render(); })
       .catch(() => {}));
   }

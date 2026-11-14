@@ -15,7 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
-import { launchChrome, findChrome, serveStatic, sleep, type ChromeHandle } from "./chrome.mts";
+import { launchChrome, findChrome, serveStatic, sleep, FONT_FILES, type ChromeHandle } from "./chrome.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const c = { red: (s: string) => `\x1b[31m${s}\x1b[0m`, green: (s: string) => `\x1b[32m${s}\x1b[0m`, yellow: (s: string) => `\x1b[33m${s}\x1b[0m`, dim: (s: string) => `\x1b[2m${s}\x1b[0m` };
@@ -38,7 +38,8 @@ export interface RenderResult { rendered: number; fallback: number; failed: stri
 
 export const CARD_W = 1200, CARD_H = 630;
 const FAMILIES = ["Fraunces", "IBM Plex Sans"];
-const FONT_CSS = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=IBM+Plex+Sans:wght@400;600&display=swap";
+// The theme's own @font-face rules (theme/fonts/), served by the local server: drawing a card needs no network.
+const FONT_CSS = "/theme/fonts.css";
 const MIME: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp", ".avif": "image/avif" };
 // The picture itself, not what wraps it (a chart element also holds its "Show data" table).
 const VISUAL = "svg, img";
@@ -83,7 +84,7 @@ async function waitFor(s: TabSend, expression: string, ms: number, what: string)
   }
 }
 
-/** Resolves once every family is declared by the page's stylesheet and loaded; throws offline. */
+/** Resolves once every family is declared by the page's stylesheet and loaded; throws when they are not. */
 async function loadFonts(s: TabSend, faces: string[]): Promise<void> {
   const families = JSON.stringify(FAMILIES), list = JSON.stringify(faces);
   const r = await s("Runtime.evaluate", { awaitPromise: true, returnByValue: true, expression: `(async () => {
@@ -94,7 +95,7 @@ async function loadFonts(s: TabSend, faces: string[]): Promise<void> {
     await document.fonts.ready;
     return families.every((fam) => [...document.fonts].some((f) => f.family.replace(/["']/g, "") === fam && f.status === "loaded"));
   })()` });
-  if (!r.result.value) throw new Error("the web fonts (IBM Plex Sans, Fraunces) did not load: are you offline? Pass --system-fonts to render with fallback fonts anyway");
+  if (!r.result.value) throw new Error("the web fonts (IBM Plex Sans, Fraunces) did not load from theme/fonts/: is theme/fonts.css there? Pass --system-fonts to render with fallback fonts anyway");
 }
 
 async function withTab<T>(send: Send, fn: (s: TabSend) => Promise<T>): Promise<T> {
@@ -117,7 +118,7 @@ async function captureVisual(send: Send, base: string, job: CardJob, systemFonts
     await s("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }, { name: "prefers-reduced-motion", value: "reduce" }] });
     if (systemFonts) {
       await s("Network.enable");
-      await s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
+      await s("Network.setBlockedURLs", { urls: [FONT_FILES] });
     }
     // ?examples: an example page is hidden by default, and the card is drawn from the page itself.
     await s("Page.navigate", { url: base + job.href + "?examples" });
@@ -187,7 +188,7 @@ async function composeCard(send: Send, base: string, routes: Map<string, { type:
     await s("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }, { name: "prefers-reduced-motion", value: "reduce" }] });
     if (systemFonts) {
       await s("Network.enable");
-      await s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
+      await s("Network.setBlockedURLs", { urls: [FONT_FILES] });
     }
     await s("Page.navigate", { url: base + route.slice(1) });
     await waitFor(s, "document.readyState === 'complete'", 20000, "the card frame never finished loading");
