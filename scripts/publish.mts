@@ -31,7 +31,7 @@ const GOATCOUNTER_CODE = /^[a-z0-9-]+$/;
 const goatcounterTag = (code: string) => `<script data-goatcounter="https://${code}.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>`;
 const publishedPages = (stage: string) => ["index.html", ...fs.readdirSync(path.join(stage, "docs")).filter((f) => f.endsWith(".html")).map((f) => `docs/${f}`)];
 // A sealed shell holds the encrypted payload and the sealed meta; either one marks it.
-const isSealedShell = (html: string) => /<script\b[^>]*\bid="sealed-payload"/i.test(html) || /<meta\s+name="bh:sealed"/i.test(html);
+export const isSealedShell = (html: string) => /<script\b[^>]*\bid="sealed-payload"/i.test(html) || /<meta\s+name="bh:sealed"/i.test(html);
 function addGoatcounter(stage: string, code: string): { tagged: string[]; sealed: string[] } {
   const tag = goatcounterTag(code);
   const tagged: string[] = [], sealed: string[] = [];

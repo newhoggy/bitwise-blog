@@ -49,9 +49,10 @@ async function stub(t: TestContext): Promise<Stub> {
       case "/loop": return send(302, { Location: "/loop" });
       case "/gone": return send(404);
       case "/410": return send(410);
-      case "/flaky": return send(n <= 2 ? 503 : 200); // HEAD then GET fail on the first attempt; the second attempt's HEAD works
-      case "/busy": return send(n <= 2 ? 429 : 200, { "Retry-After": "2" });
+      case "/flaky": return send(n <= 1 ? 503 : 200);
+      case "/busy": return send(n <= 1 ? 429 : 200, { "Retry-After": "2" });
       case "/down": return send(503);
+      case "/down-once": return send(503);
       case "/hang": return; // never answers
       default: return send(404);
     }
@@ -119,6 +120,14 @@ test("extractLinks reads href and src of real markup, decoded, de-duplicated, wi
   ]);
 });
 
+test("an out-of-range character reference is left as written, not a crash", () => {
+  assert.deepEqual(extractLinks(`<a href="https://a.test/&#x110000;">x</a> <a href="https://b.test/&#99999999;">y</a> <a href="https://c.test/&#x41;">z</a>`), [
+    "https://a.test/&",
+    "https://b.test/&",
+    "https://c.test/A",
+  ]);
+});
+
 test("externalUrl keeps only absolute http(s) URLs off the site, and is not fooled by a lookalike host", () => {
   assert.equal(externalUrl("HTTPS://Example.TEST/a#b"), "https://example.test/a");
   assert.equal(externalUrl("javascript:alert(1)"), null);
@@ -151,12 +160,15 @@ test("publishedPages reads the home page and readable docs, not sealed shells, p
     "docs/sealed.html": page(`<meta name="robots" content="noindex">`, `<script id="sealed-payload" type="application/octet-stream">AAAA</script><a href="https://sealed.test/">x</a>`),
     "docs/draft.private.html": page("", `<a href="https://private.test/">x</a>`),
     "docs/commented.html": page(`<!-- <meta name="bh:example" content="true"> -->`, `<a href="https://shared.test/">x</a>`),
+    "docs/sealed-meta.html": page(`<meta name="bh:sealed" content="1">`, `<a href="https://sealed.test/">x</a>`),
+    "docs/quotes-marker.html": page("", `<pre><code>&lt;meta name="bh:example" content="true"&gt;</code></pre><meta name="bh:example" content="true">`),
   });
   assert.deepEqual(publishedPages(root), [
     { href: "index.html", unlisted: false },
     { href: "docs/commented.html", unlisted: false },
     { href: "docs/hidden.html", unlisted: true },
     { href: "docs/post.html", unlisted: false },
+    { href: "docs/quotes-marker.html", unlisted: false },
   ]);
   assert.deepEqual(collectLinks(root, {}).uses, [
     { url: "https://home.test/", pages: ["index.html"] },
@@ -219,19 +231,25 @@ test("checkUrl reports a redirect loop as an error, without retrying it", async 
   assert.deepEqual(waits, []);
 });
 
-test("checkUrl retries 5xx and 429 with backoff, honouring a short Retry-After", async (t) => {
+test("checkUrl retries 5xx and 429 with backoff, honouring a short Retry-After, and waits before the GET", async (t) => {
   const s = await stub(t);
   const waits: number[] = [];
+  const methods = (route: string) => s.seen.filter((x) => x.path === route).map((x) => x.method);
   const flaky = await checkUrl(`${s.base}/flaky`, { ...fast(waits), backoffMs: [100, 300] });
-  assert.deepEqual({ status: flaky.status, attempts: flaky.attempts }, { status: 200, attempts: 2 });
-  // The first attempt's HEAD failed, so the retry goes straight to GET.
-  assert.deepEqual(s.seen.filter((x) => x.path === "/flaky").map((x) => x.method), ["HEAD", "GET", "GET"]);
+  assert.deepEqual({ status: flaky.status, attempts: flaky.attempts, method: flaky.method }, { status: 200, attempts: 2, method: "GET" });
+  // A 503 to HEAD asks us to slow down: the GET comes after the backoff, not straight away.
+  assert.deepEqual(methods("/flaky"), ["HEAD", "GET"]);
   const busy = await checkUrl(`${s.base}/busy`, { ...fast(waits), backoffMs: [100, 300] });
   assert.deepEqual({ status: busy.status, attempts: busy.attempts }, { status: 200, attempts: 2 });
   assert.deepEqual(waits, [100, 2000], "the backoff, then Retry-After: 2");
   const down = await checkUrl(`${s.base}/down`, { ...fast(waits), attempts: 3, backoffMs: [100, 300] });
   assert.deepEqual({ status: down.status, attempts: down.attempts }, { status: 503, attempts: 3 });
   assert.deepEqual(waits.slice(2), [100, 300]);
+  assert.deepEqual(methods("/down"), ["HEAD", "GET", "GET"]);
+  // With no attempt left to wait for, the GET goes at once.
+  const once = await checkUrl(`${s.base}/down-once`, { ...fast(waits), attempts: 1 });
+  assert.deepEqual({ status: once.status, method: once.method }, { status: 503, method: "GET" });
+  assert.deepEqual(methods("/down-once"), ["HEAD", "GET"]);
 });
 
 test("checkUrl does not retry a 404 or a 410", async (t) => {
@@ -338,6 +356,21 @@ test("loadAllowlist: a missing file is an empty list; a malformed one throws", (
   assert.throws(() => loadAllowlist(path.join(dir, "wrong.json")), /accept/);
 });
 
+test("loadAllowlist writes entry URLs as checked URLs are written, so they match", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bh-links-allow-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "allow.json");
+  fs.writeFileSync(file, JSON.stringify([
+    { url: "https://Example.TEST", accept: [403], reason: "r" },
+    { url: "https://Other.test/Path/*", accept: [403], reason: "r" },
+  ]));
+  const [exact, prefix] = loadAllowlist(file);
+  assert.equal(exact!.url, "https://example.test/");
+  assert.ok(allowMatches(exact!, externalUrl("https://example.test")!));
+  assert.equal(prefix!.url, "https://other.test/Path/*");
+  assert.deepEqual(allowlistProblems([{ url: "https://a.test/#frag", accept: [403], reason: "r" }]).length, 1, "a fragment is never part of a checked URL");
+});
+
 test("allowMatches takes an exact URL or a prefix ending in *; tolerates matches the outcome", () => {
   const e: AllowEntry = { url: "https://a.test/x/*", accept: [403, "timeout"], reason: "r" };
   assert.ok(allowMatches(e, "https://a.test/x/y"));
@@ -398,6 +431,21 @@ test("formatConsole gives each URL's status, error, redirect target and pages, a
   assert.match(text, /OK \(1\)\n\s+200\s+https:\/\/fine\.test\//);
   assert.match(text, /Unused allowlist entries \(1\)/);
   assert.doesNotMatch(formatConsole(sampleReport(), { quiet: true }), /fine\.test/);
+  assert.match(text, /docs\/secret\.html/, "a local run names unlisted pages");
+  const redacted = formatConsole(sampleReport(), { redactUnlisted: true });
+  assert.doesNotMatch(redacted, /secret/);
+  assert.match(redacted, /pages: docs\/a\.html, an unlisted page/);
+});
+
+test("formatMarkdown cuts a body that would not fit an issue, and keeps its HTML balanced", () => {
+  const r = sampleReport();
+  const many = Array.from({ length: 600 }, (_, i) => ({ ...r.results[1]!, url: `https://gone.test/${"x".repeat(80)}/${i}`, allowed: undefined }));
+  const allowed = Array.from({ length: 300 }, (_, i) => ({ ...r.results[2]!, url: `https://wall.test/${"y".repeat(80)}/${i}` }));
+  const md = formatMarkdown({ ...r, results: [...many, ...allowed] });
+  assert.ok(md.length < 65_536, `${md.length} characters`);
+  assert.match(md, /cut short here/);
+  assert.equal((md.match(/<details>/g) ?? []).length, (md.match(/<\/details>/g) ?? []).length);
+  assert.match(md, /Fix or remove each broken link/, "the guidance survives the cut");
 });
 
 test("formatMarkdown links the pages, never names an unlisted one, and carries a digest", () => {
@@ -521,6 +569,36 @@ test("main --issue reports through gh and exits 0, or 2 when gh fails", async (t
   const bad = sink();
   assert.equal(await main(["--issue"], {}, bad, root, { ...fast(), gh: fakeGh([], "label create").gh }), 2);
   assert.match(bad.errors.join("\n"), /reporting through the issue failed/);
+});
+
+test("main exits 2 without touching the issue when nearly every URL got no response (our network, not theirs)", async (t) => {
+  const port = await closedPort();
+  const links = Array.from({ length: 4 }, (_, i) => `<a href="http://127.0.0.1:${port}/${i}">x</a>`).join(" ");
+  const root = repo(t, { "docs/post.html": page("", links) });
+  const f = fakeGh([]);
+  const out = sink();
+  assert.equal(await main(["--issue"], {}, out, root, { ...fast(), attempts: 1, gh: f.gh }), 2);
+  assert.match(out.errors.join("\n"), /looks like a network problem/);
+  assert.deepEqual(f.calls, []);
+});
+
+test("main exits 2, not 1, when the check itself crashes", async (t) => {
+  const root = repo(t, { "docs/post.html": page("", `<a href="https://x.test/">x</a>`) });
+  const out = sink();
+  const sleep = () => { throw new Error("injected crash"); };
+  const fetch: FetchLike = async () => new Response(null, { status: 503 });
+  assert.equal(await main([], {}, out, root, { fetch, sleep }), 2);
+  assert.match(out.errors.join("\n"), /the check failed: Error: injected crash/);
+});
+
+test("main names unlisted pages locally, but not in a workflow's public log", async (t) => {
+  const s = await stub(t);
+  const root = repo(t, { "docs/hidden-page.html": page(`<meta name="bh:unlisted" content="true">`, `<a href="${s.base}/gone">gone</a>`) });
+  const local = sink(), ci = sink();
+  await main([], {}, local, root, fast());
+  await main([], { GITHUB_ACTIONS: "true" }, ci, root, fast());
+  assert.match(local.logs.join("\n"), /hidden-page/);
+  assert.doesNotMatch(ci.logs.join("\n"), /hidden-page/);
 });
 
 test("main exits 2 when there is nothing to check, on a bad allowlist and on a bad argument", async (t) => {

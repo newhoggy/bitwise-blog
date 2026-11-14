@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { isSealedShell } from "./publish.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -88,7 +89,7 @@ export interface CheckOptions {
 export type Gh = (args: string[], input?: string) => string;
 
 /** The two output streams `main` writes to (the console, or a test's sink). */
-export interface Output { log: (...args: any[]) => void; error: (...args: any[]) => void }
+export interface Output { log: (...args: unknown[]) => void; error: (...args: unknown[]) => void }
 
 export type Env = Record<string, string | undefined>;
 
@@ -103,13 +104,20 @@ const metaTrue = (html: string, name: string) => new RegExp(`<meta\\s+name="${na
  * (`publish.mts` removes them from the deployed site, so no reader sees their links).
  */
 export function publishedPages(root: string = ROOT): LinkPage[] {
-  const pages: LinkPage[] = fs.existsSync(path.join(root, "index.html")) ? [{ href: "index.html", unlisted: false }] : [];
+  return readPages(root).map((p) => p.page);
+}
+
+/** `publishedPages` with each page's HTML, so it is read once. Sealed and example are decided as `publish.mts` decides them. */
+function readPages(root: string): Array<{ page: LinkPage; html: string }> {
+  const read = (href: string) => fs.readFileSync(path.join(root, href), "utf8");
+  const pages = fs.existsSync(path.join(root, "index.html")) ? [{ page: { href: "index.html", unlisted: false }, html: read("index.html") }] : [];
   const dir = path.join(root, "docs");
   if (!fs.existsSync(dir)) return pages;
   for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".html") && !f.endsWith(".private.html")).sort()) {
-    const html = stripComments(fs.readFileSync(path.join(dir, file), "utf8"));
-    if (/\bid="sealed-payload"/i.test(html) || metaTrue(html, "bh:example")) continue;
-    pages.push({ href: `docs/${file}`, unlisted: metaTrue(html, "bh:unlisted") });
+    const href = `docs/${file}`, html = read(href);
+    const head = stripComments(html).match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? "";
+    if (isSealedShell(html) || metaTrue(head, "bh:example")) continue;
+    pages.push({ page: { href, unlisted: metaTrue(head, "bh:unlisted") }, html });
   }
   return pages;
 }
@@ -125,7 +133,7 @@ export function siteBase(root: string = ROOT, env: Env = process.env): string {
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
 const decode = (s: string) => s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
-  if (e[0] === "#") { const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return Number.isFinite(n) ? String.fromCodePoint(n) : m; }
+  if (e[0] === "#") { const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return n >= 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m; }
   return ENTITIES[e.toLowerCase()] ?? m;
 });
 
@@ -166,12 +174,12 @@ export function extractLinks(html: string, base = ""): string[] {
 }
 
 /** Every external URL of the published pages, with the pages that use it. Sorted by URL. */
-export function collectLinks(root: string = ROOT, env: Env = process.env): Collected {
-  const pages = publishedPages(root);
-  const base = siteBase(root, env);
+export function collectLinks(root: string = ROOT, env: Env = process.env, base: string = siteBase(root, env)): Collected {
+  const read = readPages(root);
+  const pages = read.map((p) => p.page);
   const byUrl = new Map<string, Set<string>>();
-  for (const page of pages) {
-    for (const url of extractLinks(fs.readFileSync(path.join(root, page.href), "utf8"), base)) {
+  for (const { page, html } of read) {
+    for (const url of extractLinks(html, base)) {
       const set = byUrl.get(url) ?? new Set<string>();
       set.add(page.href);
       byUrl.set(url, set);
@@ -192,7 +200,8 @@ export function allowlistProblems(data: unknown): string[] {
     if (!e || typeof e !== "object" || Array.isArray(e)) { problems.push(`${where} is not an object`); return; }
     const o = e as Record<string, unknown>;
     for (const k of Object.keys(o)) if (!["url", "accept", "reason"].includes(k)) problems.push(`${where} has an unknown field "${k}"`);
-    if (typeof o.url !== "string" || !/^https?:\/\/[^\s*]+\*?$/.test(o.url)) problems.push(`${where}: "url" must be an http(s) URL, or a prefix ending in "*"`);
+    if (typeof o.url !== "string" || !/^https?:\/\/[^\s*#]+\*?$/.test(o.url)) problems.push(`${where}: "url" must be an http(s) URL with no fragment, or a prefix ending in "*"`);
+    else if (normalizeEntryUrl(o.url) === null) problems.push(`${where}: "url" ${JSON.stringify(o.url)} is not a URL`);
     if (!Array.isArray(o.accept) || !o.accept.length) problems.push(`${where}: "accept" must list what is tolerated (status codes, "timeout", "error", "redirect")`);
     else for (const a of o.accept) if (!(Number.isInteger(a) && (a as number) >= 100 && (a as number) <= 599) && !["timeout", "error", "redirect"].includes(a as string)) problems.push(`${where}: "accept" has ${JSON.stringify(a)}, which is not a status code, "timeout", "error" or "redirect"`);
     if (typeof o.reason !== "string" || !o.reason.trim()) problems.push(`${where}: "reason" must say why the outcome is accepted`);
@@ -200,14 +209,23 @@ export function allowlistProblems(data: unknown): string[] {
   return problems;
 }
 
-/** The allowlist at `file` (none when the file is missing). Throws on a malformed one. */
+/**
+ * An entry's URL written the way the checked URLs are (`new URL().href`: lower-case host, "/" for an empty path),
+ * so `https://Example.test` matches the link `https://example.test/`. A prefix keeps its trailing `*`.
+ */
+export function normalizeEntryUrl(url: string): string | null {
+  const prefix = url.endsWith("*");
+  try { return new URL(prefix ? url.slice(0, -1) : url).href + (prefix ? "*" : ""); } catch { return null; }
+}
+
+/** The allowlist at `file` (none when the file is missing), with its URLs normalised. Throws on a malformed one. */
 export function loadAllowlist(file: string): AllowEntry[] {
   if (!fs.existsSync(file)) return [];
   let data: unknown;
   try { data = JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) { throw new Error(`${file} is not valid JSON: ${(e as Error).message}`); }
   const problems = allowlistProblems(data);
   if (problems.length) throw new Error(`${file}: ${problems.join("; ")}`);
-  return data as AllowEntry[];
+  return (data as AllowEntry[]).map((e) => ({ ...e, url: normalizeEntryUrl(e.url)! }));
 }
 
 export const allowMatches = (entry: AllowEntry, url: string): boolean => (entry.url.endsWith("*") ? url.startsWith(entry.url.slice(0, -1)) : url === entry.url);
@@ -289,7 +307,11 @@ export async function checkUrl(url: string, options: CheckOptions = {}): Promise
     let f: Followed;
     try {
       f = await follow(url, method, o);
-      if (method === "HEAD" && failed(f)) { useHead = false; method = "GET"; f = await follow(url, method, o); }
+      if (method === "HEAD" && failed(f)) {
+        useHead = false;
+        // A 429 or 5xx asks us to slow down: the GET waits for the next attempt's backoff, unless there is none.
+        if (!(f.transient && f.status > 0) || attempt >= attempts) { method = "GET"; f = await follow(url, method, o); }
+      }
     } catch (e) {
       f = { status: 0, redirects: [], final: url, error: describeError(e, o.timeoutMs), transient: false };
     }
@@ -306,7 +328,7 @@ const hostOf = (url: string) => { try { return new URL(url).host; } catch { retu
 /** `uses` reordered round-robin by host, so the queue never runs one site's URLs back to back. */
 function interleave(uses: LinkUse[]): LinkUse[] {
   const groups = new Map<string, LinkUse[]>();
-  for (const u of uses) { const h = hostOf(u.url); groups.set(h, [...(groups.get(h) ?? []), u]); }
+  for (const u of uses) { const h = hostOf(u.url); const g = groups.get(h); if (g) g.push(u); else groups.set(h, [u]); }
   const lists = [...groups.values()], out: LinkUse[] = [];
   for (let i = 0; out.length < uses.length; i++) for (const l of lists) if (l[i]) out.push(l[i]!);
   return out;
@@ -390,8 +412,9 @@ const statusText = (r: Pick<Probe, "status" | "error">) => (r.status ? String(r.
 const chain = (r: UrlResult) => [...r.redirects.map((h) => `${h.status} ${h.url}`), `${statusText(r)} ${r.final}`].join(" → ");
 
 /** The console report: a summary, then each group with every URL's status, redirect target and pages. */
-export function formatConsole(report: LinkReport, { quiet = false } = {}): string {
+export function formatConsole(report: LinkReport, { quiet = false, redactUnlisted = false } = {}): string {
   const c = counts(report);
+  const unlisted = new Set(redactUnlisted ? report.pages.filter((p) => p.unlisted).map((p) => p.href) : []);
   const lines = [`Checked ${plural(report.results.length, "external URL")} from ${plural(report.pages.length, "page")}: ${c.broken} broken, ${c.moved} moved permanently, ${c.allowed} allowlisted, ${c.ok} ok.`];
   const group = (title: string, rows: UrlResult[]) => {
     if (!rows.length) return;
@@ -402,7 +425,7 @@ export function formatConsole(report: LinkReport, { quiet = false } = {}): strin
       if (r.redirects.length) lines.push(`       redirects: ${chain(r)}`);
       if (r.error) lines.push(`       error: ${r.error}`);
       if (r.allowed) lines.push(`       allowlisted: ${r.allowed.reason}`);
-      lines.push(`       pages: ${r.pages.join(", ")}`);
+      lines.push(`       pages: ${[...new Set(r.pages.map((p) => (unlisted.has(p) ? "an unlisted page" : p)))].join(", ")}`);
     }
   };
   group("Broken", report.results.filter((r) => r.outcome === "broken" && !r.allowed));
@@ -459,13 +482,20 @@ export function formatMarkdown(report: LinkReport): string {
   if (report.unused.length) {
     out.push("", `Unused allowlist entries: ${report.unused.map((e) => `\`${e.url}\``).join(", ")}. Nothing they accept happened this run; remove an entry once its site answers reliably.`);
   }
-  out.push(
+  const MAX_BODY = 60_000; // GitHub refuses an issue body over 65,536 characters
+  let body = out.join("\n");
+  if (body.length > MAX_BODY) {
+    body = body.slice(0, body.lastIndexOf("\n", MAX_BODY));
+    if ((body.match(/<details>/g) ?? []).length > (body.match(/<\/details>/g) ?? []).length) body += "\n\n</details>";
+    body += "\n\n**The list is cut short here, to fit an issue.** Run `npm run links` for all of it.";
+  }
+  return [
+    body,
     "",
     "Fix or remove each broken link. A site that works in a browser but refuses automated clients gets an entry in " +
       "`links-allowlist.json`, with the outcome it gives and the reason. The workflow updates this issue on every run, " +
       "and closes it when a run finds nothing that needs attention. See \"External links\" in `CLAUDE.md`.",
-  );
-  return out.join("\n");
+  ].join("\n");
 }
 
 // ---- The issue ------------------------------------------------------------------------
@@ -519,12 +549,30 @@ Requests every external http(s) link of the published pages and reports broken l
   --markdown <file>  also write the findings as Markdown
   --json <file>      also write every result as JSON
   --issue            report through the one "${ISSUE_LABEL}" issue with gh (the weekly workflow)
-Exit status: 0 nothing broken (or, with --issue, reported), 1 something broken, 2 the check itself failed.`;
+Exit status: 0 nothing broken (or, with --issue, reported), 1 something broken, 2 the check itself failed
+(including a run where most URLs got no response at all, which points at our network, not the sites).`;
 
 /** What `main` can be given instead of the real network, `gh` and clock. */
 export interface MainDeps extends CheckOptions { gh?: Gh; today?: string; allowlist?: string }
 
 export async function main(argv: string[] = process.argv.slice(2), env: Env = process.env, out: Output = console, root: string = ROOT, deps: MainDeps = {}): Promise<number> {
+  try { return await run(argv, env, out, root, deps); } catch (e) {
+    // Exit 1 means "a link is broken": a crash of the check itself must not read as that.
+    out.error(`links: the check failed: ${(e as Error)?.stack ?? e}`);
+    return 2;
+  }
+}
+
+/**
+ * True when so many URLs got no response at all that the cause is our network, not the sites: a runner's DNS or
+ * network outage would otherwise be reported as every link on the site being broken.
+ */
+export function looksLikeOutage(report: LinkReport): boolean {
+  const silent = report.results.filter((r) => r.status === 0 && !r.allowed).length;
+  return silent >= 3 && silent * 2 > report.results.length;
+}
+
+async function run(argv: string[], env: Env, out: Output, root: string, deps: MainDeps): Promise<number> {
   let quiet = false, issue = false, markdownFile = "", jsonFile = "";
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -539,18 +587,24 @@ export async function main(argv: string[] = process.argv.slice(2), env: Env = pr
   }
   let allow: AllowEntry[];
   try { allow = loadAllowlist(deps.allowlist ?? path.join(root, "links-allowlist.json")); } catch (e) { out.error(`links: ${(e as Error).message}`); return 2; }
-  const { pages, uses } = collectLinks(root, env);
+  const base = siteBase(root, env);
+  const { pages, uses } = collectLinks(root, env, base);
   if (!uses.length) { out.error(`links: no external links found in ${plural(pages.length, "page")}. That is almost certainly a bug in the collector, not a clean site.`); return 2; }
   out.error(`Checking ${plural(uses.length, "external URL")} from ${plural(pages.length, "page")}…`);
   const probes = await checkAll(uses, deps);
-  const report = buildReport(uses, probes, allow, pages, { date: deps.today ?? new Date().toISOString().slice(0, 10), siteBase: siteBase(root, env) });
-  out.log(formatConsole(report, { quiet }));
+  const report = buildReport(uses, probes, allow, pages, { date: deps.today ?? new Date().toISOString().slice(0, 10), siteBase: base });
+  // A workflow's log is public in a public repository, like the issue: name unlisted pages there no more than in it.
+  out.log(formatConsole(report, { quiet, redactUnlisted: issue || env.GITHUB_ACTIONS === "true" }));
   const markdown = formatMarkdown(report);
   try {
     if (markdownFile) fs.writeFileSync(markdownFile, `${markdown}\n`);
     if (jsonFile) fs.writeFileSync(jsonFile, `${JSON.stringify(report, null, 2)}\n`);
     if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `## External links\n\n${markdown}\n`);
   } catch (e) { out.error(`links: ${(e as Error).message}`); return 2; }
+  if (looksLikeOutage(report)) {
+    out.error(`links: ${counts(report).broken} of ${plural(report.results.length, "URL")} got no response at all, which looks like a network problem on this side, not broken links. Nothing was reported to the issue.`);
+    return 2;
+  }
   if (issue) {
     try { out.log(`\nIssue: ${syncIssue(report, markdown, deps.gh ?? runGh)}`); } catch (e) { out.error(`links: reporting through the issue failed: ${(e as Error).message}`); return 2; }
     return 0;

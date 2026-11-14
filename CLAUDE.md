@@ -513,7 +513,9 @@ or bot-hostile site cannot make a PR flaky.
 - **The issue.** The workflow keeps one issue, labelled `link-check`: it opens or reopens it and rewrites its
   description while something is broken or moved (with a comment when the findings change, since an edit
   notifies nobody) and closes it when a run is clean. The issue is public, so it names unlisted pages only as
-  "an unlisted page". The job goes red when the check itself fails or the issue can't be updated.
+  "an unlisted page", and so does the job's log. The job goes red, and leaves the issue alone, when the check
+  itself fails, when the issue can't be updated, or when most URLs got no response at all (a network problem on
+  the runner, not hundreds of broken links).
 
 ## Page contract
 
