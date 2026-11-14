@@ -1620,13 +1620,15 @@ function cmdCheck(skipKeys = false): void {
     problems.forEach((p) => console.log(c.red("  error  ") + p));
     errors += problems.length;
   }
-  // CLAUDE.md points at one contract file per feature: each must exist, and each contract must be pointed at.
+  // CLAUDE.md points at one contract file per feature (and README.md links some): each must exist, and each contract must be pointed at.
   // Skipped when there is no CLAUDE.md, as for the README.
   if (fs.existsSync(path.join(ROOT, "CLAUDE.md"))) {
     const dir = path.join(ROOT, "contracts");
-    const present = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".md")) : [];
-    const problems = contractProblems(fs.readFileSync(path.join(ROOT, "CLAUDE.md"), "utf8"), present);
-    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + `CLAUDE.md (${present.length} contract file${present.length === 1 ? "" : "s"} in contracts/ exist and are named)`);
+    const present = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => !fs.statSync(path.join(dir, f)).isDirectory()) : [];
+    const readme = path.join(ROOT, "README.md"); // its links to contracts must not dangle either
+    const others: Record<string, string> = fs.existsSync(readme) ? { "README.md": fs.readFileSync(readme, "utf8") } : {};
+    const problems = contractProblems(fs.readFileSync(path.join(ROOT, "CLAUDE.md"), "utf8"), present, others);
+    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + "CLAUDE.md (feature contract pointers)");
     problems.forEach((p) => console.log(c.red("  error  ") + p));
     errors += problems.length;
   }

@@ -13,6 +13,7 @@ from it rather than inventing new markup.
    - Templates: `explainer`, `design-doc`, `adr`, `incident`, `review`
    - Add `--example` for a page that only demonstrates the theme (see [Example pages](contracts/example-pages.md))
    - Add `--unlisted` for a page that is published but not surfaced (see [Unlisted pages](contracts/unlisted-pages.md))
+   - Add `--private` for a page whose content must stay secret (see [Private pages](contracts/private-pages.md))
    - This creates `docs/<slug>.html` and refreshes `index.html`
 2. Replace every placeholder section. Delete sections that don't earn their place.
 3. `npm run check`. It must report 0 errors. Fix the warnings unless there is a reason not to.
@@ -47,8 +48,9 @@ Run `npm run cards` after changing a page's title, kind, date, or its first diag
 ## Feature contracts
 
 Each feature's full contract is a file in `contracts/` (outside `docs/`, so it is never published).
-Read it before you change the feature; `check` fails if a file named here is missing.
+Read it before you use or change the feature; `check` fails if a file named here is missing.
 
+<!-- bh:contracts -->
 - Editing `scripts/`, `tests/` or `.github/workflows/` (TypeScript rules, job and test timeouts)? Read [`contracts/tooling.md`](contracts/tooling.md).
 - The logo, favicon, touch icon, `theme/logo/` or `LOGO_SVG`? Read [`contracts/brand-assets.md`](contracts/brand-assets.md).
 - The social meta block, `bh:image`, `npm run cards` or `docs/assets/og/`? Read [`contracts/social-cards.md`](contracts/social-cards.md).
@@ -60,10 +62,18 @@ Read it before you change the feature; `check` fails if a file named here is mis
 - The footer's attribution link, `homepage`, `bh.siteName` or `bh.repoUrl`? Read [`contracts/attribution.md`](contracts/attribution.md).
 - External links, `npm run links`, `links-allowlist.json` or the weekly link-check issue? Read [`contracts/external-links.md`](contracts/external-links.md).
 - GoatCounter, `GOATCOUNTER_CODE` or `npm run stats`? Read [`contracts/page-views.md`](contracts/page-views.md).
+- An interactive isometric figure (the `anatomy` skill, `figures/`, `embed.mjs`)? Read [`contracts/anatomy-figures.md`](contracts/anatomy-figures.md).
 - Defining a term, `docs/glossary.html`, or the glossary popup in `bh.js`? Read [`contracts/glossary.md`](contracts/glossary.md).
 - Applying or answering a review file, `reviews/`, or the Review panel? Read [`contracts/reviews.md`](contracts/reviews.md).
 - An `npm run a11y` failure, `scripts/a11y.mts` or `a11y-allowlist.json`? Read [`contracts/a11y.md`](contracts/a11y.md).
 - Anything in `.claude/skills/`? Read [`contracts/skills.md`](contracts/skills.md), then load the `skill-authoring` skill.
+<!-- /bh:contracts -->
+
+Some rules in those contracts guard what this public repo reveals, and no check catches a slip, so they hold always:
+
+- Never put a `#k=` link (a private page's key, or `seal -- --show-links` output) in a commit, PR, issue or any public place.
+- Never describe an unlisted page as private: unlisted controls discoverability, not access.
+- Never put the GoatCounter tag in a page, template or theme file, and never paste `npm run stats` output anywhere public.
 
 ## Page contract
 
@@ -194,19 +204,6 @@ beats five decorative ones.
   `bh-note over`), not Mermaid. Give every part a `data-id` that a stepper or a
   `data-ref` can use. It renders at natural size (1 unit = 1px), so keep labels short.
 - Mermaid (`<pre class="mermaid">`) is a fallback for quick state or flow sketches only.
-
-## Anatomy figures
-
-For a figure that explains an idea as a real, working machine (an interactive isometric drawing
-with a live readout), the vendored `anatomy` skill (`.claude/skills/anatomy/`, see its
-`VENDORED.md`) builds it. Its figures are not blog diagrams, so the diagram rules above and the
-`check` diagram tests do not apply inside one. Build the figure in `figures/<slug>/` (not in the
-skill), then put it in a page with
-`node .claude/skills/anatomy/scripts/embed.mjs figures/<slug>/<name>.html docs/<slug>.html --id <figure-id> --before <element-id>`.
-Never paste a standalone figure page into `docs/`: its page CSS repaints the whole page and its
-colours ignore the theme toggle. Details, and what to check afterwards, are in
-`.claude/skills/anatomy/references/bitwise-blog.md`. Use one per page, and only where the machine
-is the explanation.
 
 ## Charts
 

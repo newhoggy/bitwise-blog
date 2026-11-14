@@ -56,19 +56,29 @@ export function readmeExampleProblems(readme: string, exampleHrefs: string[]): s
   return compare("example list", "no `bh:example` marker marks", claims(text, DOC_PATH), exampleHrefs, "add it, or remove its bh:example marker");
 }
 
-/** A contract file as `CLAUDE.md` names it: `contracts/<kebab-name>.md`. */
-const CONTRACT_PATH = /(?<![\w/.-])contracts\/([a-z0-9][a-z0-9-]*\.md)\b/g;
+/** A contract file's name, and a path naming one (`contracts/x.md` or `./contracts/x.md`, not `docs/contracts/x.md`). */
+const CONTRACT_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
+const CONTRACT_PATH = /(?:(?<![\w/.-])|(?<=(?<![\w./-])\.\/))contracts\/([a-z0-9][a-z0-9-]*\.md)\b/g;
+const contractsNamed = (text: string) => new Set([...text.matchAll(CONTRACT_PATH)].map((m) => m[1]!));
 
 /**
- * `CLAUDE.md` keeps one pointer per feature to its contract in `contracts/`. Every file it names
- * must exist (a pointer to nothing loses the rules), and every contract must be named (a contract
- * no pointer leads to is never read). `present` is the list of `*.md` files in `contracts/`.
+ * `CLAUDE.md` keeps one pointer line per feature contract, fenced by `<!-- bh:contracts -->` comments.
+ * Every contract file that `CLAUDE.md` (or another file in `others`, path → text) names must exist,
+ * since a pointer to nothing loses the rules; and every file in `contracts/` must have a pointer in
+ * the fence, since a contract no pointer leads to is never read. `present` lists the files in `contracts/`.
  */
-export function contractProblems(claudeMd: string, present: string[]): string[] {
-  const named = new Set([...claudeMd.matchAll(CONTRACT_PATH)].map((m) => m[1]));
+export function contractProblems(claudeMd: string, present: string[], others: Record<string, string> = {}): string[] {
+  const problems: string[] = [];
   const have = new Set(present);
-  return [
-    ...[...named].filter((f) => !have.has(f)).sort().map((f) => `CLAUDE.md names contracts/${f}, which does not exist`),
-    ...[...have].filter((f) => !named.has(f)).sort().map((f) => `contracts/${f} is not named in CLAUDE.md: add a pointer line under "Feature contracts", or delete it`),
-  ];
+  for (const [file, text] of Object.entries({ "CLAUDE.md": claudeMd, ...others })) {
+    for (const f of [...contractsNamed(text)].sort()) if (!have.has(f)) problems.push(`${file} names contracts/${f}, which does not exist`);
+  }
+  const fence = fenced(claudeMd, "contracts");
+  if (fence === undefined) return [...problems, "CLAUDE.md has no <!-- bh:contracts --> … <!-- /bh:contracts --> list of pointers to the feature contracts"];
+  const pointed = contractsNamed(fence);
+  for (const f of [...have].sort()) {
+    if (!CONTRACT_NAME.test(f)) problems.push(`contracts/${f}: a contract's file name is kebab-case (a-z, 0-9, -) and ends in .md`);
+    else if (!pointed.has(f)) problems.push(`contracts/${f} has no pointer line in CLAUDE.md's <!-- bh:contracts --> list: add one, or delete the file`);
+  }
+  return problems;
 }

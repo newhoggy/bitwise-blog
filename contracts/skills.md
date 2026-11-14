@@ -1,6 +1,6 @@
 # Skills
 
-Read this before touching `.claude/skills/`, then load the `skill-authoring` skill, which holds these rules with their reasons.
+Read this before touching `.claude/skills/`.
 
 The agent skills in `.claude/skills/` have their own house rules. The `skill-authoring` skill
 holds them, with the reasons; this is the short form.

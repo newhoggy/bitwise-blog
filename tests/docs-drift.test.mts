@@ -100,17 +100,27 @@ test("check skips the README rule when there is no README", (t) => {
   assert.doesNotMatch(r.stdout, /README/);
 });
 
-test("contracts: every named contract exists and every contract is named", () => {
-  const md = "- Feeds? Read [`contracts/feed.md`](contracts/feed.md).\n- Cards? Read `contracts/social-cards.md`.\n";
-  assert.deepEqual(contractProblems(md, ["feed.md", "social-cards.md"]), []);
-  // A path under another directory is not a contract pointer.
-  assert.deepEqual(contractProblems(md + "See `docs/contracts/old.md` and tests/contracts/x.md.\n", ["feed.md", "social-cards.md"]), []);
+const FENCED = "<!-- bh:contracts -->\n- Feeds? Read [`contracts/feed.md`](contracts/feed.md).\n- Cards? Read `./contracts/social-cards.md`.\n<!-- /bh:contracts -->\n";
+
+test("contracts: every named contract exists and every contract has a pointer in the fence", () => {
+  assert.deepEqual(contractProblems(FENCED, ["feed.md", "social-cards.md"]), []);
+  // A path under another directory is not a contract pointer, and a contract may be named again outside the fence.
+  assert.deepEqual(contractProblems(FENCED + "See `docs/contracts/old.md`, tests/contracts/x.md and contracts/feed.md.\n", ["feed.md", "social-cards.md"]), []);
 });
 
-test("contracts: a missing contract and an unnamed one are both named", () => {
-  assert.deepEqual(contractProblems("Read `contracts/feed.md` and `contracts/gone.md`.", ["feed.md", "stray.md"]), [
+test("contracts: a missing contract, one with no pointer and a badly named file are each reported", () => {
+  assert.deepEqual(contractProblems(FENCED + "Also `contracts/gone.md`.\n", ["feed.md", "social-cards.md", "stray.md", "README.md"]), [
     "CLAUDE.md names contracts/gone.md, which does not exist",
-    'contracts/stray.md is not named in CLAUDE.md: add a pointer line under "Feature contracts", or delete it',
+    "contracts/README.md: a contract's file name is kebab-case (a-z, 0-9, -) and ends in .md",
+    "contracts/stray.md has no pointer line in CLAUDE.md's <!-- bh:contracts --> list: add one, or delete the file",
   ]);
-  assert.deepEqual(contractProblems("no pointers", []), []);
+  // Named only outside the fence is not a pointer.
+  assert.deepEqual(contractProblems(FENCED.replace(/- Feeds.*\n/, "") + "contracts/feed.md\n", ["feed.md", "social-cards.md"]),
+    ["contracts/feed.md has no pointer line in CLAUDE.md's <!-- bh:contracts --> list: add one, or delete the file"]);
+});
+
+test("contracts: other files' links to contracts must not dangle, and the fence must exist", () => {
+  assert.deepEqual(contractProblems(FENCED, ["feed.md", "social-cards.md"], { "README.md": "see [x](contracts/old.md)" }),
+    ["README.md names contracts/old.md, which does not exist"]);
+  assert.match(contractProblems("no fence", [])[0]!, /CLAUDE\.md has no <!-- bh:contracts -->/);
 });
