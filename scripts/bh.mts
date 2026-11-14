@@ -18,7 +18,7 @@ import zlib from "node:zlib";
 import crypto from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { fileURLToPath } from "node:url";
-import { readmeDependencyProblems, readmeExampleProblems } from "./docs-drift.mts";
+import { contractProblems, readmeDependencyProblems, readmeExampleProblems } from "./docs-drift.mts";
 import {
   KIND_LABELS, escapeHtml, CARD_FILE, KEY_RE, GROUP_RE, cardFromDoc, tryDecryptCard, buildBlob,
   renderCardsFile, parseCardsFile, validateCardsFile, mergeEntries, docCardHtml,
@@ -1617,6 +1617,16 @@ function cmdCheck(skipKeys = false): void {
       ...readmeExampleProblems(readme, publicDocs.filter((d) => d.example).map((d) => d.href)),
     ];
     console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + "README (dependency and example lists match the repo)");
+    problems.forEach((p) => console.log(c.red("  error  ") + p));
+    errors += problems.length;
+  }
+  // CLAUDE.md points at one contract file per feature: each must exist, and each contract must be pointed at.
+  // Skipped when there is no CLAUDE.md, as for the README.
+  if (fs.existsSync(path.join(ROOT, "CLAUDE.md"))) {
+    const dir = path.join(ROOT, "contracts");
+    const present = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".md")) : [];
+    const problems = contractProblems(fs.readFileSync(path.join(ROOT, "CLAUDE.md"), "utf8"), present);
+    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + `CLAUDE.md (${present.length} contract file${present.length === 1 ? "" : "s"} in contracts/ exist and are named)`);
     problems.forEach((p) => console.log(c.red("  error  ") + p));
     errors += problems.length;
   }

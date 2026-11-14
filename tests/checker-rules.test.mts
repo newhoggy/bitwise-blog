@@ -7,6 +7,7 @@
 // `check` must report for the page the fragment is injected into, one per message:
 //   <!-- expect error: <message> -->     <!-- expect warn: <message> -->     <!-- expect clean -->
 // Rules about the theme (contrast, stylesheet imports) edit a theme file instead; see THEME_CASES.
+// Rules about CLAUDE.md's contract pointers edit CLAUDE.md or contracts/ instead; see the contract cases.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -49,7 +50,7 @@ function messagesUnder(out: string, heading: string): string[] {
 // One throwaway copy of the site serves every case; each case restores what it edited.
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "bh-rules-test-"));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
-for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "package.json", "index.html", "feed.xml", "sitemap.xml", "robots.txt", "404.html"]) {
+for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "contracts", "CLAUDE.md", "package.json", "index.html", "feed.xml", "sitemap.xml", "robots.txt", "404.html"]) {
   fs.cpSync(path.join(source, entry), path.join(root, entry), { recursive: true });
 }
 // `check` asks 1Password for a private page's key; make that fail at once instead.
@@ -165,3 +166,43 @@ for (const c of THEME_CASES) {
     for (const m of got) assert.match(m, c.only);
   });
 }
+
+// Contract rules: every contracts/<name>.md that CLAUDE.md names must exist, and every contract must be named.
+const POINTERS = "## Feature contracts\n";
+const CONTRACT_HEADING = "CLAUDE.md";
+/** Move a file away for the duration of `fn`; it must exist first. */
+const removed = <T,>(rel: string, fn: () => T): T => {
+  const file = path.join(root, rel), aside = file + ".aside";
+  assert.ok(fs.existsSync(file), `${rel} does not exist, so removing it tests nothing`);
+  fs.renameSync(file, aside);
+  try { return fn(); } finally { fs.renameSync(aside, file); }
+};
+/** Add a file for the duration of `fn`; it must not exist first. */
+const added = <T,>(rel: string, text: string, fn: () => T): T => {
+  const file = path.join(root, rel);
+  assert.ok(!fs.existsSync(file), `${rel} already exists`);
+  fs.writeFileSync(file, text);
+  try { return fn(); } finally { fs.rmSync(file); }
+};
+const firstContract = fs.readdirSync(path.join(source, "contracts")).filter((f) => f.endsWith(".md")).sort()[0];
+
+test("contract rule: every contract CLAUDE.md names exists, and each is named (control)", () => {
+  assert.ok(firstContract, "contracts/ holds no contract file");
+  const out = check();
+  assert.match(out, /CLAUDE\.md \([1-9]\d* contract files? in contracts\/ exist and are named\)/, out);
+  assert.deepEqual(messagesUnder(out, CONTRACT_HEADING), []);
+});
+
+test("contract rule: a pointer to a contract that does not exist", () => {
+  const edit = (text: string) => (assert.ok(text.includes(POINTERS), `"${POINTERS.trim()}" is not in CLAUDE.md`), text.replace(POINTERS, () => `${POINTERS}\n- Anything new? Read [\`contracts/no-such-feature.md\`](contracts/no-such-feature.md).\n`));
+  assert.deepEqual(messagesUnder(edited("CLAUDE.md", edit, check), CONTRACT_HEADING), ["error: CLAUDE.md names contracts/no-such-feature.md, which does not exist"]);
+});
+
+test("contract rule: a named contract file that was deleted", () => {
+  assert.deepEqual(messagesUnder(removed(`contracts/${firstContract}`, check), CONTRACT_HEADING), [`error: CLAUDE.md names contracts/${firstContract}, which does not exist`]);
+});
+
+test("contract rule: a contract file that CLAUDE.md does not name", () => {
+  assert.deepEqual(messagesUnder(added("contracts/stray-notes.md", "# Stray\n", check), CONTRACT_HEADING),
+    ['error: contracts/stray-notes.md is not named in CLAUDE.md: add a pointer line under "Feature contracts", or delete it']);
+});

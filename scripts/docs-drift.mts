@@ -1,4 +1,4 @@
-// Guards against README drifting from the repo. Pure functions, so tests call them directly.
+// Guards against README and CLAUDE.md drifting from the repo. Pure functions, so tests call them directly.
 //
 // The README fences two lists that a machine compares with the source of truth, in HTML comments
 // (GitHub does not render them):
@@ -7,6 +7,8 @@
 // A dependency claim is a backticked name in the part of a list item before its first colon
 // ("- `cheerio` and `yaml`: what they are for"); the description after the colon may mention
 // commands freely. An example claim is any backticked `docs/<slug>.html` in the fence.
+//
+// CLAUDE.md names each feature's contract file (`contracts/<feature>.md`); see contractProblems.
 
 /** What an npm package name looks like. */
 const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
@@ -52,4 +54,21 @@ export function readmeExampleProblems(readme: string, exampleHrefs: string[]): s
   const text = fenced(readme, "examples");
   if (text === undefined) return ["README.md has no <!-- bh:examples --> … <!-- /bh:examples --> list of the example pages"];
   return compare("example list", "no `bh:example` marker marks", claims(text, DOC_PATH), exampleHrefs, "add it, or remove its bh:example marker");
+}
+
+/** A contract file as `CLAUDE.md` names it: `contracts/<kebab-name>.md`. */
+const CONTRACT_PATH = /(?<![\w/.-])contracts\/([a-z0-9][a-z0-9-]*\.md)\b/g;
+
+/**
+ * `CLAUDE.md` keeps one pointer per feature to its contract in `contracts/`. Every file it names
+ * must exist (a pointer to nothing loses the rules), and every contract must be named (a contract
+ * no pointer leads to is never read). `present` is the list of `*.md` files in `contracts/`.
+ */
+export function contractProblems(claudeMd: string, present: string[]): string[] {
+  const named = new Set([...claudeMd.matchAll(CONTRACT_PATH)].map((m) => m[1]));
+  const have = new Set(present);
+  return [
+    ...[...named].filter((f) => !have.has(f)).sort().map((f) => `CLAUDE.md names contracts/${f}, which does not exist`),
+    ...[...have].filter((f) => !named.has(f)).sort().map((f) => `contracts/${f} is not named in CLAUDE.md: add a pointer line under "Feature contracts", or delete it`),
+  ];
 }

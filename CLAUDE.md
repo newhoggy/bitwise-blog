@@ -47,7 +47,7 @@ Run `npm run cards` after changing a page's title, kind, date, or its first diag
 ## Feature contracts
 
 Each feature's full contract is a file in `contracts/` (outside `docs/`, so it is never published).
-Read it before you change the feature.
+Read it before you change the feature; `check` fails if a file named here is missing.
 
 - Editing `scripts/`, `tests/` or `.github/workflows/` (TypeScript rules, job and test timeouts)? Read [`contracts/tooling.md`](contracts/tooling.md).
 - The logo, favicon, touch icon, `theme/logo/` or `LOGO_SVG`? Read [`contracts/brand-assets.md`](contracts/brand-assets.md).

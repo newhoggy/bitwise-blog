@@ -5,7 +5,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { test, type TestContext } from "node:test";
-import { readmeDependencyProblems, readmeExampleProblems } from "../scripts/docs-drift.mts";
+import { contractProblems, readmeDependencyProblems, readmeExampleProblems } from "../scripts/docs-drift.mts";
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -98,4 +98,19 @@ test("check skips the README rule when there is no README", (t) => {
   const r = f.check();
   assert.equal(r.status, 0, r.stdout);
   assert.doesNotMatch(r.stdout, /README/);
+});
+
+test("contracts: every named contract exists and every contract is named", () => {
+  const md = "- Feeds? Read [`contracts/feed.md`](contracts/feed.md).\n- Cards? Read `contracts/social-cards.md`.\n";
+  assert.deepEqual(contractProblems(md, ["feed.md", "social-cards.md"]), []);
+  // A path under another directory is not a contract pointer.
+  assert.deepEqual(contractProblems(md + "See `docs/contracts/old.md` and tests/contracts/x.md.\n", ["feed.md", "social-cards.md"]), []);
+});
+
+test("contracts: a missing contract and an unnamed one are both named", () => {
+  assert.deepEqual(contractProblems("Read `contracts/feed.md` and `contracts/gone.md`.", ["feed.md", "stray.md"]), [
+    "CLAUDE.md names contracts/gone.md, which does not exist",
+    'contracts/stray.md is not named in CLAUDE.md: add a pointer line under "Feature contracts", or delete it',
+  ]);
+  assert.deepEqual(contractProblems("no pointers", []), []);
 });
