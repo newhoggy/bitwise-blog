@@ -18,6 +18,24 @@ window.BH_UNLISTED = {
     "tooling"
    ],
    "unlisted": true
+  },
+  {
+   "slug": "leak-check-in-ci",
+   "href": "docs/leak-check-in-ci.html",
+   "title": "Running the leak check in CI",
+   "kind": "design",
+   "status": "draft",
+   "date": "2026-11-14",
+   "description": "Why CI compares keyed hashes of the private corpus&#39;s 8-word runs, what the committed list still reveals, and the alternatives we turned down.",
+   "supersedes": "",
+   "supersededBy": "",
+   "kindLabel": "Design doc",
+   "tags": [
+    "ci",
+    "security",
+    "tooling"
+   ],
+   "unlisted": true
   }
  ],
  "backlinks": {},
@@ -71,6 +89,68 @@ window.BH_UNLISTED = {
      "id": "related",
      "heading": "Related",
      "text": "#169 : this decision. #110 : the port, its data rule (D1) and its install plan (D5). #117 : the consulting skill and agents. #122 : the repo review, proposal 21. #168 : running the leak check in CI. corpus/README.md : the data rule, the guards and the commands."
+    }
+   ]
+  },
+  {
+   "href": "docs/leak-check-in-ci.html",
+   "title": "Running the leak check in CI",
+   "kind": "design",
+   "sections": [
+    {
+     "id": "",
+     "heading": "",
+     "text": "Design document Running the leak check in CI Why CI compares keyed hashes of the private corpus's 8-word runs, what the committed list still reveals, and the alternatives we turned down. Problem: the leak check runs only in a local pre-push hook. That hook passes open in any checkout without the private data, and on the owner's machine that was every checkout. Decision: CI runs the same check on every pull request and every push to main . It compares against a committed list of keyed hashes, whose key is a GitHub secret. Common mistake: unkeyed or publicly salted hashes. Anyone could then confirm that a phrase they guessed is in the corpus."
+    },
+    {
+     "id": "context",
+     "heading": "Context & problem",
+     "text": "This repository is public, and the advisor tools read a private corpus of other people's writing. The rule in corpus/README.md is that nothing derived from that text is committed. npm run advisor -- leak-check enforces it: it fails when a blob holds a run of 8 or more words from the private text. The pre-push hook runs it on the blobs each push adds. The hook has to work without the corpus too, so with no private data linked it does not block: it says nothing was checked, and lets the push through. That was meant to be the exception. When we looked, it was the rule. 0 checkouts on the owner's machine with corpus/private linked, the main one included 5 ways a commit reaches GitHub without the hook running 0 of those that CI checked before this change So every push from this machine passed open. Agent worktrees and other machines don't have the data unless someone links it, so for them an unchecked push is normal. The other routes past the hook are git push --no-verify , a clone that never ran npm run hooks , a commit made in the GitHub web editor, and a merge made on GitHub."
+    },
+    {
+     "id": "goals",
+     "heading": "Goals & non-goals",
+     "text": "Goals A pull request that adds a run of 8+ corpus words fails CI, whichever checkout it came from. CI judges text exactly as the local check does, LEAK_ALLOWED caps included. The committed artefact confirms nothing to someone who guesses a phrase. No secret, no failure: a fork's pull request passes with a visible notice. Non-goals Stopping someone with write access who means to leak: they can edit the workflow. Un-publishing. A fork's commits are public on GitHub from the moment it opens a pull request. Replacing the hook. It still checks a linked checkout before anything leaves it."
+    },
+    {
+     "id": "design",
+     "heading": "Proposed design",
+     "text": "The text is read once, by one function, and only the last step differs. Each blob goes through findRuns , the code the local check already uses. It decodes entities and string escapes, lowercases, folds curly apostrophes, reads across tags and inside attributes, and cuts the text into overlapping 8-word runs. Locally, each run is looked up in the set of private runs . In CI, it is looked up by its HMAC in the committed list. The two checks share everything up to the lookup, so they cannot disagree about what counts as the same words. Only the membership test differs. Both checks read a blob's text with findRuns , and the generator builds its list from the output of privateRuns , which uses the same normalisation. The hook, in a checkout with the private data, looks each run up as a string. It can also say which source the run came from. CI looks up HMAC-SHA256(key, run) , truncated to 64 bits. A hit can't say which source it came from, and it prints the path, line and length, never the words."
+    },
+    {
+     "id": "list",
+     "heading": "The list and the key",
+     "text": "File corpus/leak-hashes.txt : a format line, a key-check line, then one 16-hex-digit hash per line, sorted. Key The GitHub Actions secret BH_LEAK_KEY . The owner's copy is the 1Password item beautiful-html leak-check key . Padding HMACs of a counter, added until the count reaches the next power of two, with a floor of 4,096. Without the key they can't be told from real entries. Key check The HMAC of a fixed label. A wrong or rotated key fails the job loudly. Without it, every lookup would miss and the job would pass having compared nothing. Generator npm run advisor -- leak-hashes , which needs the private data and the key. It also leaves a stamp in the private data, so every local leak-check can say, without the key, when the list is stale."
+    },
+    {
+     "id": "ranges",
+     "heading": "What each run reads",
+     "text": "Trigger Blobs read With no secret Pull request reachable from the head, not from the base: what its commits add passes with a notice (a fork, or Dependabot) Push to main before..after ; everything reachable when before is zero or unknown (a force push) passes with a notice Run by hand everything reachable from the chosen ref passes with a notice With the secret set but no list committed, the job passes with a warning instead, because the set-up is half done. A malformed list or a mismatched key fails. A pull request from a fork gets no secrets, so its run skips. Does its text reach main unchecked? No. The push to main that merges it runs with the secret and reads what the merge added, so the leak fails that run. It is detected, not prevented: by then it is in main 's history and has to be rewritten. A required status check on pull requests cannot help here, because the fork's own run passed. Review the fork's diff, or re-run its changes from a branch in this repository."
+    },
+    {
+     "id": "disclosure",
+     "heading": "What the committed list reveals",
+     "text": "The list is derived from the private text, so the rule needs an argument here, not an exemption. The rule exists because derived text can republish or misrepresent the writers. The list holds no text. Without the key it is a set of numbers that look random, and it doesn't let anyone test a guess. Question someone could ask of the list Without the key With the key Is this phrase I guessed in the corpus? No answer Yes or no Is this public post in the corpus? No answer Yes or no How big is the corpus? Its count of distinct runs, roughly its word count, to within a factor of two The same How much changed between two versions? How many entries a regeneration replaced The same What does it say? Nothing: an HMAC can't be inverted Still nothing; only guesses can be checked The writers and their sources are already public in corpus/*/sources.yaml , so the corpus's rough size was never a secret. The size bound adds little. The change counts come from padding that is derived from the key: a small change to the corpus rewrites a few lines, not the whole file. Fresh random padding on each regeneration would hide the change counts too, at the cost of rewriting the whole file every time. Hashes are cut to 64 bits. How often does a blob match by chance? Almost never. Take a list of 2 20 entries. Each 8-word window of a blob matches by chance with probability 2 20 / 2 64 = 2 −44 , about 6 × 10 −14 . A scan of ten million windows, more text than this repository holds, has about a one-in-a-million chance of a single false hit. 64 bits keeps the file at 17 bytes a line."
+    },
+    {
+     "id": "alternatives",
+     "heading": "Alternatives considered",
+     "text": "Keyed hash list in CI The design above. Covers every route past the hook. Uses the same normalisation code, so the two checks cannot drift. A leaked key gives away only a way to check guesses. The list goes stale until it is regenerated. It reveals a size bound. Fork pull requests are checked only once merged. Accept the gap Keep the hook alone, and document what it misses. Nothing to build, and nothing derived committed. The gap is the usual case: no checkout here was linked, so no push was checked. Hook fails closed Block a push when there is no private data. No new artefact. Agents and other machines can't have the data, so every push would need --no-verify . That teaches everyone to skip the hook. The web editor and merges on GitHub are still unchecked. Unkeyed or public-salt hashes What the issue first sketched, without a secret. Anyone can run the check, offline. Anyone can also confirm a guessed phrase, or test whether a public post is in the corpus. CI clones the private data A deploy key as a secret, and the real check in CI. Exact parity, never stale, and nothing derived committed. A leaked deploy key exposes the whole private corpus, voice negatives and authored samples included, which is what the rule protects. Encrypted list The same hashes, committed under AES-GCM. Hides even the change counts between versions. Every regeneration rewrites the whole file, and it adds a second secret format for little gain. We will run the leak check in CI against a committed, padded list of 64-bit HMACs of the private runs, keyed by a GitHub secret. Without CI no push from this machine was checked, and a keyed list closes that gap while confirming nothing to anyone without the key. Revisit if the key may have leaked (rotate it and regenerate), or if fork contributions become common enough that checking them only after merge is too late."
+    },
+    {
+     "id": "risks",
+     "heading": "Risks & mitigations",
+     "text": "Risk Likelihood Impact Mitigation The list is stale and misses new text Medium Medium Every local leak-check compares a stamp in the private data and says so; the hook still checks linked checkouts in full CI and the hook normalise differently Low High Both call findRuns ; tests/leak-hashes.test.mts asserts equal hits on case, quotes, markup, escapes, elisions and links The key leaks Low Medium Only one step sees it, and never under pull_request_target . A leaked key only lets someone check guesses: rotate it and regenerate the list The wrong key is set, and nothing ever matches Low High The key-check line fails the job A pull request edits the workflow or the list Low Medium Out of scope (write access); both show in the diff"
+    },
+    {
+     "id": "rollout",
+     "heading": "Rollout plan",
+     "text": "Merge The workflow lands, off Every run passes with a notice that nothing was compared. Owner Create the key Create a 1Password item that generates its own password, then pipe it into gh secret set BH_LEAK_KEY . The key never goes through a command line. Owner Commit the list With the private data linked, run npm run advisor -- leak-hashes and commit corpus/leak-hashes.txt . Owner Check all of main Run the workflow once by hand, so it reads every blob in main 's history. Optional Require it Make \"Leak check (keyed hashes)\" a required status on main ."
+    },
+    {
+     "id": "open-questions",
+     "heading": "Open questions",
+     "text": "Should regenerating the list be part of sync-posts , so it can't fall behind? That needs the key wherever posts are synced. For now it is a note from leak-check . Owner, after the first regeneration."
     }
    ]
   }
