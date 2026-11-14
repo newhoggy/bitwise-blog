@@ -471,7 +471,7 @@ Discussions, and separately to the Review panel for a comment on one passage. It
   `bh.discussionCategory` (the category's slug, default `general`). A fork that sets `bh.repoUrl` gets
   its own threads. `"discussionsUrl": ""` switches the block off on every page.
 - **The repo must have Discussions switched on**, with that category, or both links lead to a 404.
-- The block is not search text, and the Review link is left out on a page with `<body data-review="off">`.
+- The block is not search text (in slide mode it closes the last slide), and the Review link is left out on a page with `<body data-review="off">`.
 
 ## Page-view counting
 

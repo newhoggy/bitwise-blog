@@ -720,18 +720,20 @@ function withAttribution(raw: string): string {
 // whose body carries it. A page can pin its thread (bh:discuss = the thread's URL) or opt out (off).
 
 /** The repo's discussions, from package.json `bh.discussionsUrl` (default `<bh.repoUrl>/discussions`). "" switches the block off. */
-const DISCUSSIONS_URL = String(process.env.BH_DISCUSSIONS_URL ?? PKG.bh?.discussionsUrl ?? (REPO_URL ? `${REPO_URL}/discussions` : "")).replace(/\/*$/, "");
+// An empty environment variable falls back to package.json, as BH_REPO_URL does; only package.json's "" switches it off.
+const DISCUSSIONS_URL = String(process.env.BH_DISCUSSIONS_URL || (PKG.bh?.discussionsUrl ?? (REPO_URL ? `${REPO_URL}/discussions` : ""))).replace(/\/*$/, "");
 const DISCUSSION_CATEGORY = String(PKG.bh?.discussionCategory || "general");
-const DISCUSSIONS_RE = /^https:\/\/github\.com\/([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)\/discussions$/;
+const DISCUSSIONS_RE = /^https:\/\/github\.com\/([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)(?<!\.git)\/discussions$/; // not a clone URL
 /** Why the discussions setting can't be used, or "" when it can (or is switched off). */
 const discussConfigProblem = () =>
   DISCUSSIONS_URL && !DISCUSSIONS_RE.test(DISCUSSIONS_URL) ? `package.json bh.discussionsUrl must be https://github.com/OWNER/REPO/discussions (got "${DISCUSSIONS_URL}")`
   : !/^[a-z0-9-]+$/.test(DISCUSSION_CATEGORY) ? `package.json bh.discussionCategory must be a category slug such as "general" (got "${DISCUSSION_CATEGORY}")` : "";
 const DISCUSS_RE = /^[ \t]*<aside\b[^>]*\sdata-discuss(?=[\s>=])[^>]*>[\s\S]*?<\/aside>[ \t]*(?:\n[ \t]*(?=\n))?\n?/gm;
 const DISCUSS_TITLE = '"Discuss this post" block';
+const FOOTER_LINE_RE = /^([ \t]*)<footer class="bh-footer"/m;
 
 /** "" when `file` gets the block, else the reason it doesn't. */
-function discussExclusion(file: string): string {
+function discussExclusion(file: string, html: string): string {
   if (file === INDEX) return "it is the home page";
   if (file.startsWith(TEMPLATES + path.sep)) return "it is a template (`npm run index` writes the block into each post)";
   if (isPrivateSource(file)) return "it is a private page, which must not point at a public thread";
@@ -740,21 +742,21 @@ function discussExclusion(file: string): string {
   if (d.unlisted) return "it is an unlisted page, and a public thread would surface its slug and title";
   if (d.example) return "it is an example page";
   if (FEED_NON_POST_KINDS.has(d.kind)) return `it is a ${d.kind} page, not a post`;
-  if (getMeta(stripComments(fs.readFileSync(file, "utf8")), "bh:discuss") === "off") return 'it sets <meta name="bh:discuss" content="off">';
+  if (getMeta(html, "bh:discuss") === "off") return 'it sets <meta name="bh:discuss" content="off">';
   return "";
 }
 
 /** A page's own bh:discuss value as a problem, or "": "off", or the URL of one thread in the repo's discussions. */
 function discussMetaProblem(html: string): string {
   const v = getMeta(html, "bh:discuss");
-  if (!v || v === "off") return "";
+  // With discussions switched off a pinned thread is simply unused, not wrong.
+  if (!v || v === "off" || !DISCUSSIONS_URL) return "";
   return v.startsWith(DISCUSSIONS_URL + "/") && /^\d+$/.test(v.slice(DISCUSSIONS_URL.length + 1)) ? ""
     : `bh:discuss must be "off" or the URL of this post's thread, ${DISCUSSIONS_URL || "<bh.discussionsUrl>"}/<number> (got "${v}")`;
 }
 
 /** The block for an eligible `file`, each line indented by `indent`. */
-function discussBlock(file: string, indent: string): string {
-  const html = stripComments(fs.readFileSync(file, "utf8"));
+function discussBlock(file: string, html: string, indent: string): string {
   const d = readDoc(file), url = pageUrl(d.href), title = decodeHtml(d.title);
   const pinned = getMeta(html, "bh:discuss");
   const [, owner, repo] = DISCUSSIONS_URL.match(DISCUSSIONS_RE)!;
@@ -763,7 +765,7 @@ function discussBlock(file: string, indent: string): string {
   const start = `${DISCUSSIONS_URL}/new?${q({ category: DISCUSSION_CATEGORY, title, body: `About ${url}\n\n` })}`;
   const a = (href: string, text: string) => `<a href="${escapeHtml(href)}">${text}</a>`;
   const thread = pinned && pinned !== "off"
-    ? `Questions, corrections and “this helped” are all welcome: ${a(pinned, "join the discussion on GitHub")} (needs a GitHub account).`
+    ? `Questions, corrections and “this helped” are all welcome: ${a(pinned, "join the discussion on GitHub")}. It needs a GitHub account.`
     : `Questions, corrections and “this helped” are all welcome. ${a(search, "Find this post’s thread on GitHub Discussions")}, or ${a(start, "start it")} if there is none yet. Both need a GitHub account.`;
   const review = /<body\b[^>]*\sdata-review="off"/.test(html) ? [] : [`  <p>To comment on one passage instead, ${a("?review", "open the Review panel")}.</p>`];
   return [
@@ -777,9 +779,9 @@ function discussBlock(file: string, indent: string): string {
 
 /** `raw` with its discuss block written just before the footer when `file` gets one, and every other copy removed. */
 function withDiscuss(raw: string, file: string): string {
-  const bare = raw.replace(DISCUSS_RE, "");
-  if (discussExclusion(file)) return bare;
-  return bare.replace(/^([ \t]*)<footer class="bh-footer"/m, (m, indent) => discussBlock(file, indent) + m);
+  const bare = raw.replace(DISCUSS_RE, ""), html = stripComments(raw);
+  if (discussExclusion(file, html)) return bare;
+  return bare.replace(FOOTER_LINE_RE, (m, indent) => discussBlock(file, html, indent) + m);
 }
 
 /** Everything `check` says about the discuss block on one page. */
@@ -789,16 +791,17 @@ function discussProblems(file: string, raw: string): string[] {
   const out: string[] = [];
   const meta = discussMetaProblem(html);
   if (meta) out.push(meta);
-  const why = discussExclusion(file);
+  const why = discussExclusion(file, html);
   if (why) {
     if (found.length) out.push(`must not carry a ${DISCUSS_TITLE}: ${why}; ${isPrivateSource(file) ? "delete it" : "run `npm run index`"}`);
     return out;
   }
   if (meta) return out;
-  if (!found.length) out.push(`missing the ${DISCUSS_TITLE}: run \`npm run index\``);
+  if (!FOOTER_LINE_RE.test(html)) out.push(`the ${DISCUSS_TITLE} goes just before the footer, so the page needs a line that starts <footer class="bh-footer">`);
+  else if (!found.length) out.push(`missing the ${DISCUSS_TITLE}: run \`npm run index\``);
   else if (found.length > 1) out.push(`has ${found.length} ${DISCUSS_TITLE}s; \`npm run index\` writes exactly one`);
   else if (!/^\s*<footer class="bh-footer"/.test(html.slice(found[0].index + found[0][0].length))) out.push(`the ${DISCUSS_TITLE} must sit just before the <footer class="bh-footer">: run \`npm run index\``);
-  else if (found[0][0] !== discussBlock(file, found[0][0].match(/^[ \t]*/)![0])) out.push(`the ${DISCUSS_TITLE} is stale or edited by hand: run \`npm run index\``);
+  else if (found[0][0] !== discussBlock(file, html, found[0][0].match(/^[ \t]*/)![0])) out.push(`the ${DISCUSS_TITLE} is stale or edited by hand: run \`npm run index\``);
   return out;
 }
 

@@ -176,16 +176,36 @@ test("a fork's bh.repoUrl moves every thread; an empty bh.discussionsUrl switche
   assert.match(block, /q=repo%3Afork%2Fblog\+/);
 
   f.pkg((bh) => { bh.discussionsUrl = ""; });
+  // A pinned thread is unused while discussions are off, not an error.
+  f.edit(POST, /^(  <meta name="bh:tags" content="[^"]*">\n)/m, '$1  <meta name="bh:discuss" content="https://github.com/fork/blog/discussions/7">\n');
   assert.equal(f.bh("index").status, 0);
   assert.equal(blocks(f.read(POST)).length, 0);
   assert.doesNotMatch(f.check(), DISCUSS_MSG);
+
+  // An empty environment variable is "unset", as BH_REPO_URL is: it does not switch the block on or off.
+  f.pkg((bh) => { delete bh.discussionsUrl; });
+  const env = spawnSync(process.execPath, [path.join(f.root, "scripts/bh.mts"), "index"], { cwd: f.root, encoding: "utf8", env: { ...process.env, BH_DISCUSSIONS_URL: "", BH_SITE_URL: "", BH_REPO_URL: "" } });
+  assert.equal(env.status, 0, env.stderr);
+  assert.match(blocks(f.read(POST))[0] ?? "", /github\.com\/fork\/blog\/discussions\/7/);
+
+  f.pkg((bh) => { bh.repoUrl = "https://github.com/fork/blog.git"; });
+  assert.match(f.check(), /bh\.discussionsUrl must be https:\/\/github\.com\/OWNER\/REPO\/discussions \(got "https:\/\/github\.com\/fork\/blog\.git\/discussions"\)/);
 
   f.pkg((bh) => { bh.discussionsUrl = "https://gitlab.com/fork/blog/discussions"; });
   assert.match(f.check(), /bh\.discussionsUrl must be https:\/\/github\.com\/OWNER\/REPO\/discussions/);
 });
 
+test("a post without a footer line is told what is missing, not to run index again", (t) => {
+  const f = fixture(t);
+  f.edit(POST, '<footer class="bh-footer">', '<footer id="end" class="bh-footer">');
+  assert.equal(f.bh("index").status, 0);
+  assert.match(messages(f.check(), POST).join("\n"), /goes just before the footer, so the page needs a line that starts <footer class="bh-footer">/);
+});
+
 test("a bundle has no block: a standalone file has no thread of its own", (t) => {
   const f = fixture(t);
   assert.equal(f.bh("bundle", POST).status, 0);
-  assert.doesNotMatch(f.read("dist/how-deflate-works.html"), /data-discuss/);
+  const bundled = f.read("dist/how-deflate-works.html");
+  assert.match(bundled, /Further reading/);
+  assert.doesNotMatch(bundled, /<aside\b[^>]*\sdata-discuss|Discuss this post/);
 });
