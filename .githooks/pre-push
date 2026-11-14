@@ -14,6 +14,6 @@ if ! command -v node >/dev/null 2>&1; then
   exit 0
 fi
 if ! node "$root/scripts/advisor.mts" leak-check --pushed "$1"; then
-  echo "pre-push: leak-check failed, so the push is blocked. If it listed runs of words, remove that text or add a reviewed entry to LEAK_ALLOWED in scripts/advisor/guards.mts; if it printed an error, fix that first (it needs Node 22.18 or later). \`git push --no-verify\` skips this check." >&2
+  echo "pre-push: leak-check failed, so the push is blocked. If it listed runs of words, remove that text or add a reviewed entry to LEAK_ALLOWED in scripts/leak-allowed.mts; if it printed an error, fix that first (it needs Node 22.18 or later). \`git push --no-verify\` skips this check." >&2
   exit 1
 fi

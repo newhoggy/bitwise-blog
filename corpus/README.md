@@ -37,7 +37,7 @@ Guards, because a rule that must hold every time belongs in a check:
   words from the private text is in a tracked file. That text is every post, the atlas quotes and statements,
   `voice_negatives.jsonl` and `evals/authored.jsonl`. It prints file names, lines, lengths and which of those the
   run came from, never the words. A page that quotes on purpose needs an entry in `LEAK_ALLOWED` in
-  `scripts/advisor/guards.mts`, with a reason and a cap on the shared words, so quoting more still fails.
+  `scripts/leak-allowed.mts`, with a reason and a cap on the shared words, so quoting more still fails.
 - `.githooks/pre-push` runs `leak-check --pushed` before every push, so it runs without anyone remembering. Enable it
   once per clone with `npm run hooks` (`git config core.hooksPath .githooks`; worktrees share the setting). With no
   private data in the checkout it does not block the push: it says nothing was checked and how to `link`.
