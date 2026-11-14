@@ -125,7 +125,8 @@ material. Then four quick tests:
 ### Promise and claim audit
 Start from the script's promise list and add silent promises you noticed while
 reading: a simplification never flagged, a step that looks arbitrary with no
-comment, a fact used at a payoff that was never planted.
+comment, a fact used at a payoff that was never planted, a use or system the
+opening names that never comes back.
 
 Make a ledger:
 
@@ -183,6 +184,12 @@ cut, frames, misreadings), use the `pedagogical-diagrams` skill's review.
 - Is the naive version labelled as provisional where it appears?
 - Do analogies lead towards the quantitative step, or only decorate it? Is the
   centrepiece analogy the author's own aha, with the details that earn it removed?
+- Is each analogy a mapping (a relation the argument computes with) or a summary?
+  A mapping analogy should arrive with the mechanism, come back by name at the
+  later steps it can explain, and say where it stops matching; a summary analogy
+  belongs after the payoff.
+- Where the page covers several applications, are they ordered by one stated
+  principle (the same mechanism under a larger or harder setting), or are they a tour?
 - What else does each example make the reader learn (a domain, a puzzle)? Could
   the reader already solve it a better way?
 

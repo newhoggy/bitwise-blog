@@ -28,6 +28,7 @@ mean across cases, and the sign across cases, not any one number.
 - 2026-11-12: what the scheduled run costs, measured through `npm run skill-evals` (#122)
 - 2026-11-13: `pedagogical-writing` gets guidance for drafting with GPT and Claude models (#150)
 - 2026-11-13: the per-model cases on Haiku and Opus, and a prose base prompt (#152)
+- 2026-11-14: `pedagogical-writing` gets two kinds of analogy, hook uses as promises, and ordered applications
 
 ### `skill-authoring` output evals (5 cases, three agent models)
 
@@ -781,4 +782,84 @@ Haiku $0.33, Opus $8.10.
 List $2.30, prose $2.41. Equal within noise, so the prose version was kept: no worse on Claude's advice, and in the
 form Anthropic's guide recommends. **This does not test what the change is for.** Whether a prose prompt makes Astra write
 fewer bullets needs Astra's own output; a direct API run was not made here.
+
+## 2026-11-14: `pedagogical-writing` gets two kinds of analogy, hook uses as promises, and ordered applications
+
+Claude Code 2.1.318, agent `claude-sonnet-5-5`, judge `claude-haiku-5-5` unless stated, three runs per arm. The gaps came
+from reading a science explainer video against the skill. Three cases were written, graders included, before any
+answer to them had been read: `outline-amortised-append` (does an analogy lead, return by name, state its limit),
+`outline-consistent-hashing` (does the opening promise a use, are the applications ordered) and
+`review-branch-prediction-passage` (does a review catch one label on two mechanisms, and a refuted belief that returns).
+The examples in the new rules were chosen not to match the cases (no coins per append, no consistent hashing, no CPU).
+
+**Before the change** (the skill as on `main`, both arms):
+
+| Case | With | Without | Δ | Cost |
+| --- | --- | --- | --- | --- |
+| `outline-amortised-append` | 0.42 | 0.67 | −0.25 | $0.43 |
+| `outline-consistent-hashing` | 0.22 | 0.33 | −0.11 | $0.43 |
+| `review-branch-prediction-passage` | 0.67 | 0.50 | +0.17 | $0.41 |
+
+- **The skill made the analogy worse.** "Give the analogy at the end as a summary" applied to every analogy; one
+  with-skill outline put its analogy in section 4 "so it summarises rather than replaces" the argument. The baseline put
+  it with the mechanism in 6 of 6 runs.
+- **No arm promised a use in the opening or ordered the applications** (0 of 6 each): the with-skill outlines followed
+  "save why this matters for the end" and listed the uses in one late section.
+- **The baseline already catches one label on two mechanisms** (prefetching credited to the branch predictor, 6 of 6),
+  so no rule was written for it.
+
+**After the change.** Pass counts per grader over six with-skill runs (the both-arm run plus the `--ablation none` suite
+run), against the old skill's six and the baseline's six:
+
+| Grader | Old skill | New skill | No skill |
+| --- | --- | --- | --- |
+| analogy maps a quantity | 5 | 6 | 6 |
+| analogy before the mechanism | 3 | 4 | 6 |
+| analogy returns by name | 0 | 3 | 0 |
+| analogy states its limit | 2 | 6 | 3 |
+| opening promises a use | 0 | 3 | 0 |
+| promised uses paid off | 5 | 6 | 6 |
+| applications ordered by a principle | 0 | 6 | 0 |
+
+Both-arm results after: `outline-amortised-append` with 0.92, without 0.58, Δ +0.33; `outline-consistent-hashing` with
+0.78, without 0.33, Δ +0.44 ($0.90). On the final text (the refuted-belief check below removed), `--ablation none`:
+`outline-amortised-append` 1.00 (every grader 3 of 3), `outline-consistent-hashing` 0.67 (ordering 3 of 3, opening 0 of 3)
+($0.61). So "opening promises a use" passes in 3 of 9 new-skill runs: a weak effect. The rule permits a use in the
+hook rather than requiring one, and the outlines opened instead on a concrete failure (a cache losing its hit rate when a
+fifth server joins), which the skill also asks for.
+
+**The rest of the suite** (`--ablation none`, the new skill against a `git archive` snapshot of `main`'s skill, the
+same cases): mean over the nine earlier cases 0.93 new, 0.88 old. The largest moves are `plan-rank-select-series` 0.76
+against 0.57 (+0.19) and `review-deflate-page` 1.00 against 0.89 (+0.11). Both are under the 0.2 noise rule, though
+`review-deflate-page` is above its earlier with-skill range (0.80 to 0.90), and neither case exercises the changed rules,
+so nothing is read from them beyond "no regression". $5.71 new, $5.18 old.
+
+**The refuted-belief check measured nothing, and was removed.** A review-checklist line and a promise-ledger row asked
+whether a belief the page refutes comes back true in another sense ("A modern CPU doesn't wait", then "waits about 15
+cycles"). With the skill the grader passed 1 of 3 before, 0 of 3 after, and 0 of 3 again with `claude-sonnet-5-5` as the
+judge, where the baseline passed 2 of 3. One with-skill answer did name the contradiction and was failed by the Haiku
+judge, so the grader is also noisy. The check stays in `moves.md` as an unmeasured drafting move, and the case was
+deleted under the rule that a case scoring the same in both arms measures nothing about the skill.
+
+Total cost about $14.70.
+
+**Follow-ups the same day.**
+
+- **The opening rule made conditional.** "Concrete uses may lead" permitted a use in the hook; it now says "when the
+  page covers where the idea is used, name one such use in the opening". `outline-consistent-hashing`, six runs,
+  `--ablation none`: 0.88, opening 4 of 6 (from 3 of 9), ordering 6 of 6, uses paid off 5 of 6 ($0.61). The bar set
+  before the run was two runs in three, so the rule stays. One passing outline restated the rule in its TL;DR plan ("Name
+  one real use as a promise … for example a Dynamo-style store or a CDN") rather than choosing one, so part of the gain is
+  the rule echoed, not applied.
+- **"Analogy before the mechanism" was left alone.** It passed 4 of 6 with the new skill against 6 of 6 without. The
+  failing outlines proved O(1) by summing the copies first and brought in the coin analogy a section later, describing it
+  as "introduced with the mechanism, not after"; none echoed the old "goes last" wording, so rewording it would tune
+  against a cause the transcripts do not show. The final text passed 3 of 3.
+- **One real page.** A fresh agent with the new rules (no eval, no knowledge of the cases) reviewed
+  `docs/token-bucket-rate-limiting.html`. It found the page already meets the analogy rule (the dripping tap arrives with
+  the mechanism, returns in `#no-timer` and `#choosing-parameters`, and its limits are stated) and the promise rule (every
+  number in `#the-need` is paid in `#mental-model` or `#choosing-parameters`), and said so rather than inventing problems.
+  Its two fixes were checked against the page and hold: "leaky bucket" appears only as a table row and a reading-list link,
+  never mapped, and the three gotchas are in dose order (one machine, ten with a bucket each, ten sharing one) under an
+  intro that says only "go wrong in three ways".
 

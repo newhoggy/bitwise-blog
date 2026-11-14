@@ -73,8 +73,8 @@ last one's flaw, and say the story is a reconstruction, not history.
 ## Promises
 
 A simplification, a step you cannot make guessable yet, a deferred "why", a fact
-that matters later: each is a promise. Promises are fine; unflagged or unpaid
-ones are defects.
+that matters later, a use or system named in the opening: each is a promise.
+Promises are fine; unflagged or unpaid ones are defects.
 
 - **Flag it where you make it**: "for now", "this is 90% right", "this will
   look arbitrary until we reach …". Say roughly how wrong a simplification is.
@@ -170,7 +170,8 @@ and empty verbs to check. In short, check:
 1. Does the opening create a need before it names anything?
 2. For each section: what is the one new idea, and what makes it guessable?
 3. Is every term, formula and fix preceded by the need and the crack?
-4. Is every promise flagged where made and paid off by name?
+4. Is every promise flagged where made and paid off by name, including each use
+   the opening names?
 5. Do examples come before abstractions, clean numbers first, one running example?
 6. Do labels and captions carry meaning, including what not to read into a figure? (Figure design: `pedagogical-diagrams`.)
 7. Is the voice a companion's, and is reference material out of the narrative?
@@ -208,8 +209,10 @@ has each with its verbatim example.
 ## Opening
 
 - **Open on something concrete**: a puzzle, a surprising number, a failure, a
-  preview of the finished result, or the popular wrong answer. Keep it short;
-  save "why this matters" for the end.
+  preview of the finished result, or the popular wrong answer. Keep it short.
+  When the page covers where the idea is used, name one such use in the opening
+  (a named system, a cost in numbers), as a promise the page returns to. Save
+  abstract significance ("why this matters") for the end.
 - **Spoil the what, protect the why.** Stating the result, or naming a strange
   destination ("this ends with a Klein bottle"), creates the need. The
   mechanism is what the page earns, so keep it out of the opening.
@@ -254,6 +257,10 @@ has each with its verbatim example.
   by the failure it prevents.
 - **Reference material is not narrative.** Full tables, edge cases and format
   specs go after the story, or on a separate reference page.
+- **Order the applications by one stated principle.** After the mechanism, each
+  use is the same mechanism under a larger or harder setting (more nodes, more
+  load, a failure), so it needs no new framing. Say the principle where the
+  applications begin, and name the one new thing each adds. A tour of uses is a list.
 
 ## Examples and numbers
 
@@ -275,6 +282,14 @@ has each with its verbatim example.
 - **One running example per concept.** On a web page, the reader's own input
   (their text, their bit string) is the best running example there is. Once the
   model holds, two or three deliberately different cases help it transfer.
+- **Two kinds of analogy.** A *mapping* analogy carries a relation the argument
+  computes with (a budget a few cents short of a price; a buffer as a bathtub
+  whose level is inflow minus outflow). Introduce it with the mechanism, not
+  after; bring it back by name at each later step it can explain, extending it
+  rather than switching to a new one; and say where it stops matching. A *summary* analogy compresses
+  an insight and makes sense only once the reader has it: it goes after the
+  payoff. Either earns its place only by leading towards the quantitative step
+  or defusing a named misconception.
 - **Climb a size ladder.** Start at the smallest case that means anything, grow
   one step at a time, show one more iteration than needed before "and so on",
   and when scaling back up, name exactly what changes.
@@ -328,9 +343,9 @@ has each with its verbatim example.
 - **Demote a wrong primary cause** explicitly, build on the right one, then
   bring the demoted factor back in its true role. Rescue the true kernel of a
   popular wrong explanation.
-- **Your aha is not their explanation.** The analogy that clicked for you came
-  from struggling with details; ship the details and examples, and give the
-  analogy at the end as a summary.
+- **Your aha is not their explanation.** The summary analogy that clicked for
+  you came from struggling with details; ship the details and examples, and
+  give that analogy at the end. (A mapping analogy leads: see Examples and numbers.)
 - **Write down the expected outcome before a surprise**, and rule out the dull
   explanation (a bug, rounding) before giving the real one.
 - **When a pattern breaks**, explain both why it held and why it breaks exactly
@@ -348,9 +363,7 @@ The picture itself (its form, what it leaves out, hierarchy, position, labels, c
 the frames of a process, and a review of the figures) is the `pedagogical-diagrams` skill. What
 stays here is how the page uses a figure:
 
-- **An analogy earns its place** if it leads towards the quantitative step or
-  defuses a named misconception. An analogy that only makes sense once you know
-  the answer goes after it.
+- **An analogy is not a figure**: its rules are under Examples and numbers.
 - **Drive interactive figures from the real algorithm.** Where the code and the
   prose disagree (infinity, boundaries), the gap is content.
 - **Put the best intuition in the main line**, not in a fold; stay in 2D unless
