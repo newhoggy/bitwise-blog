@@ -23,6 +23,7 @@
     "visual": "node scripts/visual.mts",
     "a11y": "node scripts/a11y.mts",
     "stats": "node scripts/stats.mts",
+    "links": "node scripts/links.mts",
     "sync-posts": "node scripts/sync-posts.mts",
     "advisor": "node scripts/advisor.mts",
     "hooks": "git config core.hooksPath .githooks",
