@@ -155,9 +155,10 @@ function cmdLeakCheck(repoRoot: string, corpusRoot: string, scope: LeakScope, ou
   out.log(`${name} passed: ${describeSources(result.sources)}; ${result.files} ${blobs ? "blobs" : "tracked files"}`);
   // Whether CI's copy is current needs no key: the generator left a stamp in the private data. Not a failure, since
   // what is being pushed has just been checked in full; CI is the one that is behind.
-  const listed = hashListStatus(result.digest, corpusRoot);
+  const listed = hashListStatus(result.digest, repoRoot, corpusRoot);
   if (listed === "stale") out.log(`note: corpus/${LEAK_HASHES_FILE} is stale (the private data or the list changed since it was generated), so CI's leak check misses the new text; regenerate it with \`npm run advisor -- leak-hashes\` and commit it`);
-  if (listed === "unknown") out.log(`note: can't tell whether corpus/${LEAK_HASHES_FILE} is current (no ${LEAK_STAMP_FILE} in the private data); regenerate it with \`npm run advisor -- leak-hashes\` to be sure`);
+  if (listed === "uncommitted") out.log(`note: corpus/${LEAK_HASHES_FILE} on disk is not the one committed at HEAD, and CI uses the committed one; commit it`);
+  if (listed === "unknown") out.log(`note: can't tell whether corpus/${LEAK_HASHES_FILE} is current: the private data has no ${LEAK_STAMP_FILE} (commit it in the private data repo where it was generated, so every clone has it)`);
   return 0;
 }
 
@@ -166,7 +167,9 @@ function cmdLeakCheckHashed(repoRoot: string, corpusRoot: string, head: string, 
   const name = "leak-check --hashed";
   const actions = env["GITHUB_ACTIONS"] === "true";
   // Workflow commands carry their message on one line; % and line breaks are escaped as GitHub documents.
-  const annotate = (level: "notice" | "warning" | "error", message: string, where = "") => `::${level}${where}::${message.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A")}`;
+  const escapeData = (text: string) => text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  const escapeProperty = (text: string) => escapeData(text).replace(/:/g, "%3A").replace(/,/g, "%2C");
+  const annotate = (level: "notice" | "error", message: string, where = "") => `::${level}${where}::${escapeData(message)}`;
   const result = leakCheckHashed(repoRoot, head, base, env[LEAK_KEY_ENV], corpusRoot);
   if (result.status === "skipped") {
     const message = `${name} skipped: ${result.reason}.`;
@@ -178,7 +181,7 @@ function cmdLeakCheckHashed(repoRoot: string, corpusRoot: string, head: string, 
   for (const hit of result.hits) {
     // The hash list can't say where a run came from, and never holds the words.
     const message = `${where(hit)}:${hit.line}: ${hit.words}-word run from the private data`;
-    out.error(actions ? annotate("error", message, ` file=${hit.file.replace(/[,:%\r\n]/g, "_")},line=${hit.line}`) : message);
+    out.error(actions ? annotate("error", message, ` file=${escapeProperty(hit.file)},line=${hit.line}`) : message);
   }
   if (result.hits.length) {
     out.error(`${name} FAILED: ${result.hits.length} run(s) of ${LEAK_RUN_WORDS}+ words in the blobs these commits add. Remove the text (it is still in the branch's history: drop or rewrite the commit), or add a reviewed entry to LEAK_ALLOWED in scripts/advisor/guards.mts.`);

@@ -128,6 +128,30 @@ test("CI fails on a pull request that adds a run of 8 or more corpus words, and 
   assert.match(annotated.errors[0], /^::error file=leak\.html,line=2::leak\.html@[0-9a-f]{7}:2: 12-word run from the private data$/);
 });
 
+test("CI reads the list from the base, so a change that deletes or empties it is still checked", async (t) => {
+  const { repoRoot, corpusRoot, commit, hidePrivate } = fixture(t);
+  writeLeakHashes(KEY, corpusRoot, MIN);
+  const base = commit({}, "the list");
+  hidePrivate();
+  const env = { BH_LEAK_KEY: KEY, GITHUB_ACTIONS: "true" };
+  fs.rmSync(leakHashesPath(corpusRoot));
+  const deleted = commit({ "a,b:c.html": `<p>${QUOTE}</p>\n` }, "drop the list and leak");
+  const caught = await ci(repoRoot, corpusRoot, ["--head", deleted, "--base", base], env);
+  assert.equal(caught.code, 1, caught.all());
+  // Annotation properties escape "," and ":" as GitHub documents, so the error lands on the real file.
+  assert.match(caught.errors[0], /^::error file=a%2Cb%3Ac\.html,line=1::a,b:c\.html@[0-9a-f]{7}:1: 12-word run from the private data$/);
+  fs.writeFileSync(leakHashesPath(corpusRoot), renderHashList([], leakKey(KEY), MIN));
+  const emptied = commit({}, "empty the list");
+  assert.equal((await ci(repoRoot, corpusRoot, ["--head", emptied, "--base", base], env)).code, 1, "an emptied list in the change is not the one used");
+  // An option-like revision is never read as an option (`--not --all` would read nothing): as a base it is
+  // unknown, so everything reachable is read, the leak included.
+  fs.writeFileSync(leakHashesPath(corpusRoot), git(repoRoot, "show", `${base}:corpus/leak-hashes.txt`) + "\n");
+  const restored = commit({}, "restore the list");
+  const optionLike = await ci(repoRoot, corpusRoot, ["--head", restored, "--base=--all"], env);
+  assert.equal(optionLike.code, 1);
+  assert.match(optionLike.lines[0], /^note: the base is not a commit in this clone/);
+});
+
 test("CI and the local check read text the same way: equal hits for case, quotes, markup, escapes, elisions and links", async (t) => {
   const { repoRoot, corpusRoot, commit, hidePrivate } = fixture(t);
   writeLeakHashes(KEY, corpusRoot, MIN);
@@ -176,7 +200,7 @@ test("the hashed lookup holds exactly the private runs: the same strings findRun
   assert.equal(runs.has("words that are not in the private data at all"), false);
 });
 
-test("CI skips with a visible notice when there is no key, warns when there is no list, and fails on a wrong key or a broken list", async (t) => {
+test("CI skips with a visible notice when there is no key, and fails with no list, a wrong key or a broken list", async (t) => {
   const { repoRoot, corpusRoot, commit, hidePrivate } = fixture(t);
   const head = git(repoRoot, "rev-parse", "HEAD");
   hidePrivate();
@@ -190,8 +214,8 @@ test("CI skips with a visible notice when there is no key, warns when there is n
   assert.match(plain.lines[0], /^leak-check --hashed skipped: /, "outside Actions it is a plain line");
 
   const noList = await ci(repoRoot, corpusRoot, ["--head", head], { BH_LEAK_KEY: KEY, GITHUB_ACTIONS: "true" });
-  assert.equal(noList.code, 0);
-  assert.match(noList.lines[0], /^::warning::leak-check --hashed skipped: BH_LEAK_KEY is set but corpus\/leak-hashes\.txt is not committed/);
+  assert.equal(noList.code, 1, "a secret with no list is a half-done set-up, and a required check must not stay green");
+  assert.match(noList.errors[0], /^error: BH_LEAK_KEY is set but corpus\/leak-hashes\.txt is not committed/);
 
   fs.writeFileSync(leakHashesPath(corpusRoot), renderHashList(["one two three four five six seven eight"], leakKey(KEY), MIN));
   const later = commit({}, "the list");
@@ -237,7 +261,7 @@ test("leak-hashes writes the list and a stamp in the private data, and leak-chec
   const { repoRoot, corpusRoot } = fixture(t);
   const found = privateRuns(corpusRoot)!;
   const digest = () => runsDigest(privateRuns(corpusRoot)!.runs.keys());
-  assert.equal(hashListStatus(digest, corpusRoot), "absent");
+  assert.equal(hashListStatus(digest, repoRoot, corpusRoot), "absent");
 
   const run = async (args: string[], context: { env?: NodeJS.ProcessEnv; readItem?: (title: string, vault: string) => string } = {}) => {
     const s = sink();
@@ -257,28 +281,33 @@ test("leak-hashes writes the list and a stamp in the private data, and leak-chec
   for (const word of FIXTURE_WORDS) assert.equal(list.includes(word), false, `the list holds "${word}"`);
   assert.ok(leakStampPath(corpusRoot).startsWith(privateDir(corpusRoot) + path.sep), "the stamp is in the private data, which git ignores");
   assert.equal(git(repoRoot, "check-ignore", "-q", path.relative(repoRoot, leakStampPath(corpusRoot))), "");
-  assert.equal(hashListStatus(digest, corpusRoot), "current");
+  assert.equal(hashListStatus(digest, repoRoot, corpusRoot), "uncommitted", "CI uses the committed list, so an uncommitted one is not current");
+  assert.match((await run(["leak-check"])).lines.at(-1)!, /^note: corpus\/leak-hashes\.txt on disk is not the one committed at HEAD/);
   assert.ok(parseHashList(list).hashes.size >= found.runs.size);
 
   git(repoRoot, "add", "corpus/leak-hashes.txt");
+  git(repoRoot, "commit", "-qm", "the list");
+  assert.equal(hashListStatus(digest, repoRoot, corpusRoot), "current");
   const current = await run(["leak-check"]);
   assert.equal(current.code, 0, current.all());
   assert.equal(current.lines.some((l) => l.startsWith("note:")), false, "a current list gets no note");
 
   // A new post: the list no longer covers the corpus. Not a failure, a note.
   fs.writeFileSync(path.join(dataDir("someone", corpusRoot), "posts", "blog-new.md"), "---\ntitle: New\n---\nthe tide tables were printed in a font nobody could read at dusk\n");
-  assert.equal(hashListStatus(digest, corpusRoot), "stale");
+  assert.equal(hashListStatus(digest, repoRoot, corpusRoot), "stale");
   const stale = await run(["leak-check"]);
   assert.equal(stale.code, 0, stale.all());
   assert.match(stale.lines.at(-1)!, /^note: corpus\/leak-hashes\.txt is stale .*`npm run advisor -- leak-hashes`/);
   await run(["leak-hashes"], { env: { BH_LEAK_KEY: KEY } });
-  assert.equal(hashListStatus(digest, corpusRoot), "current");
+  git(repoRoot, "commit", "-qam", "regenerated");
+  assert.equal(hashListStatus(digest, repoRoot, corpusRoot), "current");
 
-  // A list that isn't the one the stamp records (another branch's, or edited) is stale too.
+  // A committed list that isn't the one the stamp records (another branch's, or edited) is stale too.
   fs.appendFileSync(leakHashesPath(corpusRoot), "0123456789abcdef\n");
-  assert.equal(hashListStatus(digest, corpusRoot), "stale");
+  git(repoRoot, "commit", "-qam", "edited");
+  assert.equal(hashListStatus(digest, repoRoot, corpusRoot), "stale");
   fs.rmSync(leakStampPath(corpusRoot));
-  assert.equal(hashListStatus(digest, corpusRoot), "unknown");
+  assert.equal(hashListStatus(digest, repoRoot, corpusRoot), "unknown");
   assert.match((await run(["leak-check"])).lines.at(-1)!, /^note: can't tell whether corpus\/leak-hashes\.txt is current/);
 });
 
@@ -307,9 +336,9 @@ const workflow = parse(fs.readFileSync(path.join(WORKFLOWS, "leak-check.yml"), "
 const steps = Object.values(workflow.jobs).flatMap((job) => job.steps);
 const checkStep = steps.find((s) => s.run?.includes("leak-check --hashed"));
 
-test("the workflow runs on pull requests, pushes to main and by hand, reads only, and hands the key to one step", () => {
+test("the workflow runs on pull requests, every push and by hand, reads only, and hands the key to one step", () => {
   assert.deepEqual(Object.keys(workflow.on).sort(), ["pull_request", "push", "workflow_dispatch"]);
-  assert.deepEqual((workflow.on["push"] as { branches: string[] }).branches, ["main"]);
+  assert.deepEqual((workflow.on["push"] as { branches: string[] }).branches, ["**"], "a pushed branch is public at once, so every push is checked");
   assert.deepEqual(workflow.permissions, { contents: "read" });
   assert.ok(checkStep, "a step runs leak-check --hashed");
   assert.equal(checkStep.env?.["BH_LEAK_KEY"], "${{ secrets.BH_LEAK_KEY }}");
@@ -333,7 +362,7 @@ function ciCheckout(t: TestContext) {
 }
 
 test("the workflow's step fails a pull request that adds corpus words, and passes with a notice when the secret is missing", (t) => {
-  const { commit, base, runStep } = ciCheckout(t);
+  const { repoRoot, commit, base, runStep } = ciCheckout(t);
   const head = commit({ "docs/leak.html": `<p>intro</p>\n<p>${QUOTE}</p>\n` }, "leaky");
   const pr = { EVENT: "pull_request", PR_HEAD: head, PR_BASE: base, GITHUB_SHA: "unused" };
 
@@ -351,7 +380,13 @@ test("the workflow's step fails a pull request that adds corpus words, and passe
   const push = runStep({ EVENT: "push", GITHUB_SHA: head, BEFORE: base, BH_LEAK_KEY: KEY });
   assert.equal(push.status, 1, push.stdout + push.stderr);
   const first = runStep({ EVENT: "push", GITHUB_SHA: head, BEFORE: "0".repeat(40), BH_LEAK_KEY: KEY });
-  assert.equal(first.status, 1, "a first push reads everything");
+  assert.equal(first.status, 1, "a new branch with no main to compare with reads everything");
+  git(repoRoot, "update-ref", "refs/remotes/origin/main", base);
+  assert.equal(runStep({ EVENT: "push", GITHUB_SHA: head, BEFORE: "0".repeat(40), BH_LEAK_KEY: KEY }).status, 1, "a new branch is compared with main");
+  git(repoRoot, "update-ref", "refs/remotes/origin/main", head);
+  const known = runStep({ EVENT: "push", GITHUB_SHA: head, BEFORE: "0".repeat(40), BH_LEAK_KEY: KEY });
+  assert.equal(known.status, 0, "a new branch adds only what main doesn't have: " + known.stdout + known.stderr);
+  assert.match(known.stdout, /passed: 0 blobs/);
   const dispatch = runStep({ EVENT: "workflow_dispatch", GITHUB_SHA: base, BH_LEAK_KEY: KEY });
   assert.equal(dispatch.status, 0, dispatch.stdout + dispatch.stderr);
   assert.match(dispatch.stdout, /leak-check --hashed passed: \d+ blobs/);

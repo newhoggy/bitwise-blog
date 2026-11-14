@@ -54,7 +54,7 @@
     <div class="tldr">
       <ul>
         <li><strong>Problem:</strong> the leak check runs only in a local pre-push hook. That hook passes open in any checkout without the private data, and on the owner's machine that was every checkout.</li>
-        <li><strong>Decision:</strong> CI runs the same check on every pull request and every push to <code>main</code>. It compares against a committed list of keyed hashes, whose key is a GitHub secret.</li>
+        <li><strong>Decision:</strong> CI runs the same check on every pull request and every push. It compares against a committed list of keyed hashes, whose key is a GitHub secret.</li>
         <li><strong>Common mistake:</strong> unkeyed or publicly salted hashes. Anyone could then confirm that a phrase they guessed is in the corpus.</li>
       </ul>
     </div>
@@ -121,12 +121,12 @@
         <thead><tr><th>Trigger</th><th>Blobs read</th><th>With no secret</th></tr></thead>
         <tbody>
           <tr><td>Pull request</td><td>reachable from the head, not from the base: what its commits add</td><td>passes with a notice (a fork, or Dependabot)</td></tr>
-          <tr><td>Push to <code>main</code></td><td><code>before..after</code>; everything reachable when <code>before</code> is zero or unknown (a force push)</td><td>passes with a notice</td></tr>
+          <tr><td>Push to any branch</td><td><code>before..after</code>; a new branch against <code>main</code>; everything reachable when <code>before</code> is unknown (a force push)</td><td>passes with a notice</td></tr>
           <tr><td>Run by hand</td><td>everything reachable from the chosen ref</td><td>passes with a notice</td></tr>
         </tbody>
       </table>
     </div>
-    <p>With the secret set but no list committed, the job passes with a warning instead, because the set-up is half done. A malformed list or a mismatched key fails.</p>
+    <p>Every push is checked, not only pushes to <code>main</code>, because a branch pushed here is public at once. The list is read from the base of the range when the base has one, so a change that deletes or empties the list is still checked against the old one. With the secret set but no list, the job fails: the set-up is half done, and a required check must not stay green while comparing nothing. So does a malformed list or a mismatched key.</p>
 
     <details class="predict">
       <summary>A pull request from a fork gets no secrets, so its run skips. Does its text reach main unchecked?</summary>
@@ -188,9 +188,10 @@
         <tbody>
           <tr><td>The list is stale and misses new text</td><td><span class="badge medium">Medium</span></td><td><span class="badge medium">Medium</span></td><td>Every local <code>leak-check</code> compares a stamp in the private data and says so; the hook still checks linked checkouts in full</td></tr>
           <tr><td>CI and the hook normalise differently</td><td><span class="badge low">Low</span></td><td><span class="badge high">High</span></td><td>Both call <code>findRuns</code>; <code>tests/leak-hashes.test.mts</code> asserts equal hits on case, quotes, markup, escapes, elisions and links</td></tr>
-          <tr><td>The key leaks</td><td><span class="badge low">Low</span></td><td><span class="badge medium">Medium</span></td><td>Only one step sees it, and never under <code>pull_request_target</code>. A leaked key only lets someone check guesses: rotate it and regenerate the list</td></tr>
+          <tr><td>The key leaks</td><td><span class="badge low">Low</span></td><td><span class="badge medium">Medium</span></td><td>Only one step sees it, and never under <code>pull_request_target</code>, so a fork never does. That step runs the code being checked, so anyone who can push a branch here could print it; that is write access, out of scope. A leaked key only lets someone check guesses: rotate it and regenerate the list</td></tr>
           <tr><td>The wrong key is set, and nothing ever matches</td><td><span class="badge low">Low</span></td><td><span class="badge high">High</span></td><td>The key-check line fails the job</td></tr>
-          <tr><td>A pull request edits the workflow or the list</td><td><span class="badge low">Low</span></td><td><span class="badge medium">Medium</span></td><td>Out of scope (write access); both show in the diff</td></tr>
+          <tr><td>A change deletes or empties the list</td><td><span class="badge low">Low</span></td><td><span class="badge high">High</span></td><td>CI reads the list from the base, so that change is still checked against the old list</td></tr>
+          <tr><td>A pull request edits the workflow</td><td><span class="badge low">Low</span></td><td><span class="badge medium">Medium</span></td><td>Out of scope (write access); it shows in the diff</td></tr>
         </tbody>
       </table>
     </div>
@@ -198,8 +199,9 @@
     <h2 id="rollout">Rollout plan</h2>
     <ol class="timeline">
       <li><time>Merge</time><div class="event"><strong>The workflow lands, off</strong><p>Every run passes with a notice that nothing was compared.</p></div></li>
-      <li><time>Owner</time><div class="event"><strong>Create the key</strong><p>Create a 1Password item that generates its own password, then pipe it into <code>gh secret set BH_LEAK_KEY</code>. The key never goes through a command line.</p></div></li>
-      <li><time>Owner</time><div class="event"><strong>Commit the list</strong><p>With the private data linked, run <code>npm run advisor -- leak-hashes</code> and commit <code>corpus/leak-hashes.txt</code>.</p></div></li>
+      <li><time>Owner</time><div class="event"><strong>Create the key</strong><p>Create a 1Password item that generates its own password, so the key never goes through a command line.</p></div></li>
+      <li><time>Owner</time><div class="event"><strong>Commit the list</strong><p>With the private data linked, run <code>npm run advisor -- leak-hashes</code> and merge <code>corpus/leak-hashes.txt</code>. Commit the stamp in the private data repo.</p></div></li>
+      <li><time>Owner</time><div class="event"><strong>Set the secret</strong><p>Pipe the item into <code>gh secret set BH_LEAK_KEY</code>. From now on a run with no list fails, which is why the list comes first.</p></div></li>
       <li><time>Owner</time><div class="event"><strong>Check all of main</strong><p>Run the workflow once by hand, so it reads every blob in <code>main</code>'s history.</p></div></li>
       <li class="ok"><time>Optional</time><div class="event"><strong>Require it</strong><p>Make "Leak check (keyed hashes)" a required status on <code>main</code>.</p></div></li>
     </ol>

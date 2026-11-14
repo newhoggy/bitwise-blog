@@ -321,10 +321,10 @@ export function privateRuns(corpusRoot: string): { runs: Map<string, LeakSource>
   return { runs, sources };
 }
 
-/** A SHA-256 of a set of runs, the same whatever their order. It stays in the private data: never commit it. */
+/** A SHA-256 of distinct runs, the same whatever their order. It stays in the private data: never commit it. */
 export function runsDigest(runs: Iterable<string>): string {
   const hash = createHash("sha256");
-  for (const run of [...new Set(runs)].sort()) hash.update(run).update("\n");
+  for (const run of [...runs].sort()) hash.update(run).update("\n");
   return hash.digest("hex");
 }
 

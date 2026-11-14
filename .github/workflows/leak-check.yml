@@ -6,20 +6,26 @@ name: Leak check
 # corpus/leak-hashes.txt: keyed hashes (HMAC-SHA256, 64 bits) of the corpus's 8-word runs, made by the same code
 # that reads text for the local check. See corpus/README.md and docs/leak-check-in-ci.html.
 #
-# Off until the owner sets it up; until then every run passes with a notice saying it compared nothing:
+# Off until the owner sets it up; until then every run passes with a notice saying it compared nothing. In this
+# order, since once the secret is set a run with no list fails:
 #   1. Create the key in 1Password (the generator reads it from there):
 #        op item create --category password --title "beautiful-html leak-check key" --vault Private --generate-password='letters,digits,64'
-#   2. Settings → Secrets and variables → Actions → Secrets: BH_LEAK_KEY = that password, or
+#   2. With the private data linked: npm run advisor -- leak-hashes, then commit corpus/leak-hashes.txt and merge it.
+#   3. Settings → Secrets and variables → Actions → Secrets: BH_LEAK_KEY = that password, or
 #        op read "op://Private/beautiful-html leak-check key/password" | gh secret set BH_LEAK_KEY --repo newhoggy/bitwise-blog
-#   3. With the private data linked: npm run advisor -- leak-hashes, then commit corpus/leak-hashes.txt.
 #   4. Run this workflow once from main (Actions → Leak check → Run workflow) to check all of main's history.
+#
+# A pushed branch is public at once, so every push is checked, not only pushes to main. The list is read from the
+# base of the range when it has one, so a change that deletes or empties the list can't switch the check off.
+# The step runs the code being checked, with the secret: anyone who can push a branch here could print the key.
+# That is write access, which this check does not defend against; a leaked key only lets someone confirm guesses.
 #
 # Never use `pull_request_target` here: it would run with the secret on code from a fork. A pull request from a
 # fork gets no secrets, so it skips; the push to main that merges it is checked.
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: ["**"]
   workflow_dispatch:
 
 permissions:
@@ -45,8 +51,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # pull_request: what the PR's commits add to its base. push: what the push adds (everything reachable when
-      # `before` is zero or unknown here, such as after a force push). workflow_dispatch: everything reachable.
+      # pull_request: what the PR's commits add to its base. push: what the push adds; a new branch (`before` is
+      # zero) is compared with main, and a `before` unknown here (a force push) means everything reachable.
+      # workflow_dispatch: everything reachable.
       - name: Compare the blobs this change adds with the hash list
         env:
           BH_LEAK_KEY: ${{ secrets.BH_LEAK_KEY }}
@@ -57,7 +64,10 @@ jobs:
         run: |
           case "$EVENT" in
             pull_request) set -- --head "$PR_HEAD" --base "$PR_BASE" ;;
-            push) set -- --head "$GITHUB_SHA" --base "$BEFORE" ;;
+            push)
+              base="$BEFORE"
+              case "$base" in *[!0]*) ;; *) base=$(git rev-parse -q --verify refs/remotes/origin/main || true) ;; esac
+              set -- --head "$GITHUB_SHA" --base "$base" ;;
             *) set -- --head "$GITHUB_SHA" ;;
           esac
           node scripts/advisor.mts leak-check --hashed "$@"
