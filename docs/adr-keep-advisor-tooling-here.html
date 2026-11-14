@@ -51,7 +51,7 @@
     </header>
 
     <div class="decision">
-      <p>We will keep the advisor tooling (the post ingesters, the advisor CLI, the corpus layout and the leak check) in this repo, because the owner chose to consolidate it here when the port began, and moving it would save about 18 MB of install and no CI job while adding a second repo.</p>
+      <p>We will keep the advisor tooling (the post ingesters, the advisor CLI, the corpus layout and the leak check) in this repo, because its review pipeline works on this blog's own pages, the leak check has to stay here whichever way we go, and moving would save about 18 MB of install and no CI job at the price of a second repo. It also keeps the consolidation the owner chose when the port began.</p>
       <p class="muted">The cost is bounded by five conditions below, and seven triggers reopen the question.</p>
     </div>
 
@@ -70,7 +70,7 @@
           <tr><td>Lines of tests</td><td class="num">1,786</td><td class="num">7,880</td><td>23%</td></tr>
           <tr><td>Tests</td><td class="num">100</td><td class="num">439</td><td>23%</td></tr>
           <tr><td>Packages <code>npm ci</code> installs</td><td class="num">26</td><td class="num">32</td><td>81%</td></tr>
-          <tr><td>Size of <code>node_modules</code></td><td class="num">18 MB</td><td class="num">55 MB</td><td>32%</td></tr>
+          <tr><td>Size of <code>node_modules</code></td><td class="num">17.8 MB</td><td class="num">55.1 MB</td><td>32%</td></tr>
           <tr><td>CI jobs, across both workflows</td><td class="num">0</td><td class="num">5</td><td>none of its own</td></tr>
           <tr><td>Lines of <code>CLAUDE.md</code></td><td class="num">5</td><td class="num">932</td><td>one paragraph</td></tr>
         </tbody>
@@ -111,7 +111,7 @@
     <p>These bound the costs. Most are already rules, enforced by a test where one can be written.</p>
     <ol>
       <li><strong>Advisor packages stay <code>devDependencies</code></strong>, imported only by <code>scripts/advisor*</code>, <code>scripts/ingest/</code> and <code>scripts/sync-posts.mts</code>. A heavy one goes in <code>optionalDependencies</code> and CI installs with <code>--omit=optional</code>, as #110 D5 plans. For the embedder that means <code>@huggingface/transformers</code> itself is optional, since it lists <code>onnxruntime-node</code> as an ordinary dependency.</li>
-      <li><strong>The blog's own path never imports advisor code.</strong> <code>scripts/bh.mts</code> reaches no advisor module and no installed package; <code>tests/advisor-guards.test.mts</code> pins that, because the deploy job runs with no install.</li>
+      <li><strong>The blog's own path never imports advisor code or an installed package</strong>, because the deploy job runs with no install. That path is <code>scripts/bh.mts</code>, <code>scripts/publish.mts</code> and what they import. <code>tests/advisor-guards.test.mts</code> pins the static imports of <code>scripts/bh.mts</code>; <code>scripts/publish.mts</code> imports only <code>node:</code> modules today, but no test pins it yet.</li>
       <li><strong>No CI job, no secret and no model call for the advisor.</strong> That is in #110's acceptance criteria.</li>
       <li><strong>Its documentation lives in <code>corpus/README.md</code>.</strong> <code>CLAUDE.md</code> keeps the pre-push paragraph and at most a one-line pointer.</li>
       <li><strong>It keeps to its own paths:</strong> the scripts above, <code>corpus/</code>, <code>tests/advisor-*</code>, <code>tests/sync-posts*</code>, <code>tests/githooks*</code> and <code>tests/fixtures/advisor/</code>. Then a later move is a history split by path, not an untangling.</li>
