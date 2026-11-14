@@ -6,7 +6,7 @@
   "description": "Bitwise Engineering: a software engineering blog, built on the beautiful-html theme.",
   "repository": "github:newhoggy/bitwise-blog",
   "homepage": "https://bitwise.john-ky.io/",
-  "bh": { "siteName": "Bitwise Engineering", "repoUrl": "https://github.com/newhoggy/bitwise-blog" },
+  "bh": { "siteName": "Bitwise Engineering", "repoUrl": "https://github.com/newhoggy/bitwise-blog", "discussionCategory": "general" },
   "engines": { "node": ">=22.18" },
   "scripts": {
     "test": "node --test --test-timeout=180000 tests/*.test.mts",
