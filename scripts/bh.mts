@@ -29,6 +29,7 @@ import { arrowTipFindings, diagramLabelFindings } from "./check/diagram-geometry
 import { contrastFindings } from "./check/contrast.mts";
 import { feedContent, feedInteractives } from "./feed-content.mts";
 import { LEAK_ALLOWED } from "./leak-allowed.mts";
+import { remoteAssetProblems, themeRemoteProblems, vendoredPrismLanguages, codeLanguageProblems } from "./remote-assets.mts";
 import { VENDOR } from "./vendor.mts";
 import type { Doc, SocialMeta, JsonLd, Visual, CardJob, GlossaryEntry, TreeNode, ReviewComment, ReviewFile, ReviewRecord, OpItem, Finding } from "./types.mts";
 
@@ -1283,9 +1284,10 @@ function cmdCheck(skipKeys = false): void {
       ...contrastFindings(fs.readFileSync(path.join(ROOT, "theme", "tokens.css"), "utf8"), fs.readFileSync(path.join(ROOT, "theme", "components.css"), "utf8")).map((f) => f.message),
       ...logoProblems(),
       ...siteUrlProblems(),
+      ...themeRemoteProblems(ROOT),
       ...orphanCards().map((f) => `docs/assets/og/${f} belongs to no public page: run \`npm run cards\` to remove it`),
     ];
-    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + "theme (import order, token contrast, logo, site base, card files)");
+    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + "theme (import order, token contrast, logo, site base, card files, self-hosted fonts and scripts)");
     problems.forEach((p) => console.log(c.red("  error  ") + p));
     errors += problems.length;
   }
@@ -1425,6 +1427,7 @@ function cmdCheck(skipKeys = false): void {
 
   const exampleHrefs = new Set(publicDocs.filter((d) => d.example).map((d) => d.href));
   const unlistedHrefs = new Set(publicDocs.filter((d) => d.unlisted).map((d) => d.href));
+  const prismLanguages = vendoredPrismLanguages(ROOT);
   for (const file of files) {
     const rel = path.relative(ROOT, file);
     const raw = fs.readFileSync(file, "utf8");
@@ -1448,6 +1451,9 @@ function cmdCheck(skipKeys = false): void {
       const href = (m[0].match(/\bhref="([^"]+)"/) || [])[1];
       if (href && !/^(https?:|data:)/.test(href) && !fs.existsSync(path.resolve(path.dirname(file), href))) err(`icon ${href} does not exist`);
     }
+    // Third-party scripts and stylesheets: an exact version and an integrity hash, or served from theme/ (scripts/remote-assets.mts).
+    for (const p of remoteAssetProblems(html)) err(p);
+    if (prismLanguages) for (const p of codeLanguageProblems(html, prismLanguages)) warn(p);
 
     // The feed: one autodiscovery link in <head> and a visible Subscribe link in the footer (the home page, public pages, templates).
     if (!isPrivateSource(file)) {

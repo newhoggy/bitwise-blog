@@ -117,8 +117,8 @@ nothing for this; two generated things do the work.
   `bundle` drops its `url` and `image` (the publisher's site link stays, like the footer's
   attribution link); `publish` refuses an unlisted page that carries one.
 - **The card image**, `docs/assets/og/<slug>.png`, 1200×630. `npm run cards` renders it in
-  the local Chrome (Node ≥ 22; `CHROME_PATH` if it isn't found, and it needs network for the
-  web fonts). It frames a **visual taken from the page itself** with the logo, the title, the
+  the local Chrome (Node ≥ 22; `CHROME_PATH` if it isn't found). It needs no network: the fonts
+  are the theme's own (`theme/fonts/`). It frames a **visual taken from the page itself** with the logo, the title, the
   kind and the date, so a bare diagram still says something in a chat unfurl. The visual is
   the first match of:
   1. `<meta name="bh:image" content="#element-id">` (an element on the page) or
@@ -134,7 +134,7 @@ nothing for this; two generated things do the work.
   explains the page first, or set `bh:image`.
 - **Staleness.** Each PNG records a hash (a `tEXt` chunk named `bh-card`) of the chosen
   visual's source and image files, the title, kind, date, site name, the page's `<style>`,
-  `theme/{tokens,base,layout,components,diagrams}.css`, `theme/bh.js`, the logo and
+  `theme/{fonts,tokens,base,layout,components,diagrams}.css`, the font files, `theme/bh.js`, the logo and
   `scripts/cards.mts` (plus `theme/modules/*.js` when the visual is a `<bh-…>` component).
   So a theme change makes every card stale: re-run `npm run cards` along with
   `npm run visual`. `check` recomputes the hash with no browser and fails on a missing,
@@ -824,7 +824,7 @@ for everyone: highlights and pins, opening into threads.
   compressed ciphertext) are not counted, so the budget bounds the page's own HTML and images, not
   everything it could load.
 - **`npm run a11y` runs axe-core on every public page, at desktop (1280px) and phone (390px) width, in light and dark** (needs Node ≥ 22 and a local
-  Chrome, like `visual`; `--only <text>` limits the pages; web fonts are always blocked, as in CI). Run it
+  Chrome, like `visual`; `--only <text>` limits the pages; the theme's font files are always blocked, as in CI). Run it
   after a theme, component or page change; CI runs it as the `a11y` job (about two minutes). Sealed pages are skipped.
   - **It also scans what interaction reveals**, in the same tab after the page as loaded: closed `details`
     opened, every inactive tab, every later stepper step, the first glossary term's and the first sidenote's
@@ -870,6 +870,16 @@ Theme files (`theme/*`) are shared by every page. These rules come from bugs alr
   `MODULES` in `bh.js` with the selector that triggers them. A module must be a classic
   script that uses `window.bh` and sets `window.bhModules[file] = true`. `bundle`
   inlines every module.
+- **Nothing loads from another host.** The fonts are in `theme/fonts/` (declared in
+  `theme/fonts.css`, OFL licences beside them) and Prism and Mermaid in `theme/vendor/<name>-<version>/`
+  (MIT licences beside them), so no reader's IP address reaches a CDN and renders are the same offline.
+  `npm run vendor` (`scripts/vendor.mts`, needs the network) re-fetches them at the versions pinned
+  there; to upgrade, change the version there and in `VENDOR` in `bh.js`, run it, then `visual` and `cards`.
+  `check` fails on a remote `@import` or `url()` in `theme/*.css`, on a CDN URL in theme scripts, when
+  `bh.js` and `scripts/vendor.mts` disagree, and on a page `<script src>` or stylesheet `<link>` on
+  another host without an exact version and an `integrity` hash. It warns on a `language-x` code block
+  that the vendored Prism can't highlight (add the language to `PRISM_LANGUAGES`). `bundle` inlines the
+  fonts as `data:` URIs and the vendored scripts a page uses.
 - **Don't set up state only in observer callbacks.** `IntersectionObserver` and
   `ResizeObserver` fire on rendering frames, which can be throttled. Create observers and
   initial state synchronously during setup, and let callbacks refine them. A walkthrough
