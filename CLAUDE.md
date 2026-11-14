@@ -850,6 +850,11 @@ Theme files (`theme/*`) are shared by every page. These rules come from bugs alr
   `npm run visual -- --update`; otherwise read `.visual/report.html`. It needs Node ≥ 22
   and a local Chrome (set `CHROME_PATH` if it isn't found). Add `data-vr-mask` to anything
   that animates or is random, such as a live simulation.
+- **CI also diffs every pull request against main's renders** (`--system-fonts`, the
+  `visual-baseline` artifact each build of main saves). It only reports: read the render job's
+  summary for the pages that changed, and the `renders` artifact's `report.html` for the images.
+  Only a page that fails to render fails the job. A Chrome update between the two builds can
+  show changes you did not make; the summary says when Chrome changed.
 - **Screenshot automation must foreground the tab and wait for real frames.** Repeated
   runs once flipped between two renderings, which looked like a font problem and wasn't.
   New tabs could be captured from a stale background frame.
