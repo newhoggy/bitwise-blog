@@ -9,6 +9,7 @@ import path from "node:path";
 import { once } from "node:events";
 import { test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
+import { parse } from "yaml";
 import {
   extractLinks, externalUrl, publishedPages, collectLinks, siteBase, allowlistProblems, loadAllowlist, allowMatches, tolerates,
   checkUrl, checkAll, classify, movedTo, buildReport, formatConsole, formatMarkdown, digest, digestOf, syncIssue, retryAfterMs, main,
@@ -531,4 +532,18 @@ test("main exits 2 when there is nothing to check, on a bad allowlist and on a b
   assert.equal(await main([], {}, sink(), bad, fast()), 2);
   assert.equal(await main(["--wat"], {}, sink(), bad, fast()), 2);
   assert.equal(await main(["--markdown"], {}, sink(), bad, fast()), 2);
+});
+
+// ---- The workflow --------------------------------------------------------------------------
+
+test("links.yml runs weekly and by hand, never on a PR, with only contents: read and issues: write", () => {
+  const wf = parse(fs.readFileSync(path.join(ROOT, ".github/workflows/links.yml"), "utf8")) as {
+    on: Record<string, unknown>; permissions: Record<string, string>; jobs: Record<string, { permissions?: unknown; steps: Array<{ run?: string }> }>;
+  };
+  assert.deepEqual(Object.keys(wf.on).sort(), ["schedule", "workflow_dispatch"]);
+  assert.deepEqual(wf.permissions, { contents: "read", issues: "write" });
+  for (const job of Object.values(wf.jobs)) assert.equal(job.permissions, undefined, "no job widens the permissions");
+  assert.ok(Object.values(wf.jobs).some((j) => j.steps.some((s) => /node scripts\/links\.mts --issue\b/.test(s.run ?? ""))), "it reports through the issue");
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  assert.equal(pkg.scripts["links"], "node scripts/links.mts");
 });

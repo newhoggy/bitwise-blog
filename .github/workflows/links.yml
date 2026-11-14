@@ -1,0 +1,44 @@
+name: External links
+
+# Requests every external link of the published pages once a week (`npm run links`, scripts/links.mts) and
+# reports what is broken or has moved permanently through one issue, labelled `link-check`: opened (or reopened)
+# and updated while something needs attention, and closed when a run finds nothing. It is deliberately not a
+# PR check: a slow or bot-hostile third-party site must never turn a PR red. The job fails (and GitHub emails
+# you) when the check itself breaks or the issue can't be updated, so it never fails silently. A site that
+# refuses automated clients gets an entry in links-allowlist.json, with a reason. See "External links" in
+# CLAUDE.md.
+#
+# GitHub switches a scheduled workflow off in a public repository after 60 days without repository activity,
+# and says nothing when it does: if the blog goes quiet, re-enable it from the Actions tab.
+on:
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+# issues: write to open, edit, comment on and close the one issue (and create its label).
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: links
+  cancel-in-progress: false
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    # A normal run takes well under a minute; each request has its own 15-second timeout.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No `npm ci`: the script needs nothing beyond Node. The report also goes to the job summary.
+      - name: Check the external links and report through the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node scripts/links.mts --issue --quiet

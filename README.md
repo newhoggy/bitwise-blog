@@ -139,6 +139,10 @@ The authoring and publishing commands (`index`, `check`, `bundle`, `seal`, …) 
   `ANTHROPIC_API_KEY` and the repository variable `SKILL_EVALS_ENABLED=true`. The same run is
   `npm run skill-evals`; see "Scheduled run" in
   `.claude/skills/skill-authoring/references/maintenance.md`.
+- **External links** (`.github/workflows/links.yml`) requests every external link of the published pages each
+  Monday and keeps one issue, labelled `link-check`, listing the broken and permanently moved ones (closed when a
+  run is clean). It is not a PR check, so a slow third-party site never makes a PR flaky. Run it locally with
+  `npm run links`; sites that refuse automated clients go in `links-allowlist.json`, with a reason.
 
 ## Layout
 
@@ -181,6 +185,7 @@ scripts/private-cards.mts  Encrypted card blobs for private pages, and the home-
 scripts/cards.mts       Social card renderer (used by `bh cards`): visual screenshot + branded frame
 scripts/chrome.mts      Finds and drives a local Chrome over the DevTools protocol (visual, cards)
 scripts/stats.mts       `npm run stats`: views per page from GoatCounter's export, joined with titles and tags
+scripts/links.mts       `npm run links`: external link check (weekly via .github/workflows/links.yml; allowlist in links-allowlist.json)
 scripts/sync-posts.mts  `npm run sync-posts`: pull a writer's posts into corpus/<writer>/posts/ (git-ignored); see corpus/README.md
 scripts/ingest/         The platform ingesters sync-posts runs: Substack, LessWrong, Medium, WordPress, Ghost
 scripts/visual.mts      Visual regression: Chrome via DevTools protocol, PNG diff, HTML report
