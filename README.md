@@ -183,6 +183,8 @@ theme/modules/          On-demand components (loaded only by pages that use them
 reviews/schema.json     Format of exported review files (bh-review/1)
 reviews/inbox/          Where review files arrive, via pull request
 scripts/bh.mts          CLI: new · index · check · cards · bundle · seal · unseal · serve
+scripts/check/          `check` rules as exported functions (diagram geometry, token contrast), unit-tested directly
+scripts/html-tree.mts   The tolerant HTML element tree that `check` and the card picker share
 scripts/private-cards.mts  Encrypted card blobs for private pages, and the home-page card markup
 scripts/cards.mts       Social card renderer (used by `bh cards`): visual screenshot + branded frame
 scripts/chrome.mts      Finds and drives a local Chrome over the DevTools protocol (visual, cards)

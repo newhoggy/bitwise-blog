@@ -836,7 +836,7 @@ Theme files (`theme/*`) are shared by every page. These rules come from bugs alr
   `check` now enforces this order and that imported files exist.
 - **Token contrast is checked.** `check` computes WCAG contrast for every
   text/background token pair, from the `light-dark()` values, in both themes
-  (`CONTRAST_PAIRS` in `scripts/bh.mts`). Add a pair there whenever a new token is
+  (`CONTRAST_PAIRS` in `scripts/check/contrast.mts`). Add a pair there whenever a new token is
   used as text on a new background.
 - **`!important` reverses inside cascade layers:** an important declaration in an *earlier*
   layer beats one in a later layer. Prefer specificity or layer order; use `!important`
@@ -866,7 +866,7 @@ Theme files (`theme/*`) are shared by every page. These rules come from bugs alr
   stroke rule in `components.css` loses to `.node.cN` in the later diagrams layer.
   `data-change` marks once rendered in the wrong colour for exactly this reason.
 - **Keep geometry constants in sync.** The arrowhead size in `bh.js` markers must equal
-  `ARROW_LEN` in `scripts/bh.mts`. The popup's `--gap` in `glossary.css` must equal
+  `ARROW_LEN` in `scripts/check/diagram-geometry.mts`. The popup's `--gap` in `glossary.css` must equal
   `GAP` in `bh.js`.
 - **Moving focus fires focus handlers synchronously.** Code that closes a popup and then
   focuses its trigger must stop the trigger's focus handler from reopening it. Esc once

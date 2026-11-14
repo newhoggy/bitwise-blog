@@ -125,3 +125,6 @@ export type ReviewRecord = Omit<ReviewComment, "outdated"> & { author: string | 
 
 /** A 1Password item as `readItem` flattens it (empty strings for absent fields). */
 export interface OpItem { id: string; group: string; password: string }
+
+/** One thing a `check` rule found. `rule` names the rule ("diagram/arrow-tip"); `message` is the line `check` prints. */
+export interface Finding { rule: string; level: "error" | "warn"; message: string }

@@ -24,7 +24,10 @@ import {
   renderCardsFile, parseCardsFile, validateCardsFile, mergeEntries, docCardHtml,
 } from "./private-cards.mts";
 import { pageWeight, pageSizeFinding } from "./page-size.mts";
-import type { Doc, SocialMeta, JsonLd, Visual, CardJob, GlossaryEntry, TreeNode, PathSeg, NodeRect, Box, Pt, ReviewComment, ReviewFile, ReviewRecord, OpItem } from "./types.mts";
+import { stripComments, VOID_TAGS, parseTree, nodeAttr, hasClass, walkTree, findNode, nodeText } from "./html-tree.mts";
+import { arrowTipFindings, diagramLabelFindings } from "./check/diagram-geometry.mts";
+import { contrastFindings } from "./check/contrast.mts";
+import type { Doc, SocialMeta, JsonLd, Visual, CardJob, GlossaryEntry, TreeNode, ReviewComment, ReviewFile, ReviewRecord, OpItem, Finding } from "./types.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = path.join(ROOT, "docs");
@@ -67,10 +70,6 @@ function getMeta(html: string, name: string): string {
 
 function getTitle(html: string): string {
   return (html.match(/<title>([^<]*)<\/title>/i) || [])[1]?.trim() ?? "";
-}
-
-function stripComments(html: string): string {
-  return html.replace(/<!--[\s\S]*?-->/g, "");
 }
 
 function allDocFiles(): string[] {
@@ -934,150 +933,7 @@ function cmdIndex(): void {
   console.log(c.green(`Set aside ${site.counts.unlisted} unlisted page${site.counts.unlisted === 1 ? "" : "s"}`) + c.dim(" → theme/unlisted-pages.js, theme/unlisted-slugs.js"));
 }
 
-// ---- SVG edge geometry ---------------------------------------------------------------
-//
-// Arrowheads (bh.js) are 10 units long. The head's BASE centre sits on the path end and the
-// head points along the path's final direction, so the line stops at the base (square-on,
-// centred) and never runs under the head to blunt its tip. A path therefore ends ARROW_LEN
-// short of where the tip should land. The same applies to the START of `.edge.both` paths.
-// The checker projects each tip and verifies it lands on the target node's outline.
-
-const ARROW_LEN = 10;      // head length in user units (must match bh.js markers)
-const TIP_GAP_MAX = 2;     // tip may stop up to this far outside a node's outline
-
-function parsePath(d: string): PathSeg[] {
-  const tokens = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/g) || [];
-  const arity: Record<string, number> = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7, Z: 0 };
-  const segs: PathSeg[] = [];
-  let i = 0, cmd: string | null = null, x = 0, y = 0, sx = 0, sy = 0;
-  while (i < tokens.length) {
-    if (/[a-zA-Z]/.test(tokens[i])) cmd = tokens[i++];
-    if (!cmd) break;
-    const up = cmd.toUpperCase(), rel: boolean = cmd !== up, n = arity[up];
-    if (n === undefined) throw new Error(`unsupported path command "${cmd}"`);
-    const a = tokens.slice(i, i + n).map(Number);
-    i += n;
-    const from: Pt = [x, y];
-    const pt = (px: number, py: number): Pt => (rel ? [x + px, y + py] : [px, py]);
-    let to!: Pt, ctrl: Pt[] | null = null;
-    switch (up) {
-      case "M": to = pt(a[0], a[1]); sx = to[0]; sy = to[1]; cmd = rel ? "l" : "L"; break;
-      case "L": case "T": to = pt(a[0], a[1]); break;
-      case "H": to = [rel ? x + a[0] : a[0], y]; break;
-      case "V": to = [x, rel ? y + a[0] : a[0]]; break;
-      case "C": ctrl = [pt(a[0], a[1]), pt(a[2], a[3])]; to = pt(a[4], a[5]); break;
-      case "S": case "Q": ctrl = [pt(a[0], a[1])]; to = pt(a[2], a[3]); break;
-      case "A": to = pt(a[5], a[6]); break;
-      case "Z": to = [sx, sy]; break;
-    }
-    if (up !== "M") segs.push({ type: up, from, to, ctrl });
-    [x, y] = to;
-    if (up === "Z") break;
-  }
-  return segs;
-}
-
-/** Unit direction the path travels at one end ("end" or "start", pointing outward). */
-function endDirection(segs: PathSeg[], end: "end" | "start"): { point: Pt; dir: Pt } | null {
-  const ordered = end === "end" ? segs : [...segs].reverse().map((s) => ({
-    ...s, from: s.to, to: s.from, ctrl: s.ctrl && [...s.ctrl].reverse(),
-  }));
-  for (let k = ordered.length - 1; k >= 0; k--) {
-    const s = ordered[k];
-    // Tangent at the end point: from the nearest distinct control point, else the segment start.
-    const candidates = [...(s.ctrl ? [...s.ctrl].reverse() : []), s.from];
-    for (const p of candidates) {
-      const v = [s.to[0] - p[0], s.to[1] - p[1]], len = Math.hypot(...v);
-      if (len > 1e-6) return { point: ordered[ordered.length - 1].to, dir: [v[0] / len, v[1] / len] };
-    }
-  }
-  return null;
-}
-
-/** Node rectangles in an <svg> block (first rect inside each <g class="node …">). */
-function nodeRects(svg: string): NodeRect[] {
-  const rects: NodeRect[] = [];
-  for (const g of svg.matchAll(/<g\b[^>]*\sclass="[^"]*\bnode\b[^"]*"[^>]*>([\s\S]*?)<\/g>/g)) {
-    const id = (g[0].match(/\sdata-id="([^"]*)"/) || [])[1] || "?";
-    const r = g[1].match(/<rect\b[^>]*>/);
-    if (!r) continue;
-    const num = (name: string) => +((r[0].match(new RegExp(`\\s${name}="([-\\d.]+)"`)) || [])[1] ?? 0);
-    rects.push({ id, x: num("x"), y: num("y"), w: num("width"), h: num("height") });
-  }
-  return rects;
-}
-
-/** Signed distance from a point to a rect outline: > 0 outside, < 0 inside (penetration). */
-function rectDistance([px, py]: Pt, r: NodeRect): number {
-  const dx = Math.max(r.x - px, 0, px - (r.x + r.w)), dy = Math.max(r.y - py, 0, py - (r.y + r.h));
-  if (dx || dy) return Math.hypot(dx, dy);
-  return -Math.min(px - r.x, r.x + r.w - px, py - r.y, r.y + r.h - py);
-}
-
-/** Distance along a ray (origin o, unit dir d) to where it enters rect r, or Infinity. */
-function rayToRect(o: Pt, d: Pt, r: NodeRect): number {
-  let t0 = -Infinity, t1 = Infinity;
-  for (const [oi, di, lo, hi] of [[o[0], d[0], r.x, r.x + r.w], [o[1], d[1], r.y, r.y + r.h]]) {
-    if (Math.abs(di) < 1e-9) { if (oi < lo || oi > hi) return Infinity; continue; }
-    const a = (lo - oi) / di, b = (hi - oi) / di;
-    t0 = Math.max(t0, Math.min(a, b));
-    t1 = Math.min(t1, Math.max(a, b));
-  }
-  return t1 >= Math.max(t0, 0) ? Math.max(t0, 0) : Infinity;
-}
-
-/** Problems with where an arrowhead's tip lands: on the outline of the node it points at. */
-function tipProblems(segs: PathSeg[], end: "end" | "start", rects: NodeRect[]): string[] {
-  const e = endDirection(segs, end);
-  if (!e) return [`has no direction at its ${end}`];
-  const tip: Pt = [e.point[0] + e.dir[0] * ARROW_LEN, e.point[1] + e.dir[1] * ARROW_LEN];
-  const at = `${tip[0].toFixed(1)},${tip[1].toFixed(1)}`;
-  const fix = `end the path ${ARROW_LEN} + 1 before the outline`;
-  for (const r of rects) {
-    const d = rectDistance(tip, r);
-    if (d < -0.5) return [`${end} arrow tip (${at}) pokes ${(-d).toFixed(1)} into node "${r.id}"; ${fix}`];
-  }
-  // The node the head points at: first rect the ray from the tip runs into.
-  const hit = rects.map((r) => ({ r, t: rayToRect(tip, e.dir, r) })).sort((a, b) => a.t - b.t)[0];
-  if (hit && isFinite(hit.t) && hit.t > TIP_GAP_MAX) {
-    return [`${end} arrow tip (${at}) stops ${hit.t.toFixed(1)} short of node "${hit.r.id}"; ${fix}`];
-  }
-  return []; // touching its node, or aimed at a non-rect shape (not verifiable)
-}
-
-// ---- HTML element tree (tolerant; enough for nesting-aware lint rules) -------------
-
-const VOID_TAGS = new Set("area base br col embed hr img input link meta source track wbr".split(" "));
-const AUTO_CLOSE: Record<string, string[]> = { p: ["p"], li: ["li"], dt: ["dt", "dd"], dd: ["dt", "dd"], tr: ["tr", "td", "th"], td: ["td", "th"], th: ["td", "th"], option: ["option"] };
-// A start tag whose quoted attribute values may contain ">" (e.g. data-bind expressions).
-const TAG_RE = /<(\/?)([a-zA-Z][\w-]*)((?:\s+[^\s=>/]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?)*)\s*(\/?)>/g;
-
-function parseTree(html: string): { root: TreeNode; src: string } {
-  const src = stripComments(html).replace(/<(script|style)\b([^>]*)>[\s\S]*?<\/\1>/gi, "<$1$2></$1>");
-  const root: TreeNode = { tag: "#root", attrs: "", children: [], parent: null, start: 0, end: src.length };
-  let cur = root;
-  for (const m of src.matchAll(TAG_RE)) {
-    const [, closing, name, attrs, selfClosing] = m;
-    const tag = name.toLowerCase();
-    if (closing) {
-      let n = cur;
-      while (n !== root && n.tag !== tag) n = n.parent!;
-      if (n !== root) { n.end = m.index; cur = n.parent!; }
-      continue;
-    }
-    if (AUTO_CLOSE[tag]) while (cur !== root && AUTO_CLOSE[tag].includes(cur.tag)) { cur.end = m.index; cur = cur.parent!; }
-    const node: TreeNode = { tag, attrs, children: [], parent: cur, start: m.index + m[0].length, end: src.length };
-    cur.children.push(node);
-    if (!selfClosing && !VOID_TAGS.has(tag)) cur = node;
-  }
-  return { root, src };
-}
-
-const nodeAttr = (n: TreeNode, name: string): string | undefined => (n.attrs.match(new RegExp(`\\s${name}\\s*=\\s*"([^"]*)"`)) || [])[1];
-const hasClass = (n: TreeNode, c: string) => (nodeAttr(n, "class") || "").split(/\s+/).includes(c);
-function walkTree(n: TreeNode, fn: (n: TreeNode) => void): void { for (const c of n.children) { fn(c); walkTree(c, fn); } }
-function findNode(n: TreeNode, pred: (n: TreeNode) => boolean): TreeNode | null { let hit = null as TreeNode | null; walkTree(n, (c) => { if (!hit && pred(c)) hit = c; }); return hit; }
-const nodeText = (src: string, n: TreeNode) => src.slice(n.start, n.end).replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+// ---- link targets: stable ids, and the structure of components ---------------------
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -1184,7 +1040,7 @@ function linkTargetProblems(html: string): string[] {
   return out;
 }
 
-// ---- theme checks: stylesheet import order, token contrast -------------------------
+// ---- theme checks: stylesheet import order (token contrast: scripts/check/contrast.mts) ---
 
 /** @import must come before every rule except @charset and @layer statements placed before
     the first import; anything else in between makes later imports silently ignored. */
@@ -1204,158 +1060,6 @@ function cssImportProblems(file: string): string[] {
     } else {
       phase = 2;
     }
-  }
-  return out;
-}
-
-/** WCAG contrast for every text/background token pair, in both themes (from light-dark()). */
-const CONTRAST_PAIRS: [string, string[], number][] = [
-  // [foreground, [backgrounds], minimum ratio]
-  ["text", ["bg", "surface", "surface-2", "code-bg", "accent-soft", "warn-soft"], 4.5], // accent-soft: the search dialog's selected row; warn-soft: its matches
-  ["text-muted", ["bg", "surface", "surface-2", "code-bg", "accent-soft"], 4.5],
-  ["accent", ["bg", "surface", "accent-soft"], 4.5],
-  ["accent-contrast", ["accent"], 4.5],
-  ["info", ["info-soft", "surface"], 4.5],
-  ["ok", ["ok-soft", "surface"], 4.5],
-  ["warn", ["warn-soft", "surface"], 4.5],
-  ["danger", ["danger-soft", "surface"], 4.5],
-  // c1–c5 colour syntax-highlighted code (text); c6 only strokes (non-text, 3:1).
-  // Review pins and count badges: --surface text on the kind/status colours.
-  ["surface", ["accent", "ok", "info", "warn", "danger"], 4.5],
-  ["c1", ["code-bg", "surface"], 4.5], ["c2", ["code-bg", "surface"], 4.5], ["c3", ["code-bg", "surface"], 4.5],
-  ["c4", ["code-bg", "surface"], 4.5], ["c5", ["code-bg", "surface"], 4.5], ["c6", ["surface"], 3],
-];
-
-/**
- * Badge text is the tone colour on a 10% tint of itself over the page (`.badge` in components.css,
- * blended in sRGB so it is plain alpha). That background is not a token, so the pairs above miss it.
- * The tones are read from the `.badge.x { --tone: var(--y) }` rules, so a new badge is covered too.
- */
-const BADGE_BACKGROUNDS = ["bg", "surface", "surface-2", "code-bg"];
-/** Where only the plain (text-muted) badge sits: the kind label on the search dialog's selected row. */
-const PLAIN_BADGE_ONLY_BACKGROUNDS = ["accent-soft"];
-function badgeTones(): string[] {
-  const css = fs.readFileSync(path.join(ROOT, "theme", "components.css"), "utf8");
-  const tones = new Set(["text-muted"]); // the default `--tone` of a plain .badge
-  for (const m of css.matchAll(/\.badge\.[\w.,\s-]*\{\s*--tone:\s*var\(--([\w-]+)\)/g)) tones.add(m[1]);
-  return [...tones];
-}
-const BADGE_TINT = 0.1;
-
-function contrastProblems(): string[] {
-  const css = fs.readFileSync(path.join(ROOT, "theme", "tokens.css"), "utf8");
-  const tok: Record<string, { light: string; dark: string }> = {};
-  for (const m of css.matchAll(/--([\w-]+):\s*light-dark\((#[0-9a-f]{6}),\s*(#[0-9a-f]{6})\)/gi)) tok[m[1]] = { light: m[2], dark: m[3] };
-  const lum = (hex: string) => {
-    const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-  };
-  const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-  const out: string[] = [];
-  for (const [fg, bgs, min] of CONTRAST_PAIRS) for (const bg of bgs) for (const mode of ["light", "dark"] as const) {
-    if (!tok[fg] || !tok[bg]) { out.push(`tokens.css: --${fg} or --${bg} is not a light-dark() hex pair`); continue; }
-    const r = ratio(tok[fg][mode], tok[bg][mode]);
-    if (r < min) out.push(`tokens.css: --${fg} on --${bg} is ${r.toFixed(2)}:1 in ${mode} mode (needs ${min}:1)`);
-  }
-  const hexOf = (c: number[]) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
-  for (const tone of badgeTones()) for (const bg of tone === "text-muted" ? [...BADGE_BACKGROUNDS, ...PLAIN_BADGE_ONLY_BACKGROUNDS] : BADGE_BACKGROUNDS) for (const mode of ["light", "dark"] as const) {
-    if (!tok[tone] || !tok[bg]) { out.push(`tokens.css: --${tone} or --${bg} is not a light-dark() hex pair`); continue; }
-    const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-    const [fg, base] = [rgb(tok[tone][mode]), rgb(tok[bg][mode])];
-    const tinted = hexOf(fg.map((v, i) => v * BADGE_TINT + base[i] * (1 - BADGE_TINT)));
-    const r = ratio(tok[tone][mode], tinted);
-    if (r < 4.5) out.push(`tokens.css: a .badge in --${tone} on --${bg} is ${r.toFixed(2)}:1 in ${mode} mode (needs 4.5:1)`);
-  }
-  return out;
-}
-
-// ---- diagram labels: no collisions -------------------------------------------------------
-//
-// Free-standing labels (<text> outside a .node) must not touch an edge, an arrowhead, a
-// node, or another label; text inside a node must fit its box. Sizes are estimated from
-// the theme (node text 14px, labels 12px, zone labels 11px; ~0.58em per character), so
-// keep a little air. Opt one label out with data-overlap-ok.
-
-const CHAR_W = 0.58;
-
-function labelBox(n: TreeNode, src: string, inNode: boolean): Box & { text: string } {
-  const cls = (nodeAttr(n, "class") || "").split(/\s+/);
-  const size = cls.includes("zone-label") ? 11 : cls.includes("label") || cls.includes("sub") || cls.includes("mono") ? 12 : 14;
-  const text = nodeText(src, n);
-  const w = text.length * size * CHAR_W;
-  const x = Number(nodeAttr(n, "x")) || 0, y = Number(nodeAttr(n, "y")) || 0;
-  const anchor = nodeAttr(n, "text-anchor") || (inNode ? "middle" : "start");
-  const left = anchor === "middle" ? x - w / 2 : anchor === "end" ? x - w : x;
-  // Zone labels hang from y (top); everything else is vertically centred on y.
-  const top = cls.includes("zone-label") ? y - size * 0.8 : y - size / 2;
-  return { text, left, right: left + w, top, bottom: top + size };
-}
-
-function samplePath(segs: PathSeg[]): number[][] {
-  const pts: number[][] = [];
-  for (const s of segs) {
-    if (s.type === "C" && s.ctrl && s.ctrl.length === 2) {
-      const [p0, p1, p2, p3] = [s.from, s.ctrl[0], s.ctrl[1], s.to];
-      for (let i = 0; i <= 24; i++) {
-        const t = i / 24, u = 1 - t;
-        pts.push([0, 1].map((k) => u * u * u * p0[k] + 3 * u * u * t * p1[k] + 3 * u * t * t * p2[k] + t * t * t * p3[k]));
-      }
-    } else {
-      for (let i = 0; i <= 12; i++) pts.push([0, 1].map((k) => s.from[k] + ((s.to[k] - s.from[k]) * i) / 12));
-    }
-  }
-  return pts;
-}
-
-function arrowPoints(segs: PathSeg[], end: "end" | "start"): number[][] {
-  const e = endDirection(segs, end);
-  if (!e) return [];
-  const [px, py] = e.point, [dx, dy] = e.dir, [nx, ny] = [-dy, dx];
-  const tip = [px + dx * ARROW_LEN, py + dy * ARROW_LEN], a = [px + nx * 5, py + ny * 5], b = [px - nx * 5, py - ny * 5];
-  const mid = (p: number[], q: number[]) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
-  return [tip, a, b, mid(tip, a), mid(tip, b), [(tip[0] + a[0] + b[0]) / 3, (tip[1] + a[1] + b[1]) / 3]];
-}
-
-const inside = (p: number[], box: Box, pad: number) => p[0] >= box.left - pad && p[0] <= box.right + pad && p[1] >= box.top - pad && p[1] <= box.bottom + pad;
-const boxesOverlap = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
-
-function diagramLabelProblems(html: string): string[] {
-  const out: string[] = [];
-  for (const m of stripComments(html).matchAll(/<svg\b[\s\S]*?<\/svg>/g)) {
-    if (/\stransform=/.test(m[0])) continue; // estimates don't follow transforms
-    const { root: tree, src } = parseTree(m[0]);
-    const labels: (Box & { text: string })[] = [], nodes: (Box & { id: string })[] = [], edges: { id: string | undefined; line: number[][]; arrows: number[][] }[] = [];
-    walkTree(tree, (n) => {
-      const nodeG = n.parent && (function up(p: TreeNode | null): TreeNode | null { return p && p.tag !== "#root" ? (p.tag === "g" && hasClass(p, "node") ? p : up(p.parent)) : null; })(n.parent);
-      if (n.tag === "text") {
-        const box = labelBox(n, src, !!nodeG);
-        if (nodeG) {
-          const r = findNode(nodeG, (x) => x.tag === "rect");
-          if (r && !/\sdata-overlap-ok\b/.test(n.attrs)) {
-            const w = Number(nodeAttr(r, "width"));
-            if (box.right - box.left > w - 8) out.push(`node text "${box.text}" (~${Math.round(box.right - box.left)}px) doesn't fit its ${w}px box`);
-          }
-        } else if (!/\sdata-overlap-ok\b/.test(n.attrs)) labels.push(box);
-      }
-      if (n.tag === "rect" && nodeG && nodeG.children.find((c) => c.tag === "rect") === n) {
-        const x = Number(nodeAttr(n, "x")) || 0, y = Number(nodeAttr(n, "y")) || 0;
-        nodes.push({ left: x, top: y, right: x + (Number(nodeAttr(n, "width")) || 0), bottom: y + (Number(nodeAttr(n, "height")) || 0), id: nodeAttr(nodeG, "data-id") || "?" });
-      }
-      if (n.tag === "path" && hasClass(n, "edge")) {
-        let segs: PathSeg[];
-        try { segs = parsePath(nodeAttr(n, "d") || ""); } catch { return; }
-        const arrows = hasClass(n, "no-arrow") ? [] : [...arrowPoints(segs, "end"), ...(hasClass(n, "both") ? arrowPoints(segs, "start") : [])];
-        edges.push({ id: nodeAttr(n, "data-id") || nodeAttr(n, "d"), line: samplePath(segs), arrows });
-      }
-    });
-    for (const l of labels) {
-      for (const e of edges) {
-        if (e.line.some((p) => inside(p, l, 1.5))) out.push(`label "${l.text}" touches edge "${e.id}"`);
-        else if (e.arrows.some((p) => inside(p, l, 1))) out.push(`label "${l.text}" touches the arrowhead of "${e.id}"`);
-      }
-      for (const nd of nodes) if (boxesOverlap(l, nd)) out.push(`label "${l.text}" overlaps node "${nd.id}"`);
-    }
-    labels.forEach((a, i) => labels.slice(i + 1).forEach((b) => { if (boxesOverlap(a, b)) out.push(`labels "${a.text}" and "${b.text}" overlap`); }));
   }
   return out;
 }
@@ -1542,7 +1246,7 @@ function cmdCheck(skipKeys = false): void {
   {
     const problems = [
       ...fs.readdirSync(path.join(ROOT, "theme")).filter((f) => f.endsWith(".css")).flatMap((f) => cssImportProblems(path.join(ROOT, "theme", f))),
-      ...contrastProblems(),
+      ...contrastFindings(fs.readFileSync(path.join(ROOT, "theme", "tokens.css"), "utf8"), fs.readFileSync(path.join(ROOT, "theme", "components.css"), "utf8")).map((f) => f.message),
       ...logoProblems(),
       ...siteUrlProblems(),
       ...orphanCards().map((f) => `docs/assets/og/${f} belongs to no public page: run \`npm run cards\` to remove it`),
@@ -1696,6 +1400,7 @@ function cmdCheck(skipKeys = false): void {
     const problems: string[] = [];
     const err = (m: string) => { problems.push(c.red("  error  ") + m); errors++; };
     const warn = (m: string) => { problems.push(c.yellow("  warn   ") + m); warnings++; };
+    const report = (f: Finding) => (f.level === "error" ? err : warn)(f.message);
 
     if (!getTitle(html)) err("missing <title>");
     if (!getMeta(html, "description")) err('missing <meta name="description">');
@@ -1879,25 +1584,11 @@ function cmdCheck(skipKeys = false): void {
       if (!/role="img"/.test(m[1]) || !/aria-label(ledby)?=/.test(m[1])) warn('diagram <svg> should have role="img" and aria-label');
     }
 
-    // Arrowed edges: tips must land on their target node's outline (see ARROW_LEN).
-    for (const svg of html.matchAll(/<svg\b[\s\S]*?<\/svg>/g)) {
-    const rects = nodeRects(svg[0]);
-    for (const m of svg[0].matchAll(/<path\b[^>]*>/g)) {
-      const cls = (m[0].match(/\sclass="([^"]*)"/) || [])[1] || "";
-      const classes = cls.split(/\s+/);
-      if (!classes.includes("edge") || classes.includes("no-arrow")) continue;
-      const d = (m[0].match(/\sd="([^"]*)"/) || [])[1];
-      const name = (m[0].match(/\sdata-id="([^"]*)"/) || [])[1] || d;
-      if (!d) { err(`edge "${name}" has no d attribute`); continue; }
-      let segs: PathSeg[];
-      try { segs = parsePath(d); } catch (e) { err(`edge "${name}": ${(e as Error).message}`); continue; }
-      const ends: ("end" | "start")[] = classes.includes("both") ? ["end", "start"] : ["end"];
-      for (const end of ends) for (const p of tipProblems(segs, end, rects)) err(`edge "${name}" ${p}`);
-    }
-    }
+    // Arrowed edges: tips must land on their target node's outline (scripts/check/diagram-geometry.mts).
+    arrowTipFindings(html).forEach(report);
 
     // Diagram labels never collide with edges, arrowheads, nodes or each other.
-    for (const p of diagramLabelProblems(raw)) err(p);
+    diagramLabelFindings(raw).forEach(report);
 
     // Glossary references resolve to a global or page-local term.
     const localTerms = parseGlossary(html);
