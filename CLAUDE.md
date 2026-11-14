@@ -32,7 +32,7 @@ Once per clone, run `npm run hooks`: it points `core.hooksPath` at the tracked `
 `pre-push` runs `leak-check --pushed`, which scans the blobs the pushed commits add (not the working tree) and
 blocks the push when one holds a run of 8+ words from the private corpus (see `corpus/README.md`). A checkout with no private data is not blocked: the
 hook says the check did not run, and `npm run advisor -- link <path>` fixes that (git worktrees don't share
-ignored files, so link each one). It is a local guard: `git push --no-verify` and merges made elsewhere skip it.
+ignored files, so link each one). It is a local guard: `git push --no-verify` and merges made elsewhere skip it. The `Leak check` workflow repeats it in CI against keyed hashes, `corpus/leak-hashes.txt`: regenerate them with `npm run advisor -- leak-hashes` when `leak-check` says they are stale.
 
 Run `npm run index` after **any** change to a document. It regenerates the catalogue, the
 social meta block and feed autodiscovery link in every page's `<head>`, `feed.xml`, `sitemap.xml`,
