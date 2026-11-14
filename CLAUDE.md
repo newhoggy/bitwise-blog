@@ -380,11 +380,21 @@ The site publishes an Atom 1.0 feed at `feed.xml` in the site root
   `bh:status` does not filter: the home page lists drafts, so the feed does too. A page whose
   `bh:date` is not a real calendar date is left out.
 - **Each entry** has `id` and `link` = the page's canonical URL, `title`, `summary` = the page's
-  `description` (summary-only, so readers come to the page: the interactive parts do not survive
-  in a reader), `published` and `updated` = `bh:date`, one `author` per `bh:authors` entry and one
+  `description` (summary-only by default, so readers come to the page: the interactive parts do not
+  survive in a reader), `published` and `updated` = `bh:date`, one `author` per `bh:authors` entry and one
   `category` per `bh:tags` entry. The feed's own `updated` is the newest entry's `bh:date`; all
   timestamps are `T00:00:00Z`, so the file only changes when the posts do (not on every commit).
   Text is the page's HTML text decoded and XML-escaped.
+- **Full content (opt-in).** A post with no interactive centrepiece can add
+  `<meta name="bh:feed" content="full">`: its entry then also carries `<content type="html">`, the
+  `.bh-article` children with scripts, styles, controls, the hero's `h1` and every non-allow-listed
+  attribute (`data-*`, `class`, `id`) stripped, links and images made absolute, links to example,
+  unlisted and private pages turned to text, inline SVGs replaced by their `aria-label` and a link
+  to the figure, and sidenotes listed as notes (`scripts/feed-content.mts`). Mark a passage that only
+  makes sense on the page `data-feed-omit`. `check` warns for each interactive component in a
+  `full` page (it would arrive as its fallback) and fails on any other value. It also fails on a
+  page with a `LEAK_ALLOWED` entry (`scripts/leak-allowed.mts`), whose feed entry stays summary-only:
+  the allowance covers the page, not `feed.xml`. No post is opted in yet.
 - **Autodiscovery.** Every public page, the home page and every template carries
   `<link rel="alternate" type="application/atom+xml" title="<site name>" href="../feed.xml">`
   (`feed.xml` on the home page), next to the icon links. It is relative, so it needs no

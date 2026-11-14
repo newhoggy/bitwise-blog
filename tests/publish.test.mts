@@ -159,6 +159,23 @@ test("project subpaths normalize a missing trailing slash and preserve unrelated
   assert.ok(result.includes('<a data-href="edge-rate-limiting-design.html" href="glossary.html">Kept link</a>'));
 });
 
+test("the published feed keeps an opted-in post's full content, with links to example pages as plain text", (t) => {
+  const f = fixture(t);
+  const file = path.join(f.source, post), original = fs.readFileSync(file, "utf8");
+  const injected = original.replace('<meta name="bh:tags"', '<meta name="bh:feed" content="full">\n  <meta name="bh:tags"')
+    .replace("</article>", '<p>See <a href="edge-rate-limiting-design.html#implementation">the example design</a>.</p></article>');
+  assert.equal((injected.match(/bh:feed|the example design/g) || []).length, 2, "both injections landed");
+  fs.writeFileSync(file, injected);
+  f.assemble();
+  preparePublishedSite(f.stage, f.source);
+  const xml = fs.readFileSync(path.join(f.stage, "feed.xml"), "utf8");
+  const entry = xml.match(/<entry>\s*<id>[^<]*announcing-patchcov\.html<\/id>[\s\S]*?<\/entry>/)?.[0] || "";
+  const content = entry.match(/<content type="html">([^<]*)<\/content>/)?.[1] || "";
+  assert.match(content, /&lt;h2&gt;/);
+  assert.match(content, /&lt;p&gt;See the example design\.&lt;\/p&gt;/);
+  assert.ok(!xml.includes("edge-rate-limiting-design"), "the published feed names no example page");
+});
+
 test("published artifact keeps unlisted pages and their cards, and leaves them out of the rebuilt index, search and backlinks", async (t) => {
   const f = fixture(t);
   const marker = '<meta name="bh:unlisted" content="true">';

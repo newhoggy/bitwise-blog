@@ -1,0 +1,10 @@
+<!-- expect warn: bh:feed is "full", but <bh-playground> cannot run in a feed reader: leave it out with data-feed-omit, or drop the meta -->
+<!-- expect warn: bh:feed is "full", but <bh-sequence> cannot run in a feed reader: leave it out with data-feed-omit, or drop the meta -->
+<!-- expect warn: bh:feed is "full", but <bh-stepper> cannot run in a feed reader: leave it out with data-feed-omit, or drop the meta -->
+<!-- expect warn: bh:feed is "full", but <bh-tabs> cannot run in a feed reader: leave it out with data-feed-omit, or drop the meta -->
+<!-- expect warn: bh:feed is "full", but <button> cannot run in a feed reader: leave it out with data-feed-omit, or drop the meta -->
+<!-- The host page's own components (sequence, stepper, tabs) are reported too; one left out with data-feed-omit is not. -->
+<meta name="bh:feed" content="full">
+<bh-playground id="feed-fixture-play" data-expr="x"><p>x = <output data-bind="x"></output></p></bh-playground>
+<p><button type="button">Try it</button></p>
+<div data-feed-omit><canvas width="10" height="10"></canvas></div>

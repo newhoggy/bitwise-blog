@@ -168,3 +168,73 @@ test("a bundled page carries no feed link and no Subscribe link", (t) => {
   // The rest of the footer is intact.
   assert.match(html, /<footer class="bh-footer">[\s\S]*Updated \d{4}-\d{2}-\d{2}/);
 });
+
+// Full content: a post with <meta name="bh:feed" content="full"> carries its article (scripts/feed-content.mts).
+const entryOf = (xml: string, href: string) => (xml.match(new RegExp(`<entry>\\s*<id>${SITE}${href.replace(/\./g, "\\.")}</id>[\\s\\S]*?</entry>`)) || [])[0] || "";
+const unescapeXml = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+
+test("only an opted-in post carries <content type=\"html\">, and check accepts it without a warning", (t) => {
+  const f = fixture(t);
+  assert.ok(!/<content\b/.test(f.feed()), "no committed post opts in yet");
+  assert.equal(f.bh("new", "explainer", "prose-post", "Prose post").status, 0);
+  f.edit("docs/prose-post.html", /name="bh:date" content="[^"]*"/, 'name="bh:date" content="2099-01-02"');
+  // The template's placeholder stepper and playground would be reported; this post is prose and a figure.
+  f.edit("docs/prose-post.html", /(<article class="bh-article">)[\s\S]*(<\/article>)/, `$1
+    <header class="bh-hero"><p class="eyebrow">Explainer</p><h1>Prose post</h1><p class="lede">The lede.</p></header>
+    <div class="tldr"><ul><li>One point.</li></ul></div>
+    <h2 id="case">The case</h2>
+    <p>A sentence with <a href="#case">a link</a> and <a href="glossary.html">the glossary</a>.<span class="sidenote">An aside.</span></p>
+    <figure class="diagram" id="line-figure"><svg viewBox="0 0 10 10" role="img" aria-label="A number line"><line class="axis" x1="0" y1="5" x2="10" y2="5"/></svg><figcaption>Notice zero.</figcaption></figure>
+  $2`);
+  f.edit("docs/prose-post.html", '<meta name="bh:tags"', '<meta name="bh:feed" content="full">\n  <meta name="bh:tags"');
+  assert.equal(f.bh("index").status, 0);
+  const xml = f.feed();
+  assert.equal((xml.match(/<content type="html">/g) || []).length, 1);
+  const entry = entryOf(xml, "docs/prose-post.html");
+  assert.match(entry, /<summary>[^<]+<\/summary>\n    <content type="html">[^<]+<\/content>\n  <\/entry>/);
+  const html = unescapeXml(entry.match(/<content type="html">([^<]*)<\/content>/)![1]);
+  assert.match(html, /<h2>The case<\/h2>/);
+  assert.match(html, /<p><strong>TL;DR<\/strong><\/p>/);
+  assert.match(html, /\[Diagram: A number line\] <a href="https:\/\/bitwise\.john-ky\.io\/docs\/prose-post\.html#line-figure">/);
+  assert.match(html, /<sup>\[1\]<\/sup>[\s\S]*<li>An aside\.<\/li>/);
+  assert.doesNotMatch(html, /<script|<style|<svg|<h1|Explainer|\sdata-|\sclass=|\sid=/);
+  assert.doesNotMatch(html, /\shref="(?!https:\/\/|mailto:)/, "every link is absolute");
+  const check = f.bh("check");
+  assert.doesNotMatch(check.stdout, /bh:feed|feed\.xml (?:is stale|contains|never|has a closing)/, check.stdout);
+});
+
+test("a page that quotes private writing under LEAK_ALLOWED never puts its text in the feed", (t) => {
+  const f = fixture(t);
+  const page = "docs/voice-notes-on-trial.html";
+  f.edit(page, '<meta name="bh:tags"', '<meta name="bh:feed" content="full">\n  <meta name="bh:tags"');
+  assert.equal(f.bh("index").status, 0);
+  const entry = entryOf(f.feed(), page);
+  assert.match(entry, /<summary>/);
+  assert.doesNotMatch(entry, /<content\b/);
+  const out = f.bh("check");
+  assert.notEqual(out.status, 0);
+  assert.match(out.stdout, /bh:feed cannot be "full" here: the page quotes private writing under LEAK_ALLOWED/);
+});
+
+test("full content leaves links to hidden pages as text, and check flags a misplaced or wrong bh:feed", (t) => {
+  const f = fixture(t);
+  for (const [slug, flags] of [["full-post", []], ["an-example", ["--example"]], ["a-quiet-page", ["--unlisted"]]] as const) {
+    assert.equal(f.bh("new", ...flags, "explainer", slug, `Title of ${slug}`).status, 0);
+  }
+  f.edit("docs/full-post.html", /name="bh:date" content="[^"]*"/, 'name="bh:date" content="2099-01-02"');
+  // A template's own placeholder components and diagram would be reported; this post is prose only.
+  f.edit("docs/full-post.html", /(<article class="bh-article">)[\s\S]*(<\/article>)/, `$1
+    <header class="bh-hero"><h1>Title of full-post</h1></header>
+    <p>Fish &amp; <a href="an-example.html">an example</a>, <a href="a-quiet-page.html#x">a quiet page</a> and <a href="glossary.html">the glossary</a>.</p>
+  $2`);
+  f.edit("docs/full-post.html", '<meta name="bh:tags"', '<meta name="bh:feed" content="full">\n  <meta name="bh:tags"');
+  f.edit("docs/an-example.html", '<meta name="bh:tags"', '<meta name="bh:feed" content="full">\n  <meta name="bh:tags"');
+  assert.equal(f.bh("index").status, 0);
+  const html = unescapeXml(entryOf(f.feed(), "docs/full-post.html").match(/<content type="html">([^<]*)<\/content>/)![1]);
+  assert.equal(html, `<p>Fish &amp; an example, a quiet page and <a href="${SITE}docs/glossary.html">the glossary</a>.</p>`);
+  const out = f.bh("check").stdout;
+  assert.match(out, /docs\/an-example\.html[\s\S]*?bh:feed has no effect: the page is not in the feed/);
+  assert.doesNotMatch(out, /feed\.xml (?:contains|never|has a closing)/);
+  f.edit("docs/full-post.html", 'name="bh:feed" content="full"', 'name="bh:feed" content="yes"');
+  assert.match(f.bh("check").stdout, /bh:feed must be "full" \(got "yes"\)/);
+});
