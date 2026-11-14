@@ -1,0 +1,12 @@
+[
+  {
+    "url": "https://doi.org/10.1037/a0021017",
+    "accept": [403],
+    "reason": "The DOI resolves to doi.apa.org, which answers 403 to any client without a browser User-Agent (it answers 200 to the same request with one). The DOI is the citation to keep."
+  },
+  {
+    "url": "https://www.americanscientist.org/*",
+    "accept": [503],
+    "reason": "The site answers every non-browser client, whatever its User-Agent, with a 503 \"Just a moment…\" JavaScript challenge (and Retry-After: 5), which only a browser can pass."
+  }
+]
