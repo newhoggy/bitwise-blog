@@ -26,6 +26,7 @@
     "links": "node scripts/links.mts",
     "sync-posts": "node scripts/sync-posts.mts",
     "advisor": "node scripts/advisor.mts",
+    "vendor": "node scripts/vendor.mts",
     "hooks": "git config core.hooksPath .githooks",
     "lint-skills": "node .claude/skills/skill-authoring/scripts/lint-skill.mjs --all",
     "trigger-evals": "node .claude/skills/skill-authoring/scripts/run-trigger-evals.mjs",
