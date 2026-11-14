@@ -71,6 +71,8 @@ test("only a build of main saves the visual baseline, and only a pull request fe
   const render = steps.findIndex((s) => s.run?.includes("npm run visual"));
   assert.ok(steps.indexOf(fetch[0]!) < render, "the baseline is fetched before the pages are rendered");
   assert.match(steps[render]?.run ?? "", /--report-only/);
+  // The summary says "saved as the baseline" exactly when the upload step runs.
+  assert.equal((steps[render] as { env?: Record<string, string> } | undefined)?.env?.["SAVES_BASELINE"], `\${{ ${save[0]?.if} }}`);
 });
 
 // A job with no `timeout-minutes` runs until GitHub's 360-minute default when a step hangs, keeps the

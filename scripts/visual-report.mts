@@ -28,6 +28,10 @@ export type SummaryContext = {
   base: string | null;
   /** Whether differences only report (`--report-only`). */
   reportOnly: boolean;
+  /** Whether this run's renders become the baseline for pull requests (`--saves-baseline`: a build of main). */
+  savesBaseline: boolean;
+  /** Baseline renders this run has no case for (a page removed or renamed), or empty when unknown (`--only`). */
+  missing: readonly string[];
 };
 
 /** The job fails on a page that did not render, and on a difference unless differences only report. */
@@ -54,21 +58,30 @@ export function changeText(r: Result): string {
 export function summaryMarkdown(results: readonly Result[], ctx: SummaryContext): string {
   const by = (s: Status): Result[] => results.filter((r) => r.status === s);
   const changed = by("changed"), errors = by("error"), same = by("same");
-  const fresh = results.filter((r) => r.status === "new" || r.status === "updated");
+  const fresh = by("new"), updated = by("updated");
   const compared = changed.length + same.length;
   const against = ctx.baseline?.commit
     ? `main at \`${short(ctx.baseline.commit)}\`${ctx.baseline.run ? ` ([run](${ctx.baseline.run}))` : ""}`
     : "the saved baselines";
   const lines: string[] = ["## Visual regression", ""];
 
-  if (compared === 0) {
-    lines.push(`**No baseline yet**, so ${plural(results.length - errors.length, "render was", "renders were")} not compared. Every build of main saves its renders as the baseline for pull requests (artifact \`visual-baseline\`), and a pull request is compared with the latest one.`);
+  if (results.length === 0) {
+    lines.push("**Nothing was rendered**: no case matched.");
+  } else if (compared === 0 && ctx.savesBaseline) {
+    lines.push(`**Saved ${plural(fresh.length + updated.length, "render")} as the baseline** for pull requests (artifact \`visual-baseline\`), if every page rendered. A build of main is not compared with anything.`);
+  } else if (compared === 0 && fresh.length) {
+    lines.push(`**No baseline yet**, so ${plural(fresh.length, "render was", "renders were")} not compared. Every build of main saves its renders as the baseline for pull requests (artifact \`visual-baseline\`, kept 90 days), and a pull request is compared with the latest one.`);
+  } else if (compared === 0 && updated.length) {
+    lines.push(`**Updated ${plural(updated.length, "baseline")}** (\`--update\`); nothing was compared.`);
+  } else if (compared === 0) {
+    lines.push("**Nothing was compared**: every render failed.");
   } else {
     lines.push(changed.length
       ? `**${changed.length} of ${plural(compared, "render")} changed** compared with ${against}.`
       : `**No visual changes** in ${plural(compared, "render")} compared with ${against}.`);
     if (changed.length && ctx.reportOnly) lines.push("", "Differences are reported, not failed: check that each one is intended.");
   }
+  if (ctx.missing.length) lines.push("", `${plural(ctx.missing.length, "baseline render has", "baseline renders have")} no page in this run (removed or renamed?): ${ctx.missing.map(md).join(", ")}.`);
   if (fresh.length && compared > 0) lines.push("", `${plural(fresh.length, "render has", "renders have")} no baseline yet: ${fresh.map((r) => md(r.name)).join(", ")}.`);
 
   if (changed.length) {
@@ -84,7 +97,7 @@ export function summaryMarkdown(results: readonly Result[], ctx: SummaryContext)
 
   const notes: string[] = [];
   if (compared > 0 && ctx.base && ctx.baseline?.commit && !sameCommit(ctx.base, ctx.baseline.commit)) {
-    notes.push(`The baseline is main at \`${short(ctx.baseline.commit)}\`, but this pull request is based on \`${short(ctx.base)}\`: changes merged to main in between also show here.`);
+    notes.push(`The baseline is main at \`${short(ctx.baseline.commit)}\`, not this pull request's base \`${short(ctx.base)}\` (its build had no baseline), so changes to main between the two commits also show here.`);
   }
   if (compared > 0 && ctx.baseline?.chrome && ctx.current.chrome && ctx.baseline.chrome !== ctx.current.chrome) {
     notes.push(`Chrome changed between the two builds (baseline ${md(ctx.baseline.chrome)}, this run ${md(ctx.current.chrome)}), so some differences may come from the browser rather than from this change.`);

@@ -99,10 +99,14 @@ jobs:
       # that throws or never signals data-bh-ready fails the job. Diffs come from the CI image on
       # both sides, though a Chrome update between the two builds can add noise (the summary says).
       - name: Render light, dark and phone layouts
-        run: npm run visual -- --system-fonts --report-only --base "$BASE_SHA"
+        run: |
+          args=(--system-fonts --report-only --base "$BASE_SHA")
+          if [ "$SAVES_BASELINE" = true ]; then args+=(--saves-baseline); fi
+          npm run visual -- "${args[@]}"
         env:
           CHROME_PATH: /usr/bin/google-chrome
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SAVES_BASELINE: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
 
       # report.html with the baseline, current and diff images of every change.
       - uses: actions/upload-artifact@v4

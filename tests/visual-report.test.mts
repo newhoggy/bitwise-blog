@@ -9,7 +9,7 @@ const phone = { name: "phone", width: 390, height: 844, scheme: "light", mobile:
 const result = (status: Status, extra: Partial<Result> = {}): Result => ({ name: "gallery--light", file: "docs/component-gallery.html", v: light, status, ...extra });
 const info = (commit: string | null, chrome: string | null = "HeadlessChrome/131.0.6778.85"): RenderInfo => ({ commit, chrome, run: commit ? "https://github.com/o/r/actions/runs/1" : null });
 const MAIN = "5c3a774c670d363e46463a009ad3968c0abb2436";
-const ctx = (extra: Partial<SummaryContext> = {}): SummaryContext => ({ baseline: info(MAIN), current: info(null), base: MAIN, reportOnly: true, ...extra });
+const ctx = (extra: Partial<SummaryContext> = {}): SummaryContext => ({ baseline: info(MAIN), current: info(null), base: MAIN, reportOnly: true, savesBaseline: false, missing: [], ...extra });
 
 test("a render error fails the run even in report-only mode; a difference fails it only without", () => {
   assert.equal(exitCode([result("same"), result("new")], false), 0);
@@ -27,6 +27,23 @@ test("with no baseline the summary says so, and counts only the renders that wor
   assert.match(md, /\*\*1 render failed\*\* \(this fails the job\):\n\n- index--light: never signalled data-bh-ready/);
   // Nothing was compared, so there is no note about which commit or Chrome it was compared with.
   assert.doesNotMatch(md, /^> /m);
+});
+
+test("when nothing was compared, the headline says why: a build of main, --update, every render failed, no case", () => {
+  const fresh = [result("new"), result("new", { name: "gallery--phone", v: phone })];
+  assert.match(summaryMarkdown(fresh, ctx({ baseline: null, base: null, savesBaseline: true })), /\*\*Saved 2 renders as the baseline\*\* for pull requests/);
+  assert.doesNotMatch(summaryMarkdown(fresh, ctx({ baseline: null, base: null, savesBaseline: true })), /No baseline yet/);
+  assert.match(summaryMarkdown([result("updated")], ctx()), /\*\*Updated 1 baseline\*\* \(`--update`\); nothing was compared\./);
+  const failed = summaryMarkdown([result("error", { error: "boom" })], ctx());
+  assert.match(failed, /\*\*Nothing was compared\*\*: every render failed\./);
+  assert.doesNotMatch(failed, /No baseline yet/);
+  assert.match(summaryMarkdown([], ctx()), /\*\*Nothing was rendered\*\*/);
+});
+
+test("baseline renders with no page in this run are named", () => {
+  const md = summaryMarkdown([result("same")], ctx({ missing: ["old-page--dark", "old-page--light"] }));
+  assert.match(md, /2 baseline renders have no page in this run \(removed or renamed\?\): old-page--dark, old-page--light\./);
+  assert.doesNotMatch(summaryMarkdown([result("same")], ctx()), /no page in this run/);
 });
 
 test("no changes names the commit compared with, and links its run", () => {
@@ -56,7 +73,7 @@ test("a render without a baseline is named when others were compared", () => {
 
 test("it notes a baseline from another commit than the base, and a Chrome update", () => {
   const md = summaryMarkdown([result("changed", { changed: 99, ratio: 0.0001 })], ctx({ base: "abcdef0123456789", current: info(null, "HeadlessChrome/132.0.1") }));
-  assert.match(md, /^> The baseline is main at `5c3a774`, but this pull request is based on `abcdef0`: changes merged to main in between also show here\.$/m);
+  assert.match(md, /^> The baseline is main at `5c3a774`, not this pull request's base `abcdef0` \(its build had no baseline\), so changes to main between the two commits also show here\.$/m);
   assert.match(md, /^> Chrome changed between the two builds \(baseline HeadlessChrome\/131\.0\.6778\.85, this run HeadlessChrome\/132\.0\.1\)/m);
   // The same commit (abbreviated or not) and the same Chrome need no note.
   assert.doesNotMatch(summaryMarkdown([result("same")], ctx({ base: MAIN.slice(0, 12) })), /^> /m);

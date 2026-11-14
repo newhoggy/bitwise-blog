@@ -10,8 +10,9 @@
 // on), else takes the newest, and downloads it into `--dir`. Needs `gh`, with GH_TOKEN and GH_REPO
 // (or GITHUB_REPOSITORY) set, and the job permission `actions: read`.
 //
-// It never fails the job: finding no baseline (before the first build of main, or after the
-// artifact expires) or a `gh` error is a warning, and `npm run visual` then has nothing to compare.
+// It does not fail the job for want of a baseline: finding none (before the first build of main, or
+// after the artifact expires) or a `gh` error is a warning, and `npm run visual` then has nothing to
+// compare. Only a usage error (a mistake in ci.yml) exits nonzero.
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
