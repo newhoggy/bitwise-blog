@@ -62,7 +62,9 @@ image. Two generated pieces make that work, and an author writes neither.
 - **Meta tags.** `npm run index` writes the Open Graph and Twitter tags (`og:title`,
   `og:description`, `og:url`, `og:image`, `canonical`, `article:*`, `twitter:card`) into each
   page's `<head>` between two `bh:social` markers, from the page's own `title`, `description` and
-  `bh:*` metas. `npm run check` fails when they are missing or stale.
+  `bh:*` metas. `npm run check` fails when they are missing or stale. The same block carries
+  schema.org JSON-LD for search engines: a `TechArticle` on each post and a `WebSite` on the
+  home page.
 - **Card images.** `npm run cards` renders `docs/assets/og/<slug>.png` in your local Chrome, and
   skips cards that are already current. Commit the PNGs with the page. `check` fails when one
   is missing or stale (it hashes the chosen visual, the title, kind, date and the card layout,

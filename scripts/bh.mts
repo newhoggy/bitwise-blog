@@ -2,7 +2,7 @@
 // beautiful-html CLI — no runtime dependencies, Node ≥ 22.18.
 //
 //   node scripts/bh.mts new [--private] [--example] [--unlisted] <template> <slug> "<Title>" ["<description>"]
-//   node scripts/bh.mts index                 regenerate index.html list, social meta, feed.xml, sitemap.xml, robots.txt, 404.html, theme/{glossary,site,search-index,unlisted-pages,unlisted-slugs}.js
+//   node scripts/bh.mts index                 regenerate index.html list, social meta (with JSON-LD), feed.xml, sitemap.xml, robots.txt, 404.html, theme/{glossary,site,search-index,unlisted-pages,unlisted-slugs}.js
 //   node scripts/bh.mts check [--skip-keys]   lint docs/ and index.html (--skip-keys: no 1Password lookups)
 //   node scripts/bh.mts cards                 render docs/assets/og/<slug>.png (needs Chrome; see scripts/cards.mts)
 //   node scripts/bh.mts bundle <page|--all>   inline theme → dist/<name>.html (single file)
@@ -24,7 +24,7 @@ import {
   renderCardsFile, parseCardsFile, validateCardsFile, mergeEntries, docCardHtml,
 } from "./private-cards.mts";
 import { pageWeight, pageSizeFinding } from "./page-size.mts";
-import type { Doc, SocialMeta, Visual, CardJob, GlossaryEntry, TreeNode, PathSeg, NodeRect, Box, Pt, ReviewComment, ReviewFile, ReviewRecord, OpItem } from "./types.mts";
+import type { Doc, SocialMeta, JsonLd, Visual, CardJob, GlossaryEntry, TreeNode, PathSeg, NodeRect, Box, Pt, ReviewComment, ReviewFile, ReviewRecord, OpItem } from "./types.mts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = path.join(ROOT, "docs");
@@ -188,8 +188,65 @@ function socialBlock(m: SocialMeta): string {
     tag("twitter:card", "summary_large_image", "name"),
     // An unlisted page asks crawlers to leave it out. It is the author's marker that decides, not a tag they write.
     ...(m.noindex ? [`  ${ROBOTS_NOINDEX}`] : []),
+    ...(m.jsonLd ? [`  ${jsonLdScript(m.jsonLd)}`] : []),
     `  ${SOCIAL_END}`,
   ].join("\n");
+}
+
+// -- JSON-LD (schema.org) structured data, one line inside the social block --------------------
+//
+// A post gets a TechArticle, the home page a WebSite. Example, unlisted and `reference` pages get
+// none (an unlisted page is noindex; examples are removed at deploy; the glossary and gallery are
+// not posts, as in the feed), and sealed shells are frozen without a social block at all.
+
+const LD_RE = /<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g;
+
+/**
+ * `data` as a script element. A script's text is raw: entities are not decoded, and `</` (or
+ * `<!--`, which puts the parser in its escaped state) inside a string could end it early. Both are
+ * written as JSON escapes, so JSON.parse still gives back the original text.
+ */
+function jsonLdScript(data: JsonLd): string {
+  const json = JSON.stringify(data).replace(/<\//g, "<\\/").replace(/<!--/g, "<\\u0021--");
+  return `<script type="application/ld+json">${json}</script>`;
+}
+
+const ldPublisher = (): JsonLd => ({
+  "@type": "Organization", name: SITE_NAME, url: SITE_URL,
+  logo: { "@type": "ImageObject", url: SITE_URL + "theme/logo/apple-touch-icon.png" },
+});
+
+/** Whether a public page is a post that carries a TechArticle block. */
+const hasArticleLd = (d: Doc) => !d.example && !d.unlisted && !FEED_NON_POST_KINDS.has(d.kind);
+
+/** The TechArticle for a post; its text fields are the page's HTML text, decoded. */
+function articleLd(d: Doc, image: string): JsonLd {
+  const list = (s: string) => s.split(",").map((x) => decodeHtml(x.trim())).filter(Boolean);
+  const authors = list(d.authors), tags = list(d.tags);
+  return {
+    "@context": "https://schema.org", "@type": "TechArticle",
+    headline: decodeHtml(d.title), description: decodeHtml(d.description),
+    ...(validFeedDate(d.date) ? { datePublished: d.date } : {}),
+    ...(authors.length ? { author: authors.map((name) => ({ "@type": "Person", name })) } : {}),
+    ...(tags.length ? { keywords: tags.join(", ") } : {}),
+    url: pageUrl(d.href), image, publisher: ldPublisher(),
+  };
+}
+
+/** The home page's WebSite block. */
+const websiteLd = (description: string): JsonLd => ({
+  "@context": "https://schema.org", "@type": "WebSite", name: SITE_NAME, url: SITE_URL,
+  ...(description ? { description: decodeHtml(description) } : {}), publisher: ldPublisher(),
+});
+
+/** `html` with each JSON-LD block's own `url` and `image` removed, for a standalone file that has neither. */
+function withoutLdLinks(html: string): string {
+  return html.replace(LD_RE, (whole, json: string) => {
+    try {
+      const { url: _url, image: _image, ...rest } = JSON.parse(json) as JsonLd;
+      return jsonLdScript(rest as JsonLd);
+    } catch { return whole; }
+  });
 }
 
 const pageUrl = (href: string) => SITE_URL + href;
@@ -200,7 +257,7 @@ const cardHref = (file: string) => path.relative(ROOT, cardPath(file)).split(pat
 function expectedSocial(file: string): string {
   if (file === INDEX) {
     const html = stripComments(fs.readFileSync(INDEX, "utf8"));
-    return socialBlock({ type: "website", title: getTitle(html), description: getMeta(html, "description"), url: SITE_URL, image: SITE_URL + SHARED_CARD, alt: SHARED_CARD_ALT });
+    return socialBlock({ type: "website", title: getTitle(html), description: getMeta(html, "description"), url: SITE_URL, image: SITE_URL + SHARED_CARD, alt: SHARED_CARD_ALT, jsonLd: websiteLd(getMeta(html, "description")) });
   }
   const d = readDoc(file);
   const sel = chooseVisual(file);
@@ -209,6 +266,7 @@ function expectedSocial(file: string): string {
     type: "article", title: d.title, description: d.description, url: pageUrl(d.href), image: SITE_URL + cardHref(file),
     alt: escapeHtml(sel.label ? `${decodeHtml(d.title)}: ${sel.label}` : `${decodeHtml(d.title)} (${KIND_LABELS[d.kind] || d.kind}, ${SITE_NAME})`),
     published: d.date, authors: list(d.authors), tags: list(d.tags), noindex: d.unlisted,
+    jsonLd: hasArticleLd(d) ? articleLd(d, SITE_URL + cardHref(file)) : undefined,
   });
 }
 
@@ -1688,6 +1746,7 @@ function cmdCheck(skipKeys = false): void {
         else if (block[0] !== expectedSocial(file)) err("social meta block is stale: run `npm run index`");
         const outside = stripComments(raw.replace(SOCIAL_RE, ""));
         if (/<meta\s+(?:property="(?:og|article):|name="twitter:)|<link\s+rel="canonical"/.test(outside)) err("social tags written by hand: delete them, `npm run index` generates them");
+        if (/<script\b[^>]*\btype\s*=\s*["']?application\/ld\+json\b/i.test(outside)) err("JSON-LD written by hand: delete it, `npm run index` generates it");
         if (getMeta(html, "description").length > DESCRIPTION_MAX) warn(`description is ${getMeta(html, "description").length} characters; link previews cut it off near ${DESCRIPTION_MAX}`);
       }
     }
@@ -1926,6 +1985,7 @@ function bundleOne(file: string): void {
   // tags, drop the canonical URL, the image and the Twitter card, which would point at the site.
   html = html.replace(/^[ \t]*<link\s+rel="canonical"[^>]*>\n/gm, "")
     .replace(/^[ \t]*<meta\s+(?:property="og:(?:url|image[^"]*)"|name="twitter:[^"]*")[^>]*>\n/gm, "");
+  html = withoutLdLinks(html);
 
   // A standalone file has no feed: no autodiscovery link and no Subscribe link.
   html = html.replace(FEED_LINK_RE, "").replace(/^[ \t]*<span><a href="(?:\.\.\/)?feed\.xml">Subscribe<\/a><\/span>\n/gm, "");

@@ -30,6 +30,15 @@ export interface SocialMeta {
   authors?: string[];
   tags?: string[];
   noindex?: boolean;
+  /** schema.org structured data for the page, written as one `<script type="application/ld+json">` in the block. */
+  jsonLd?: JsonLd;
+}
+
+/** A schema.org JSON-LD object (plain text values, not HTML): a `TechArticle` for a post, a `WebSite` for the home page. */
+export interface JsonLd {
+  "@context"?: string;
+  "@type": string;
+  [field: string]: unknown;
 }
 
 /** The visual a page's card shows (see `chooseVisual`): an element of the page (`css` + `index`) or an image file. */

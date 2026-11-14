@@ -66,6 +66,15 @@ export function preparePublishedSite(stage: string, source: string = ROOT, { goa
     if (!fs.existsSync(path.join(stage, card))) throw new Error(`Expected example card is missing: ${card}`);
   }
   const removed = new Set(marked);
+  // An unlisted page is noindex and must not describe itself to crawlers; `index` writes it no
+  // JSON-LD, so one here means the source was never re-indexed (and `check` would have failed).
+  for (const page of publishedPages(stage).filter((p) => !removed.has(p))) {
+    const html = uncomment(fs.readFileSync(path.join(stage, page), "utf8"));
+    const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || "";
+    if (/<meta\s+name="bh:unlisted"\s+content="true"/i.test(head) && /<script\b[^>]*\btype\s*=\s*["']?application\/ld\+json\b/i.test(html)) {
+      throw new Error(`Refusing to publish JSON-LD on the unlisted page ${page}: run \`npm run index\``);
+    }
+  }
   const homepage = new URL(String(process.env.BH_SITE_URL || JSON.parse(fs.readFileSync(path.join(source, "package.json"), "utf8")).homepage).replace(/\/*$/, "/"));
   const isRemoved = (href: string, page: string) => {
     try {
