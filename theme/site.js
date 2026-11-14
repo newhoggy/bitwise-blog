@@ -125,6 +125,16 @@ window.BH_SITE = {
    "supersededBy": ""
   },
   {
+   "href": "docs/visibility-threat-model.html",
+   "title": "What each visibility level hides, and from whom",
+   "kind": "design",
+   "status": "accepted",
+   "date": "2026-11-14",
+   "description": "The site&#39;s four visibility levels and its private-corpus guard, set against four adversaries: what each hides, what leaks by design, and the check behind every guarantee.",
+   "supersedes": "",
+   "supersededBy": ""
+  },
+  {
    "href": "docs/voice-notes-on-trial.html",
    "title": "Voice notes on trial: a verdict can't settle a clash of norms",
    "kind": "explainer",
