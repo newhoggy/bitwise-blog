@@ -171,8 +171,7 @@ and empty verbs to check. In short, check:
 2. For each section: what is the one new idea, and what makes it guessable?
 3. Is every term, formula and fix preceded by the need and the crack?
 4. Is every promise flagged where made and paid off by name, including each use
-   the opening names? Does a refuted belief come back true in another sense
-   without being reconciled?
+   the opening names?
 5. Do examples come before abstractions, clean numbers first, one running example?
 6. Do labels and captions carry meaning, including what not to read into a figure? (Figure design: `pedagogical-diagrams`.)
 7. Is the voice a companion's, and is reference material out of the narrative?
@@ -284,9 +283,9 @@ has each with its verbatim example.
   model holds, two or three deliberately different cases help it transfer.
 - **Two kinds of analogy.** A *mapping* analogy carries a relation the argument
   computes with (a budget a few cents short of a price; a buffer as a bathtub
-  whose level is inflow minus outflow). Introduce it with the mechanism, not after; bring it back
-  by name at each later step it can explain, extending it rather than switching
-  to a new one; and say where it stops matching. A *summary* analogy compresses
+  whose level is inflow minus outflow). Introduce it with the mechanism, not
+  after; bring it back by name at each later step it can explain, extending it
+  rather than switching to a new one; and say where it stops matching. A *summary* analogy compresses
   an insight and makes sense only once the reader has it: it goes after the
   payoff. Either earns its place only by leading towards the quantitative step
   or defusing a named misconception.
@@ -346,10 +345,6 @@ has each with its verbatim example.
 - **Your aha is not their explanation.** The summary analogy that clicked for
   you came from struggling with details; ship the details and examples, and
   give that analogy at the end. (A mapping analogy leads: see Examples and numbers.)
-- **Reconcile a refuted guess that comes back.** When something true in a
-  nearby sense returns after the page refuted a belief ("a hash lookup is not
-  a scan", then a long collision chain is scanned), say there what the
-  refutation meant and when the belief does hold.
 - **Write down the expected outcome before a surprise**, and rule out the dull
   explanation (a bug, rounding) before giving the real one.
 - **When a pattern breaks**, explain both why it held and why it breaks exactly

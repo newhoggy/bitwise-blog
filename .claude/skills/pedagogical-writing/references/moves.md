@@ -469,6 +469,8 @@ when the belief does hold.
   recap repeats "They don't explode" without separating the two.
 - Page: "a hash lookup is not a scan" in the opening; at the collision chain, "this is the
   scan we ruled out, confined to one bucket: it stays short while the load factor stays low".
+- Unmeasured. As a review check (in SKILL.md and review.md) it did not change what Claude
+  flagged on a test passage, so it is kept here as a drafting move only.
 
 ### A minimal pair
 Set two cases side by side that differ in exactly one part, and say which part.

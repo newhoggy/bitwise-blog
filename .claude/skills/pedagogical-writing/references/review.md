@@ -126,8 +126,7 @@ material. Then four quick tests:
 Start from the script's promise list and add silent promises you noticed while
 reading: a simplification never flagged, a step that looks arbitrary with no
 comment, a fact used at a payoff that was never planted, a use or system the
-opening names that never comes back. Add one more kind of row: a belief the page
-refutes that later returns true in another sense, unreconciled.
+opening names that never comes back.
 
 Make a ledger:
 
