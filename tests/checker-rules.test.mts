@@ -7,6 +7,7 @@
 // `check` must report for the page the fragment is injected into, one per message:
 //   <!-- expect error: <message> -->     <!-- expect warn: <message> -->     <!-- expect clean -->
 // Rules about the theme (contrast, stylesheet imports) edit a theme file instead; see THEME_CASES.
+// Rules about CLAUDE.md's contract pointers edit CLAUDE.md or contracts/ instead; see the contract cases.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -49,7 +50,7 @@ function messagesUnder(out: string, heading: string): string[] {
 // One throwaway copy of the site serves every case; each case restores what it edited.
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "bh-rules-test-"));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
-for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "package.json", "index.html", "feed.xml", "sitemap.xml", "robots.txt", "404.html"]) {
+for (const entry of ["scripts", "theme", "docs", "reviews", "templates", "contracts", "CLAUDE.md", "package.json", "index.html", "feed.xml", "sitemap.xml", "robots.txt", "404.html"]) {
   fs.cpSync(path.join(source, entry), path.join(root, entry), { recursive: true });
 }
 // `check` asks 1Password for a private page's key; make that fail at once instead.
@@ -165,3 +166,64 @@ for (const c of THEME_CASES) {
     for (const m of got) assert.match(m, c.only);
   });
 }
+
+// Contract rules: every contracts/<name>.md that CLAUDE.md names must exist, and every contract must
+// have a pointer line inside CLAUDE.md's <!-- bh:contracts --> fence.
+const FENCE = "<!-- bh:contracts -->\n";
+const CONTRACT_HEADING = "CLAUDE.md";
+/** Move a file away for the duration of `fn`; it must exist first. */
+const removed = <T,>(rel: string, fn: () => T): T => {
+  const file = path.join(root, rel), aside = path.join(root, "removed-" + path.basename(rel)); // outside its directory
+  assert.ok(fs.existsSync(file), `${rel} does not exist, so removing it tests nothing`);
+  fs.renameSync(file, aside);
+  try { return fn(); } finally { fs.renameSync(aside, file); }
+};
+/** Add a file for the duration of `fn`; it must not exist first. */
+const added = <T,>(rel: string, text: string, fn: () => T): T => {
+  const file = path.join(root, rel);
+  assert.ok(!fs.existsSync(file), `${rel} already exists`);
+  fs.writeFileSync(file, text);
+  try { return fn(); } finally { fs.rmSync(file); }
+};
+const contractCheck = (fn: () => string) => messagesUnder(fn(), CONTRACT_HEADING);
+const CONTRACTS = fs.readdirSync(path.join(source, "contracts")).filter((f) => f.endsWith(".md")).sort();
+const firstContract = CONTRACTS[0]!;
+/** The pointer line for `name` in the fence, which the cases below remove or keep. */
+const pointerLine = (text: string, name: string) => {
+  const fence = text.slice(text.indexOf(FENCE), text.indexOf("<!-- /bh:contracts -->"));
+  const line = fence.split("\n").find((l) => l.includes(`contracts/${name}`));
+  assert.ok(line, `no pointer line for contracts/${name} in the fence`);
+  return line + "\n";
+};
+
+test("contract rule: every contract CLAUDE.md names exists, and each has a pointer (control)", () => {
+  assert.ok(CONTRACTS.length > 0, "contracts/ holds no contract file");
+  assert.deepEqual(contractCheck(check), []);
+});
+
+test("contract rule: a pointer to a contract that does not exist", () => {
+  const edit = (text: string) => (assert.ok(text.includes(FENCE), "CLAUDE.md has no contracts fence"), text.replace(FENCE, () => `${FENCE}- Anything new? Read [\`contracts/no-such-feature.md\`](contracts/no-such-feature.md).\n`));
+  assert.deepEqual(contractCheck(() => edited("CLAUDE.md", edit, check)), ["error: CLAUDE.md names contracts/no-such-feature.md, which does not exist"]);
+});
+
+test("contract rule: a named contract file that was deleted", () => {
+  // The throwaway site has no README.md, so only CLAUDE.md's pointer is reported.
+  assert.deepEqual(contractCheck(() => removed(`contracts/${firstContract}`, check)), [`error: CLAUDE.md names contracts/${firstContract}, which does not exist`]);
+});
+
+test("contract rule: a contract file with no pointer line", () => {
+  assert.deepEqual(contractCheck(() => added("contracts/stray-notes.md", "# Stray\n", check)),
+    ["error: contracts/stray-notes.md has no pointer line in CLAUDE.md's <!-- bh:contracts --> list: add one, or delete the file"]);
+});
+
+test("contract rule: a pointer removed from the fence still counts as missing when the contract is named elsewhere", () => {
+  // contracts/a11y.md is also named in the Accessibility section, outside the fence.
+  const edit = (text: string) => text.replace(pointerLine(text, "a11y.md"), "");
+  assert.deepEqual(contractCheck(() => edited("CLAUDE.md", edit, check)),
+    ["error: contracts/a11y.md has no pointer line in CLAUDE.md's <!-- bh:contracts --> list: add one, or delete the file"]);
+});
+
+test("contract rule: a file in contracts/ whose name is not a kebab-case .md", () => {
+  assert.deepEqual(contractCheck(() => added("contracts/Notes.md", "# Notes\n", check)),
+    ["error: contracts/Notes.md: a contract's file name is kebab-case (a-z, 0-9, -) and ends in .md"]);
+});

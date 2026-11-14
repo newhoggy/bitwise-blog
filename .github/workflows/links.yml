@@ -5,8 +5,8 @@ name: External links
 # and updated while something needs attention, and closed when a run finds nothing. It is deliberately not a
 # PR check: a slow or bot-hostile third-party site must never turn a PR red. The job fails (and GitHub emails
 # you) when the check itself breaks or the issue can't be updated, so it never fails silently. A site that
-# refuses automated clients gets an entry in links-allowlist.json, with a reason. See "External links" in
-# CLAUDE.md.
+# refuses automated clients gets an entry in links-allowlist.json, with a reason. See
+# contracts/external-links.md.
 #
 # GitHub switches a scheduled workflow off in a public repository after 60 days without repository activity,
 # and says nothing when it does: if the blog goes quiet, re-enable it from the Actions tab.

@@ -140,7 +140,7 @@ jobs:
   #   2. Settings → Secrets and variables → Actions → Variables → New variable:
   #      PAGES_ENABLED = true
   #   3. Optional page-view counting: add the variable GOATCOUNTER_CODE = <your GoatCounter
-  #      site code>. Unset or empty means no tag (see "Page-view counting" in CLAUDE.md).
+  #      site code>. Unset or empty means no tag (see contracts/page-views.md).
   # To redeploy without a new commit (after changing a variable), run this workflow from main.
   deploy:
     name: Publish to GitHub Pages

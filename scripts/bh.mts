@@ -6,7 +6,7 @@
 //   node scripts/bh.mts check [--skip-keys]   lint docs/ and index.html (--skip-keys: no 1Password lookups)
 //   node scripts/bh.mts cards                 render docs/assets/og/<slug>.png (needs Chrome; see scripts/cards.mts)
 //   node scripts/bh.mts bundle <page|--all>   inline theme → dist/<name>.html (single file)
-//   node scripts/bh.mts seal [--show-links|--reshell]   encrypt docs/*.private.html → docs/<slug>.html (see "Private pages")
+//   node scripts/bh.mts seal [--show-links|--reshell]   encrypt docs/*.private.html → docs/<slug>.html (see contracts/private-pages.md)
 //   node scripts/bh.mts unseal [slug…]        decrypt docs/<slug>.html → docs/<slug>.private.html
 //   node scripts/bh.mts serve [port]          static server (pages also work from file://)
 
@@ -18,7 +18,7 @@ import zlib from "node:zlib";
 import crypto from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { fileURLToPath } from "node:url";
-import { readmeDependencyProblems, readmeExampleProblems } from "./docs-drift.mts";
+import { contractProblems, readmeDependencyProblems, readmeExampleProblems } from "./docs-drift.mts";
 import {
   KIND_LABELS, escapeHtml, CARD_FILE, KEY_RE, GROUP_RE, cardFromDoc, tryDecryptCard, buildBlob,
   renderCardsFile, parseCardsFile, validateCardsFile, mergeEntries, docCardHtml,
@@ -1324,6 +1324,18 @@ function cmdCheck(skipKeys = false): void {
     problems.forEach((p) => console.log(c.red("  error  ") + p));
     errors += problems.length;
   }
+  // CLAUDE.md points at one contract file per feature (and README.md links some): each must exist, and each contract must be pointed at.
+  // Skipped when there is no CLAUDE.md, as for the README.
+  if (fs.existsSync(path.join(ROOT, "CLAUDE.md"))) {
+    const dir = path.join(ROOT, "contracts");
+    const present = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => !fs.statSync(path.join(dir, f)).isDirectory()) : [];
+    const readme = path.join(ROOT, "README.md"); // its links to contracts must not dangle either
+    const others: Record<string, string> = fs.existsSync(readme) ? { "README.md": fs.readFileSync(readme, "utf8") } : {};
+    const problems = contractProblems(fs.readFileSync(path.join(ROOT, "CLAUDE.md"), "utf8"), present, others);
+    console.log((problems.length ? c.red("✗ ") : c.green("✓ ")) + "CLAUDE.md (feature contract pointers)");
+    problems.forEach((p) => console.log(c.red("  error  ") + p));
+    errors += problems.length;
+  }
   // Private pages: every plaintext is sealed and current; sealed shells are well-formed.
   const privateSlugs = new Set([...privateSources().map((f) => path.basename(f, PRIVATE_EXT)), ...sealedFiles().map((f) => path.basename(f, ".html"))]);
   {
@@ -2180,7 +2192,7 @@ if (!commands[cmd]) {
 
   new [--private] [--example] [--unlisted] <template> <slug> "<Title>" ["<desc>"]
                                                create docs/<slug>.html (or a git-ignored <slug>.private.html);
-                                               --unlisted publishes it off the site's listings (see CLAUDE.md)
+                                               --unlisted publishes it off the site's listings (see contracts/unlisted-pages.md)
   index                                        regenerate the document list in index.html
   check [--skip-keys]                          lint docs/ and index.html (links, ids, stepper refs, a11y);
                                                --skip-keys skips the 1Password lookups of private pages' keys

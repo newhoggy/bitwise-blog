@@ -1,4 +1,4 @@
-// Guards against README drifting from the repo. Pure functions, so tests call them directly.
+// Guards against README and CLAUDE.md drifting from the repo. Pure functions, so tests call them directly.
 //
 // The README fences two lists that a machine compares with the source of truth, in HTML comments
 // (GitHub does not render them):
@@ -7,6 +7,8 @@
 // A dependency claim is a backticked name in the part of a list item before its first colon
 // ("- `cheerio` and `yaml`: what they are for"); the description after the colon may mention
 // commands freely. An example claim is any backticked `docs/<slug>.html` in the fence.
+//
+// CLAUDE.md names each feature's contract file (`contracts/<feature>.md`); see contractProblems.
 
 /** What an npm package name looks like. */
 const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
@@ -52,4 +54,31 @@ export function readmeExampleProblems(readme: string, exampleHrefs: string[]): s
   const text = fenced(readme, "examples");
   if (text === undefined) return ["README.md has no <!-- bh:examples --> … <!-- /bh:examples --> list of the example pages"];
   return compare("example list", "no `bh:example` marker marks", claims(text, DOC_PATH), exampleHrefs, "add it, or remove its bh:example marker");
+}
+
+/** A contract file's name, and a path naming one (`contracts/x.md` or `./contracts/x.md`, not `docs/contracts/x.md`). */
+const CONTRACT_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
+const CONTRACT_PATH = /(?:(?<![\w/.-])|(?<=(?<![\w./-])\.\/))contracts\/([a-z0-9][a-z0-9-]*\.md)\b/g;
+const contractsNamed = (text: string) => new Set([...text.matchAll(CONTRACT_PATH)].map((m) => m[1]!));
+
+/**
+ * `CLAUDE.md` keeps one pointer line per feature contract, fenced by `<!-- bh:contracts -->` comments.
+ * Every contract file that `CLAUDE.md` (or another file in `others`, path → text) names must exist,
+ * since a pointer to nothing loses the rules; and every file in `contracts/` must have a pointer in
+ * the fence, since a contract no pointer leads to is never read. `present` lists the files in `contracts/`.
+ */
+export function contractProblems(claudeMd: string, present: string[], others: Record<string, string> = {}): string[] {
+  const problems: string[] = [];
+  const have = new Set(present);
+  for (const [file, text] of Object.entries({ "CLAUDE.md": claudeMd, ...others })) {
+    for (const f of [...contractsNamed(text)].sort()) if (!have.has(f)) problems.push(`${file} names contracts/${f}, which does not exist`);
+  }
+  const fence = fenced(claudeMd, "contracts");
+  if (fence === undefined) return [...problems, "CLAUDE.md has no <!-- bh:contracts --> … <!-- /bh:contracts --> list of pointers to the feature contracts"];
+  const pointed = contractsNamed(fence);
+  for (const f of [...have].sort()) {
+    if (!CONTRACT_NAME.test(f)) problems.push(`contracts/${f}: a contract's file name is kebab-case (a-z, 0-9, -) and ends in .md`);
+    else if (!pointed.has(f)) problems.push(`contracts/${f} has no pointer line in CLAUDE.md's <!-- bh:contracts --> list: add one, or delete the file`);
+  }
+  return problems;
 }

@@ -6,7 +6,7 @@
 //
 // Zero dependencies, Node ≥ 20. Nothing is written to disk. The token comes from the environment
 // (GOATCOUNTER_TOKEN) or from 1Password, is only ever sent as a Bearer header, and is never printed.
-// See "Page-view counting" in CLAUDE.md. The output names unlisted pages: keep it private.
+// See contracts/page-views.md. The output names unlisted pages: keep it private.
 
 import fs from "node:fs";
 import path from "node:path";
