@@ -843,3 +843,23 @@ deleted under the rule that a case scoring the same in both arms measures nothin
 
 Total cost about $14.70.
 
+**Follow-ups the same day.**
+
+- **The opening rule made conditional.** "Concrete uses may lead" permitted a use in the hook; it now says "when the
+  page covers where the idea is used, name one such use in the opening". `outline-consistent-hashing`, six runs,
+  `--ablation none`: 0.88, opening 4 of 6 (from 3 of 9), ordering 6 of 6, uses paid off 5 of 6 ($0.61). The bar set
+  before the run was two runs in three, so the rule stays. One passing outline restated the rule in its TL;DR plan ("Name
+  one real use as a promise … for example a Dynamo-style store or a CDN") rather than choosing one, so part of the gain is
+  the rule echoed, not applied.
+- **"Analogy before the mechanism" was left alone.** It passed 4 of 6 with the new skill against 6 of 6 without. The
+  failing outlines proved O(1) by summing the copies first and brought in the coin analogy a section later, describing it
+  as "introduced with the mechanism, not after"; none echoed the old "goes last" wording, so rewording it would tune
+  against a cause the transcripts do not show. The final text passed 3 of 3.
+- **One real page.** A fresh agent with the new rules (no eval, no knowledge of the cases) reviewed
+  `docs/token-bucket-rate-limiting.html`. It found the page already meets the analogy rule (the dripping tap arrives with
+  the mechanism, returns in `#no-timer` and `#choosing-parameters`, and its limits are stated) and the promise rule (every
+  number in `#the-need` is paid in `#mental-model` or `#choosing-parameters`), and said so rather than inventing problems.
+  Its two fixes were checked against the page and hold: "leaky bucket" appears only as a table row and a reading-list link,
+  never mapped, and the three gotchas are in dose order (one machine, ten with a bucket each, ten sharing one) under an
+  intro that says only "go wrong in three ways".
+

@@ -112,9 +112,9 @@ and give each added component one concrete need. Generalise last.
 - Page: give the planted fact an `id` (a `data-linkable` callout or a caption sentence); at the payoff, restate it in a clause and `data-ref` back.
 
 ### Uses named in the opening are promises
-A concrete use in the hook (a named system, a place, a cost in numbers) makes the page
-relevant without a sweeping claim, and commits it: return to each use by name, later, with
-the mechanism now in hand.
+When the page covers where the idea is used, name one such use in the hook (a named system,
+a place, a cost in numbers). It makes the page relevant without a sweeping claim, and commits
+it: return to each use by name, later, with the mechanism now in hand.
 - Beyond The Graph names bananas, rocks and the air in its first minute, then returns to each
   by name (potassium in bananas, potassium-argon dating of rocks, the argon in the air) once
   the mechanism is built.

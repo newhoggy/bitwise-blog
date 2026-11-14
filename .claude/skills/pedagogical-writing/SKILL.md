@@ -210,8 +210,9 @@ has each with its verbatim example.
 
 - **Open on something concrete**: a puzzle, a surprising number, a failure, a
   preview of the finished result, or the popular wrong answer. Keep it short.
-  Concrete uses may lead (a named system, a cost in numbers): each is a promise
-  the page returns to. Save abstract significance ("why this matters") for the end.
+  When the page covers where the idea is used, name one such use in the opening
+  (a named system, a cost in numbers), as a promise the page returns to. Save
+  abstract significance ("why this matters") for the end.
 - **Spoil the what, protect the why.** Stating the result, or naming a strange
   destination ("this ends with a Klein bottle"), creates the need. The
   mechanism is what the page earns, so keep it out of the opening.
