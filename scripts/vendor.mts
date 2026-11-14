@@ -2,6 +2,9 @@
 //
 //   npm run vendor     re-fetch them at the versions pinned below (needs the network; CI never runs it)
 //
+// Each step downloads everything it needs before it replaces anything in theme/, so a failed run leaves the
+// files it had not reached as they were.
+//
 // Serving them from the repo means a page asks no other host for anything, so no reader's IP address
 // reaches Google, jsDelivr or cdnjs, and renders (`visual`, `cards`, `a11y`) are the same offline.
 // To upgrade, change a constant here and in `theme/bh.js` (`check` fails while they differ), run this,
@@ -39,10 +42,18 @@ const FONT_CSS = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9.
 const USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0";
 /** Every character the site uses today is in latin or greek (λ); latin-ext is cheap insurance, fetched only when used. */
 const SUBSETS = ["latin", "latin-ext", "greek"];
+/**
+ * The font builds the files are, as Google versions them in its URLs (fonts.gstatic.com/s/<family>/<version>/).
+ * The CSS API serves only the latest build, so a run that gets a different one stops instead of quietly
+ * changing every page: set the new version here on purpose, then run `visual` and `cards`.
+ */
+const FONT_VERSIONS: Record<string, string> = { "Fraunces": "v38", "IBM Plex Sans": "v23", "JetBrains Mono": "v24" };
+/** The licences, from a fixed commit of github.com/google/fonts. */
+const FONTS_REPO = "https://raw.githubusercontent.com/google/fonts/29b4ec6df2522a8aee279414b78a07910b065874/ofl";
 const FONT_LICENCES: Record<string, string> = {
-  "Fraunces": "https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/OFL.txt",
-  "IBM Plex Sans": "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsans/OFL.txt",
-  "JetBrains Mono": "https://raw.githubusercontent.com/google/fonts/main/ofl/jetbrainsmono/OFL.txt",
+  "Fraunces": `${FONTS_REPO}/fraunces/OFL.txt`,
+  "IBM Plex Sans": `${FONTS_REPO}/ibmplexsans/OFL.txt`,
+  "JetBrains Mono": `${FONTS_REPO}/jetbrainsmono/OFL.txt`,
 };
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -90,6 +101,10 @@ async function vendorFonts(): Promise<void> {
     return { subset: m[1]!, family: prop("font-family").replace(/['"]/g, ""), style: prop("font-style"), weight: prop("font-weight"), body, url: body.match(/url\(([^)]+)\)\s*format\('woff2'\)/)?.[1] ?? "" };
   }).filter((f) => SUBSETS.includes(f.subset));
   if (!faces.length || faces.some((f) => !f.url)) throw new Error("the Google Fonts CSS has no WOFF2 sources: did the User-Agent stop getting WOFF2?");
+  for (const f of faces) {
+    const got = f.url.match(/\/s\/[^/]+\/(v\d+)\//)?.[1], want = FONT_VERSIONS[f.family];
+    if (got !== want) throw new Error(`Google now serves ${f.family} ${got ?? "(no version)"}, not ${want}: set FONT_VERSIONS in scripts/vendor.mts to take it on purpose`);
+  }
   // One file per distinct URL. Google points every weight of a variable family at the same file.
   const names = new Map<string, string>();
   for (const f of faces) {
@@ -98,11 +113,14 @@ async function vendorFonts(): Promise<void> {
     const taken = [...names.values()].includes(`${base}.woff2`);
     names.set(f.url, taken ? `${base}-${slug(f.weight)}.woff2` : `${base}.woff2`);
   }
+  // Everything is downloaded before theme/fonts/ is touched, so a failed run leaves it as it was.
+  const files = new Map<string, Buffer | string>();
+  for (const [url, name] of names) files.set(name, Buffer.from(await (await fetchOk(url)).arrayBuffer()));
+  for (const [family, url] of Object.entries(FONT_LICENCES)) files.set(`OFL-${slug(family)}.txt`, await (await fetchOk(url)).text());
   const dir = path.join(ROOT, "theme", "fonts");
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
-  for (const [url, name] of names) fs.writeFileSync(path.join(dir, name), Buffer.from(await (await fetchOk(url)).arrayBuffer()));
-  for (const [family, url] of Object.entries(FONT_LICENCES)) fs.writeFileSync(path.join(dir, `OFL-${slug(family)}.txt`), await (await fetchOk(url)).text());
+  for (const [name, data] of files) fs.writeFileSync(path.join(dir, name), data);
   // Google gives each weight of a variable family its own rule, all naming the same file. Where those weights
   // are every step from the lightest to the heaviest (Plex Sans: 400 to 700), one rule with that range matches
   // the same faces and names the file once, so a bundle inlines it once. Otherwise (JetBrains Mono: 400 and

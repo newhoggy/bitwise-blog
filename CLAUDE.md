@@ -870,12 +870,14 @@ Theme files (`theme/*`) are shared by every page. These rules come from bugs alr
   `MODULES` in `bh.js` with the selector that triggers them. A module must be a classic
   script that uses `window.bh` and sets `window.bhModules[file] = true`. `bundle`
   inlines every module.
-- **Nothing loads from another host.** The fonts are in `theme/fonts/` (declared in
+- **The theme loads nothing from another host.** The fonts are in `theme/fonts/` (declared in
   `theme/fonts.css`, OFL licences beside them) and Prism and Mermaid in `theme/vendor/<name>-<version>/`
   (MIT licences beside them), so no reader's IP address reaches a CDN and renders are the same offline.
-  `npm run vendor` (`scripts/vendor.mts`, needs the network) re-fetches them at the versions pinned
-  there; to upgrade, change the version there and in `VENDOR` in `bh.js`, run it, then `visual` and `cards`.
-  `check` fails on a remote `@import` or `url()` in `theme/*.css`, on a CDN URL in theme scripts, when
+  The one third-party request left is GoatCounter's `count.js`, added at deploy time only (see
+  [Page-view counting](#page-view-counting)). `npm run vendor` (`scripts/vendor.mts`, needs the network)
+  re-fetches them at the versions pinned there (for the fonts, Google's family versions, `FONT_VERSIONS`);
+  to upgrade, change the version there and in `VENDOR` in `bh.js`, run it, then `visual` and `cards`.
+  `check` fails on a remote `@import` or `url()` in `theme/*.css` or a page's `<style>`, on another host's URL in theme scripts, when
   `bh.js` and `scripts/vendor.mts` disagree, and on a page `<script src>` or stylesheet `<link>` on
   another host without an exact version and an `integrity` hash. It warns on a `language-x` code block
   that the vendored Prism can't highlight (add the language to `PRISM_LANGUAGES`). `bundle` inlines the

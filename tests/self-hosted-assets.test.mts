@@ -34,6 +34,29 @@ test("a script or stylesheet on another host needs an exact version and an integ
   assert.equal(flagged('<link rel="alternate" type="application/atom+xml" href="https://example.com/feed.xml"><link rel="icon" href="https://example.com/i.svg">'), 0);
   assert.equal(flagged('<!-- <script src="https://cdn.jsdelivr.net/npm/mermaid@11"></script> -->'), 0, "a comment loads nothing");
   assert.equal(flagged('<pre><code>&lt;script src="https://cdn.jsdelivr.net/npm/mermaid@11"&gt;&lt;/script&gt;</code></pre>'), 0, "escaped markup is text");
+  assert.equal(flagged(`<script>const embed = '<script src="https://cdn.example.com/w.js"></scr' + 'ipt>';</script>`), 0, "a tag inside a script string loads nothing");
+  assert.equal(flagged(`<script src="https://cdn.example.com/a@1.2.3/a.js" integrity="sha384-abc sha512-def"></script>`), 0, "several hashes");
+  assert.equal(flagged(`<script src="https://cdn.example.com/a@1.2.3/a.js" integrity="sha384-abc?ct=application/javascript"></script>`), 0, "a hash with an option");
+  // A page's own CSS and module imports cannot carry a hash at all.
+  assert.equal(flagged('<style>.x { background: url(https://example.com/a.png); }</style>'), 1);
+  assert.equal(flagged('<style>/* @import url("https://example.com/a.css"); */ .x { background: url(a.png); }</style>'), 0);
+  assert.equal(flagged('<script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.17.2/+esm";</script>'), 1);
+  assert.equal(flagged('<script>import("//esm.sh/mermaid@11")</script>'), 1);
+});
+
+test("theme scripts name no other host, however the URL is put together", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bh-theme-remote-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.cpSync(path.join(source, "theme"), path.join(root, "theme"), { recursive: true, filter: (f) => !f.includes(`${path.sep}vendor${path.sep}`) && !f.includes(`${path.sep}fonts${path.sep}`) });
+  for (const rel of Object.values(VENDOR)) { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.writeFileSync(path.join(root, rel), ""); }
+  assert.deepEqual(themeRemoteProblems(root), [], "the theme as it is");
+  const file = path.join(root, "theme/modules/chart.js"), before = fs.readFileSync(file, "utf8");
+  for (const line of ['const base = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/";', 'import("https://esm.sh/mermaid@11");', "const u = `//unpkg.com/x`;"]) {
+    fs.writeFileSync(file, before + "\n" + line + "\n");
+    assert.equal(themeRemoteProblems(root).length, 1, line);
+  }
+  fs.writeFileSync(file, before + '\nconst ns = "http://www.w3.org/2000/svg";\n');
+  assert.deepEqual(themeRemoteProblems(root), [], "the SVG namespace is a name, not a load");
 });
 
 test("the theme loads nothing from another host, and bh.js names the vendored files", () => {

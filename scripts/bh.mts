@@ -1710,7 +1710,7 @@ function bundleOne(file: string): void {
       const own = { [mine]: compileReviews().byDoc[mine] || [] };
       if (own[mine].length) scripts.push(`window.BH_REVIEWS = ${JSON.stringify(own)};`.replace(/<\/script/gi, "<\\/script"));
       // bh.js loads the vendored Prism and Mermaid from theme/vendor/; inline the ones this page uses.
-      const needs = { prism: /<code\b[^>]*\sclass="[^"]*\blanguage-/.test(html), mermaid: /<pre\b[^>]*\sclass="[^"]*\bmermaid\b/.test(html) };
+      const needs = { prism: /<code\b[^>]*\sclass=["']?[^"'>]*\blanguage-/i.test(html), mermaid: /<pre\b[^>]*\sclass=["']?[^"'>]*\bmermaid\b/i.test(html) };
       for (const [name, rel] of Object.entries(VENDOR)) if (needs[name as keyof typeof VENDOR]) scripts.push(fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/<\/script/gi, "<\\/script"));
     }
     scripts.push(fs.readFileSync(abs, "utf8").replace(/<\/script/gi, "<\\/script"));

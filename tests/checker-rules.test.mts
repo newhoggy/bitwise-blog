@@ -166,8 +166,8 @@ const THEME_CASES: ThemeCase[] = [
     // Theme code cannot carry an integrity hash, so it loads nothing from a CDN; it also stops naming the vendored file.
     name: "a theme script loaded from a CDN",
     file: "theme/bh.js", find: '"theme/vendor/mermaid-', replace: '"https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js#',
-    contains: ["error: theme/bh.js: loads https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js from another host: vendor it under theme/vendor/ (scripts/vendor.mts)"],
-    only: /^error: theme\/bh\.js(?:: loads https:\/\/cdn\.jsdelivr\.net\/| does not load theme\/vendor\/mermaid-)/,
+    contains: ["error: theme/bh.js: names https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js#11.17.2/mermaid.min.js on another host: vendor what it loads under theme/vendor/ (scripts/vendor.mts)"],
+    only: /^error: theme\/bh\.js(?:: names https:\/\/cdn\.jsdelivr\.net\/| does not load theme\/vendor\/mermaid-)/,
   },
 ];
 
