@@ -5,6 +5,8 @@
 //   node scripts/visual.mts --update       accept the current renders as the new baselines
 //   node scripts/visual.mts --only gallery run cases whose name contains "gallery"
 //   node scripts/visual.mts --system-fonts block Google Fonts (offline / hermetic runs)
+//   node scripts/visual.mts --report-only  differences do not fail the run (a page that fails to render still does)
+//   node scripts/visual.mts --base <sha>   the commit a pull request is based on, for the summary
 //
 // Drives a local Chrome/Chromium over the DevTools protocol (set CHROME_PATH to override),
 // renders each page in light, dark and phone layouts with reduced motion, waits for
@@ -15,24 +17,27 @@
 // before capture. Without that, a background tab could be captured from a stale frame and
 // repeated runs flipped between two renderings. Every web font face the theme uses is
 // loaded first. Repeated runs are pixel-identical. Results go to .visual/ (git-ignored, because
-// font rendering differs between machines): baseline/, current/, diff/ and report.html.
+// font rendering differs between machines): baseline/, current/, diff/, report.html and summary.md
+// (markdown, for a CI job summary). current/render.json records the commit and Chrome version.
+//
+// CI renders with --system-fonts and --report-only: a push to main keeps current/ as the
+// `visual-baseline` artifact, and a pull request downloads it into baseline/ first
+// (scripts/visual-baseline.mts), so its summary lists the pages it changes.
 
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { launchChrome, serveStatic, sleep, type ChromeHandle } from "./chrome.mts";
+import { exitCode, summaryMarkdown, type RenderInfo, type Result, type Variant } from "./visual-report.mts";
 import { fileURLToPath } from "node:url";
 import type { AddressInfo } from "node:net";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, ".visual", process.argv.includes("--system-fonts") ? "system-fonts" : "");
-type Variant = { name: string; width: number; height: number; scheme: string; mobile: boolean };
 /** A tab-bound DevTools call (protocol payloads, so `any`). */
 type TabSend = (method: string, params?: object) => Promise<any>;
 /** A decoded PNG: `data` is RGBA, 4 bytes per pixel. */
 type Image = { width: number; height: number; data: Buffer };
-/** One page in one layout, and what became of it. */
-type Result = { name: string; file: string; v: Variant; status: string; error?: string; changed?: number; ratio?: number; sizeChanged?: boolean };
 
 const PAGES: [string, string][] = [
   ["index", "index.html"],
@@ -61,6 +66,8 @@ const MAX_CHANGED_PIXELS = 16;
 
 const args = process.argv.slice(2);
 const update = args.includes("--update");
+const reportOnly = args.includes("--report-only");
+const baseSha = args.includes("--base") ? args[args.indexOf("--base") + 1] || null : null;
 const webFonts = !args.includes("--system-fonts");
 const only = args.includes("--only") ? args[args.indexOf("--only") + 1] : null;
 const c = { red: (s: string) => `\x1b[31m${s}\x1b[0m`, green: (s: string) => `\x1b[32m${s}\x1b[0m`, yellow: (s: string) => `\x1b[33m${s}\x1b[0m`, dim: (s: string) => `\x1b[2m${s}\x1b[0m` };
@@ -250,14 +257,22 @@ const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
 let chrome: ChromeHandle | undefined;
 const results: Result[] = [];
 const started = Date.now();
+const env = process.env;
+const current: RenderInfo = {
+  commit: env["GITHUB_SHA"] || null,
+  chrome: null,
+  run: env["GITHUB_SERVER_URL"] && env["GITHUB_REPOSITORY"] && env["GITHUB_RUN_ID"] ? `${env["GITHUB_SERVER_URL"]}/${env["GITHUB_REPOSITORY"]}/actions/runs/${env["GITHUB_RUN_ID"]}` : null,
+};
 try {
   chrome = await launchChrome();
+  // Recorded so a pull request can tell a browser update from a change of its own.
+  current.chrome = (await chrome.send("Browser.getVersion").catch(() => null))?.product ?? null;
   for (const k of cases) {
     let png: Buffer;
     try { png = await capture(chrome.send, base + k.file + "?examples", k.v); }  // examples are hidden by default
     catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      results.push({ ...k, status: "changed", error: message });
+      results.push({ ...k, status: "error", error: message });
       console.log(c.red("✗ ") + k.name + c.dim(` ${message}`));
       continue;
     }
@@ -282,19 +297,28 @@ try {
   finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
 }
 
+fs.writeFileSync(path.join(OUT, "current", "render.json"), JSON.stringify(current, null, 2) + "\n");
+let baselineInfo: RenderInfo | null = null;
+try {
+  const raw: unknown = JSON.parse(fs.readFileSync(path.join(OUT, "baseline", "render.json"), "utf8"));
+  if (raw && typeof raw === "object") {
+    const field = (k: string): string | null => { const v = (raw as Record<string, unknown>)[k]; return typeof v === "string" && v ? v : null; };
+    baselineInfo = { commit: field("commit"), chrome: field("chrome"), run: field("run") };
+  }
+} catch { /* no baseline, or one saved locally: it has no render.json */ }
+fs.writeFileSync(path.join(OUT, "summary.md"), summaryMarkdown(results, { baseline: baselineInfo, current, base: baseSha, reportOnly }));
+
 // Report: side-by-side images for every case that changed.
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
 const esc = (s: unknown) => String(s).replace(/[&<>"]/g, (ch) => ESC[ch]!);
 const rows = results.map((r) => `<section class="${r.status}"><h2>${esc(r.name)} <small>${esc(r.status)}${r.changed && isFinite(r.changed) ? ` · ${r.changed} px` : ""}</small></h2>${
   r.error ? `<p>${esc(r.error)}</p>` : r.status === "changed" ? `<div class="row"><figure><img src="baseline/${r.name}.png"><figcaption>baseline</figcaption></figure><figure><img src="current/${r.name}.png"><figcaption>current</figcaption></figure>${fs.existsSync(path.join(OUT, "diff", `${r.name}.png`)) ? `<figure><img src="diff/${r.name}.png"><figcaption>diff</figcaption></figure>` : ""}</div>` : ""}</section>`).join("\n");
 fs.writeFileSync(path.join(OUT, "report.html"), `<!doctype html><meta charset="utf-8"><title>Visual regression report</title>
-<style>body{font:14px system-ui;margin:24px;background:#f6f7f9;color:#15181e}section{margin:0 0 12px}h2{font-size:15px;margin:0 0 6px}.changed h2{color:#c4262e}.same h2{color:#127a48}small{font-weight:400;color:#596173}.row{display:flex;gap:12px;align-items:flex-start;overflow-x:auto}figure{margin:0;flex:1;min-width:260px}img{width:100%;border:1px solid #dfe3ea}figcaption{color:#596173}</style>
-<h1>Visual regression: ${results.filter((r) => r.status === "changed").length} changed of ${results.length}</h1>
+<style>body{font:14px system-ui;margin:24px;background:#f6f7f9;color:#15181e}section{margin:0 0 12px}h2{font-size:15px;margin:0 0 6px}.changed h2,.error h2{color:#c4262e}.same h2{color:#127a48}small{font-weight:400;color:#596173}.row{display:flex;gap:12px;align-items:flex-start;overflow-x:auto}figure{margin:0;flex:1;min-width:260px}img{width:100%;border:1px solid #dfe3ea}figcaption{color:#596173}</style>
+<h1>Visual regression: ${results.filter((r) => r.status === "changed").length} changed${results.some((r) => r.status === "error") ? `, ${results.filter((r) => r.status === "error").length} failed` : ""} of ${results.length}</h1>
 ${rows}`);
 
-const changed = results.filter((r) => r.status === "changed").length;
-console.log(`\n${results.length} cases in ${((Date.now() - started) / 1000).toFixed(1)}s · ${changed ? c.red(changed + " changed") : "0 changed"} · report: ${path.relative(process.cwd(), path.join(OUT, "report.html"))}`);
-if (changed) {
-  console.log(c.dim("If the changes are intended, accept them with: npm run visual -- --update"));
-  process.exitCode = 1;
-}
+const changed = results.filter((r) => r.status === "changed").length, failed = results.filter((r) => r.status === "error").length;
+console.log(`\n${results.length} cases in ${((Date.now() - started) / 1000).toFixed(1)}s · ${changed ? c.red(changed + " changed") : "0 changed"}${failed ? " · " + c.red(failed + " failed") : ""} · report: ${path.relative(process.cwd(), path.join(OUT, "report.html"))}`);
+if (changed && !reportOnly) console.log(c.dim("If the changes are intended, accept them with: npm run visual -- --update"));
+process.exitCode = exitCode(results, reportOnly);
