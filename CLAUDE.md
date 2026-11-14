@@ -7,6 +7,11 @@ the `bh` prefixes). These rules apply to every page, whether a person or an agen
 it. The live reference for every component is `docs/component-gallery.html`. Copy markup
 from it rather than inventing new markup.
 
+The visibility threat model (what example, unlisted and private pages and the corpus guard
+hide, from whom, and which check enforces each guarantee) is `docs/visibility-threat-model.html`.
+Judge any change that writes a page's title, path or text somewhere new against it, and update it
+when a visibility mechanism or its check changes.
+
 ## Workflow
 
 1. `npm run new -- <template> <slug> "<Title>" "<one-sentence description>"`
