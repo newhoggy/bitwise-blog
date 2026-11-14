@@ -109,7 +109,8 @@ nothing for this; two generated things do the work.
   shells never have a block. The text is decoded from the page's HTML, and `</` and `<!--` are
   JSON-escaped so a title cannot end the script. **Never write JSON-LD by hand**: `check` fails
   on one outside the block, and the block's equality check catches a missing or stale one.
-  `bundle` drops its `url` and `image`; `publish` refuses an unlisted page that carries one.
+  `bundle` drops its `url` and `image` (the publisher's site link stays, like the footer's
+  attribution link); `publish` refuses an unlisted page that carries one.
 - **The card image**, `docs/assets/og/<slug>.png`, 1200×630. `npm run cards` renders it in
   the local Chrome (Node ≥ 22; `CHROME_PATH` if it isn't found, and it needs network for the
   web fonts). It frames a **visual taken from the page itself** with the logo, the title, the

@@ -158,7 +158,9 @@ const attr = (s: unknown) => String(s).replace(/"/g, "&quot;");
 
 /** HTML text → plain text, for drawing a title on a card. One pass, so "&amp;#65;" stays "&#65;". */
 function decodeHtml(s: string): string {
-  const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', nbsp: " ", mdash: "—", ndash: "–", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", times: "×", middot: "·" };
+  const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', nbsp: " ", mdash: "—", ndash: "–", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", times: "×", middot: "·",
+    apos: "'", copy: "©", reg: "®", trade: "™", deg: "°", minus: "−", le: "≤", ge: "≥", ne: "≠", larr: "←", rarr: "→", harr: "↔",
+    eacute: "é", egrave: "è", aacute: "á", agrave: "à", iacute: "í", oacute: "ó", uacute: "ú", ccedil: "ç", ntilde: "ñ", auml: "ä", ouml: "ö", uuml: "ü", szlig: "ß" };
   return s.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (m, dec, hex, name) =>
     dec ? String.fromCodePoint(+dec) : hex ? String.fromCodePoint(parseInt(hex, 16)) : named[name!] ?? m);
 }
@@ -199,7 +201,9 @@ function socialBlock(m: SocialMeta): string {
 // none (an unlisted page is noindex; examples are removed at deploy; the glossary and gallery are
 // not posts, as in the feed), and sealed shells are frozen without a social block at all.
 
-const LD_RE = /<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g;
+/** A JSON-LD script's opening tag, in any attribute order; LD_RE also captures its text. */
+const LD_TAG = /<script\b[^>]*\btype\s*=\s*["']?application\/ld\+json\b[^>]*>/i;
+const LD_RE = new RegExp(`${LD_TAG.source}([\\s\\S]*?)<\\/script>`, "gi");
 
 /**
  * `data` as a script element. A script's text is raw: entities are not decoded, and `</` (or
@@ -221,8 +225,7 @@ const hasArticleLd = (d: Doc) => !d.example && !d.unlisted && !FEED_NON_POST_KIN
 
 /** The TechArticle for a post; its text fields are the page's HTML text, decoded. */
 function articleLd(d: Doc, image: string): JsonLd {
-  const list = (s: string) => s.split(",").map((x) => decodeHtml(x.trim())).filter(Boolean);
-  const authors = list(d.authors), tags = list(d.tags);
+  const authors = metaList(d.authors).map(decodeHtml), tags = metaList(d.tags).map(decodeHtml);
   return {
     "@context": "https://schema.org", "@type": "TechArticle",
     headline: decodeHtml(d.title), description: decodeHtml(d.description),
@@ -239,16 +242,25 @@ const websiteLd = (description: string): JsonLd => ({
   ...(description ? { description: decodeHtml(description) } : {}), publisher: ldPublisher(),
 });
 
-/** `html` with each JSON-LD block's own `url` and `image` removed, for a standalone file that has neither. */
-function withoutLdLinks(html: string): string {
-  return html.replace(LD_RE, (whole, json: string) => {
+/**
+ * `html` with each JSON-LD block's own `url` and `image` removed, for a standalone file that has
+ * neither. The publisher (the site's name, link and logo) stays, like the footer's attribution
+ * link. A block that does not parse is dropped, with a warning, rather than shipped with its links.
+ */
+function withoutLdLinks(html: string, label: string): string {
+  return html.replace(LD_RE, (_whole, json: string) => {
     try {
       const { url: _url, image: _image, ...rest } = JSON.parse(json) as JsonLd;
       return jsonLdScript(rest as JsonLd);
-    } catch { return whole; }
+    } catch {
+      console.warn(c.yellow(`${label}: dropped a JSON-LD block that is not valid JSON (run \`npm run index\` and \`npm run check\`)`));
+      return "";
+    }
   });
 }
 
+/** A comma-separated bh:* meta (authors, tags) as a list, still HTML text. */
+const metaList = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 const pageUrl = (href: string) => SITE_URL + href;
 const cardPath = (file: string) => path.join(CARD_DIR, path.basename(file, ".html") + ".png");
 const cardHref = (file: string) => path.relative(ROOT, cardPath(file)).split(path.sep).join("/");
@@ -261,11 +273,10 @@ function expectedSocial(file: string): string {
   }
   const d = readDoc(file);
   const sel = chooseVisual(file);
-  const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
   return socialBlock({
     type: "article", title: d.title, description: d.description, url: pageUrl(d.href), image: SITE_URL + cardHref(file),
     alt: escapeHtml(sel.label ? `${decodeHtml(d.title)}: ${sel.label}` : `${decodeHtml(d.title)} (${KIND_LABELS[d.kind] || d.kind}, ${SITE_NAME})`),
-    published: d.date, authors: list(d.authors), tags: list(d.tags), noindex: d.unlisted,
+    published: d.date, authors: metaList(d.authors), tags: metaList(d.tags), noindex: d.unlisted,
     jsonLd: hasArticleLd(d) ? articleLd(d, SITE_URL + cardHref(file)) : undefined,
   });
 }
@@ -1746,9 +1757,10 @@ function cmdCheck(skipKeys = false): void {
         else if (block[0] !== expectedSocial(file)) err("social meta block is stale: run `npm run index`");
         const outside = stripComments(raw.replace(SOCIAL_RE, ""));
         if (/<meta\s+(?:property="(?:og|article):|name="twitter:)|<link\s+rel="canonical"/.test(outside)) err("social tags written by hand: delete them, `npm run index` generates them");
-        if (/<script\b[^>]*\btype\s*=\s*["']?application\/ld\+json\b/i.test(outside)) err("JSON-LD written by hand: delete it, `npm run index` generates it");
         if (getMeta(html, "description").length > DESCRIPTION_MAX) warn(`description is ${getMeta(html, "description").length} characters; link previews cut it off near ${DESCRIPTION_MAX}`);
       }
+      // JSON-LD is generated into the block (a template's stays empty), so one anywhere else is hand-written.
+      if (LD_TAG.test(stripComments(raw.replace(SOCIAL_RE, "")))) err("JSON-LD written by hand: delete it, `npm run index` generates it");
     }
 
     if (isDoc && !isTemplate && !isPrivateSource(file)) {
@@ -1985,7 +1997,7 @@ function bundleOne(file: string): void {
   // tags, drop the canonical URL, the image and the Twitter card, which would point at the site.
   html = html.replace(/^[ \t]*<link\s+rel="canonical"[^>]*>\n/gm, "")
     .replace(/^[ \t]*<meta\s+(?:property="og:(?:url|image[^"]*)"|name="twitter:[^"]*")[^>]*>\n/gm, "");
-  html = withoutLdLinks(html);
+  html = withoutLdLinks(html, path.relative(ROOT, file));
 
   // A standalone file has no feed: no autodiscovery link and no Subscribe link.
   html = html.replace(FEED_LINK_RE, "").replace(/^[ \t]*<span><a href="(?:\.\.\/)?feed\.xml">Subscribe<\/a><\/span>\n/gm, "");

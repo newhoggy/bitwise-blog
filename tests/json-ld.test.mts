@@ -103,7 +103,7 @@ test("text is decoded from HTML and escaped so it cannot end the script", (t) =>
   assert.equal(f.bh("new", "explainer", "escape-post", "Placeholder").status, 0);
   f.edit("docs/escape-post.html", /<title>[^<]*<\/title>/, '<title>Ends &lt;/script&gt; &amp; &lt;!-- "q" \\ back</title>');
   f.edit("docs/escape-post.html", /<meta name="description" content="[^"]*">/, '<meta name="description" content="A &lt;/SCRIPT&gt; tag, &quot;quotes&quot; and a \\ backslash">');
-  f.edit("docs/escape-post.html", /<meta name="bh:authors" content="[^"]*">/, '<meta name="bh:authors" content="Ada &amp; Co, Grace">');
+  f.edit("docs/escape-post.html", /<meta name="bh:authors" content="[^"]*">/, '<meta name="bh:authors" content="Ada &amp; Co, Ren&eacute;e O&apos;Neil">');
   assert.equal(f.bh("index").status, 0);
   const html = f.read("docs/escape-post.html");
   const [raw, ...more] = ldTexts(socialOf(html));
@@ -111,13 +111,13 @@ test("text is decoded from HTML and escaped so it cannot end the script", (t) =>
   assert.ok(!raw!.includes("</"), `no "</" inside the script: ${raw}`);
   assert.ok(!raw!.includes("<!--"), `no "<!--" inside the script: ${raw}`);
   assert.ok(raw!.includes("<\\/script>"), "`</` is written `<\\/`");
-  assert.ok(!/&(?:amp|lt|gt|quot);/.test(raw!), "entities are decoded, since a script's text is raw");
+  assert.ok(!/&[a-z]+;/i.test(raw!), "entities are decoded, since a script's text is raw");
   // What an HTML parser hands a crawler is the whole block, and it parses back to the page's text.
   const [ld, ...others] = parsedLd(html);
   assert.equal(others.length, 0, "the parser found one block, not a block cut short");
   assert.equal(ld!.headline, 'Ends </script> & <!-- "q" \\ back');
   assert.equal(ld!.description, 'A </SCRIPT> tag, "quotes" and a \\ backslash');
-  assert.deepEqual(ld!.author, [{ "@type": "Person", name: "Ada & Co" }, { "@type": "Person", name: "Grace" }]);
+  assert.deepEqual(ld!.author, [{ "@type": "Person", name: "Ada & Co" }, { "@type": "Person", name: "Renée O'Neil" }]);
 });
 
 test("example, unlisted and reference pages get no JSON-LD; an ordinary post does", (t) => {
@@ -177,10 +177,14 @@ test("check fails on a stale or missing block, and index repairs it once", (t) =
   assert.equal(f.read("index.html"), home);
 });
 
-test("check fails on JSON-LD written by hand outside the block, on the home page too", (t) => {
+test("check fails on JSON-LD written by hand outside the block, on the home page and in a template too", (t) => {
   const f = fixture(t);
+  const byHand = "error  JSON-LD written by hand: delete it, `npm run index` generates it";
   f.edit("index.html", "</head>", '  <script type="application/ld+json">{"@type":"Organization"}</script>\n</head>');
-  assert.ok(messagesFor(f.bh("check").stdout, "index.html").includes("error  JSON-LD written by hand: delete it, `npm run index` generates it"));
+  f.edit("templates/explainer.html", "</head>", '  <script data-x type=application/ld+json>{"@type":"Organization"}</script>\n</head>');
+  const out = f.bh("check").stdout;
+  assert.ok(messagesFor(out, "index.html").includes(byHand), out);
+  assert.ok(messagesFor(out, "templates/explainer.html").includes(byHand), out);
 });
 
 test("a bundled page keeps its JSON-LD without the page's url and image", (t) => {
@@ -195,4 +199,14 @@ test("a bundled page keeps its JSON-LD without the page's url and image", (t) =>
   assert.ok(url && image, "the source block has both");
   assert.deepEqual(after[0], rest, "only url and image are dropped");
   assert.ok(!ldTexts(html)[0]!.includes("</"), "the re-written block is escaped the same way");
+});
+
+test("a bundle drops a JSON-LD block that does not parse, and says so", (t) => {
+  const f = fixture(t);
+  f.edit("docs/how-deflate-works.html", '"@type":"TechArticle",', '"@type":"TechArticle", broken');
+  const r = f.bh("bundle", "docs/how-deflate-works.html");
+  assert.equal(r.status, 0);
+  assert.match(r.stderr, /dropped a JSON-LD block that is not valid JSON/);
+  const html = f.read("dist/how-deflate-works.html");
+  assert.equal(ldTexts(html).length, 0, "no block, rather than one that still links to the site");
 });
