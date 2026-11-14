@@ -47,9 +47,8 @@ async function fixture(t: TestContext, { shared = false, symlinkRoot = false } =
     }
   });
   let root = path.join(dir, "repo");
-  fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-  for (const file of ["bh.mts", "private-cards.mts", "page-size.mts", "docs-drift.mts", "html-tree.mts"]) fs.copyFileSync(path.join(source, "scripts", file), path.join(root, "scripts", file));
-  fs.cpSync(path.join(source, "scripts", "check"), path.join(root, "scripts", "check"), { recursive: true });
+  // All of scripts/, so a module split out of bh.mts is there without listing it here.
+  fs.cpSync(path.join(source, "scripts"), path.join(root, "scripts"), { recursive: true });
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ repository: "github:example/blog" }));
   fs.writeFileSync(path.join(root, "index.html"), "<h1>Home</h1>");
   fs.writeFileSync(path.join(root, "404.html"), "<h1>Lost</h1>");

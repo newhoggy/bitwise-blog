@@ -101,6 +101,10 @@ test("arrowTipFindings: a both-way edge is checked at its start too", () => {
   assert.deepEqual(arrowTipFindings(svg('<path class="edge" data-id="ab" d="M120 20 H189"/>')), []);
 });
 
+test("arrowTipFindings: commented-out markup is not checked", () => {
+  assert.deepEqual(arrowTipFindings(svg('<!-- <path class="edge" data-id="ab" d="M101 20 H170"/> -->')), []);
+});
+
 test("arrowTipFindings: each <svg> is checked against its own nodes", () => {
   // The second SVG has no nodes, so its edge's tip cannot be checked against the first one's B.
   const html = svg('<path class="edge" data-id="ab" d="M101 20 H189"/>') + '<svg><path class="edge" data-id="lone" d="M101 20 H170"/></svg>';

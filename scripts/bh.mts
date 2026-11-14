@@ -1585,7 +1585,7 @@ function cmdCheck(skipKeys = false): void {
     }
 
     // Arrowed edges: tips must land on their target node's outline (scripts/check/diagram-geometry.mts).
-    arrowTipFindings(html).forEach(report);
+    arrowTipFindings(raw).forEach(report);
 
     // Diagram labels never collide with edges, arrowheads, nodes or each other.
     diagramLabelFindings(raw).forEach(report);

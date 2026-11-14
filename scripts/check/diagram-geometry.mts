@@ -206,11 +206,11 @@ function diagramLabelProblems(html: string): string[] {
   return out;
 }
 
-/** Arrowed edges: tips must land on their target node's outline (see ARROW_LEN). `html` is the page with comments stripped. */
+/** Arrowed edges: tips must land on their target node's outline (see ARROW_LEN). Commented-out markup is not checked. */
 export function arrowTipFindings(html: string): Finding[] {
   const out: Finding[] = [];
   const err = (message: string) => out.push({ rule: "diagram/arrow-tip", level: "error", message });
-  for (const svg of html.matchAll(/<svg\b[\s\S]*?<\/svg>/g)) {
+  for (const svg of stripComments(html).matchAll(/<svg\b[\s\S]*?<\/svg>/g)) {
     const rects = nodeRects(svg[0]);
     for (const m of svg[0].matchAll(/<path\b[^>]*>/g)) {
       const cls = (m[0].match(/\sclass="([^"]*)"/) || [])[1] || "";
