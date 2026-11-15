@@ -1,0 +1,21 @@
+{
+  "format": "bh-review/1",
+  "document": "docs/edge-rate-limiting-design.html",
+  "build": {
+    "commit": null
+  },
+  "reviewer": "Workflow check (test of #189)",
+  "comments": [
+    {
+      "id": "wf-refresh-189-b",
+      "created": "2026-11-15T09:40:00Z",
+      "kind": "comment",
+      "body": "Test comment b for verifying the review-submission refresh (issue 189). Safe to ignore; it is reverted afterwards.",
+      "target": {
+        "anchor": "",
+        "anchorKind": "top",
+        "quote": null
+      }
+    }
+  ]
+}

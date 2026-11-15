@@ -13,6 +13,19 @@ window.BH_REVIEWS = {
    },
    "author": "Workflow check (test of #189)",
    "file": "reviews/inbox/issue-201.json"
+  },
+  {
+   "id": "wf-refresh-189-b",
+   "created": "2026-11-15T09:40:00Z",
+   "kind": "comment",
+   "body": "Test comment b for verifying the review-submission refresh (issue 189). Safe to ignore; it is reverted afterwards.",
+   "target": {
+    "anchor": "",
+    "anchorKind": "top",
+    "quote": null
+   },
+   "author": "Workflow check (test of #189)",
+   "file": "reviews/inbox/issue-202.json"
   }
  ]
 };
