@@ -16,9 +16,14 @@ so the page stays usable while reviewing.
 **Each file names the version it was made against**: `repo`, `build.commit` and `build.dirty`, and
 each message's `commit` and `dirty`, all from `theme/build.js`. That file is not committed: the deploy
 writes it, `npm run serve` serves it and `bundle` inlines it. A page opened from `file://` has none, so
-its review file says `null` for all of them (the schema allows it) and "Changes since this comment" is
-unavailable: review from the site, `npm run serve` or a bundle. `tests/review-browser.test.mts` checks
-these fields in a downloaded file.
+a download from it first asks for one (#353): the panel shows `cd '<the page's folder>' && npm run -s stamp`
+(`node scripts/bh.mts stamp`, which prints the stamp `serve` would give, as one line of JSON), and the
+reader pastes what it prints. That goes into the file's `build` and every draft that has no commit. "Download
+without it" gives `null` for all of them (the schema allows it), and the page does not ask again on that
+visit. The stamp is not written to `theme/build.js` for `file://` pages to load: it would go stale without
+notice after the next commit or pull, and a wrong commit is worse than none. Drafts stay under the storage key
+they were loaded from, so a pasted stamp does not hide them from the next visit. `tests/review-browser.test.mts`
+checks these fields in a downloaded file, from a served page and from `file://`.
 
 **Submitting from the page waits for a hosted service** (#207). A "Submit on GitHub" button that
 filed the review as a GitHub issue, and workflows that turned the issue into a pull request, were

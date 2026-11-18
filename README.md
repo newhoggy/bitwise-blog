@@ -97,6 +97,7 @@ npm run seal                                        # encrypt docs/*.private.htm
 npm run unseal                                      # recreate docs/*.private.html from sealed pages
 npm run visual                                      # screenshot diff vs your baselines (Node ≥ 22 + Chrome)
 npm run typecheck                                   # type-check scripts/ and tests/ (TypeScript 7, needs npm ci)
+npm run -s stamp                                    # the build stamp a review made from file:// asks for
 ```
 
 Node ≥ 22.18 is the requirement: it runs the TypeScript tooling by stripping types, so there is no build step.

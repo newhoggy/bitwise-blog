@@ -196,6 +196,15 @@
 .bh-review-label { display: grid; gap: var(--space-1); font-weight: 600; }
 .bh-review-label[hidden] { display: none; } /* "Show changes since" with no version to compare (#351) */
 .bh-review-export { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* Asked before a download from a page with no build stamp (opened from file://): the command, and its output pasted back. */
+.bh-review-stamp { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--warn); border-radius: var(--radius-s); background: var(--surface); }
+.bh-review-stamp p { margin: 0; }
+.bh-review-stamp-title { font-weight: 700; }
+.bh-review-stamp-cmd { display: flex; align-items: flex-start; gap: var(--space-2); }
+.bh-review-stamp-cmd code { flex: 1; min-width: 0; padding: var(--space-1) var(--space-2); border-radius: var(--radius-s); background: var(--code-bg); color: var(--text); font-size: var(--step--2); overflow-wrap: anywhere; }
+.bh-review-stamp-input { width: 100%; resize: vertical; font-family: var(--font-mono); font-size: var(--step--2); }
+.bh-review-stamp-error { color: var(--danger); font-size: var(--step--2); }
+.bh-review-stamp-error[hidden] { display: none; }
 .bh-review-help { font-size: var(--step--2); }
 
 @media print { .bh-review-ui, .bh-review-add { display: none !important; } }
