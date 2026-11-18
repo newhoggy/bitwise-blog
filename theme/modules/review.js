@@ -49,6 +49,9 @@
   let published = [];                                      // merged comments for this document
   let active = false, panel, pinLayer, selBtn, pop, liveRegion;
   let showOnPage = true, showResolved = false;
+  // Below this width theme/review.css does not make room for the panel, so open it covers the article (on a phone,
+  // all but 38px of it): there it starts collapsed to a bar, and review mode stays on (#350). Keep in step with the CSS.
+  const ROOMY = window.matchMedia("(min-width: 1100px)");
   const located = new Map(); // thread root id → { range } | null (outdated)
 
   // ---- Storage ------------------------------------------------------------------------
@@ -81,6 +84,8 @@
 
   /** Scope = a block with an id, a section (its heading up to the next heading), or the top. */
   function headings() { return article ? [...article.querySelectorAll(HEADINGS)] : []; }
+  // Not elt.matches(HEADINGS): in matches(), :scope is the element itself, so ":scope > h2" never matches (#349).
+  const isHeading = (elt) => headings().includes(elt);
 
   function scopeRange(anchor) {
     const r = doc.createRange();
@@ -150,7 +155,7 @@
   function scopeForNode(node) {
     const elt = node.nodeType === 1 ? node : node.parentElement;
     const block = elt && elt.closest(BLOCKS);
-    if (block && article.contains(block) && !block.matches(HEADINGS)) return { anchor: block.id, kind: "block" };
+    if (block && article.contains(block) && !isHeading(block)) return { anchor: block.id, kind: "block" };
     let section = null;
     for (const h of headings()) {
       if (h === elt || h.contains(elt) || (h.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) section = h;
@@ -183,7 +188,7 @@
   }
 
   function targetForBlock(elt) {
-    const kind = elt.matches(HEADINGS) ? "section" : "block";
+    const kind = isHeading(elt) ? "section" : "block";
     const model = textModel(scopeRange(elt.id));
     const exact = model.text.trim().slice(0, 80);
     return { anchor: elt.id, anchorKind: kind, quote: null, position: null, label: exact };
@@ -423,6 +428,9 @@
 
   function openThread(t) {
     closePop();
+    // relocateAll() rebuilds the thread objects (on a resize, or while goTo waits for its scroll), so a caller
+    // holding an older one would open it as "Thread 0", placed by a pin that cannot be found (#352).
+    t = current.find((x) => x.root.id === t.root.id) || t;
     const loc = located.get(t.root.id);
     const i = current.indexOf(t) + 1;
     const reply = el("textarea", { class: "bh-review-body", rows: "3", placeholder: "Reply…", "aria-label": "Reply" });
@@ -521,7 +529,7 @@
       if (!host) continue; // a list with no item yet has nowhere valid to put it
       if (host.querySelector(":scope > .bh-review-add")) continue;
       const btn = el("button", {
-        type: "button", class: "bh-review-add", text: "+ Comment", title: "Comment on this " + (b.matches(HEADINGS) ? "section" : "block"),
+        type: "button", class: "bh-review-add", text: "+ Comment", title: "Comment on this " + (isHeading(b) ? "section" : "block"),
         onclick: (e) => { e.stopPropagation(); composer(targetForBlock(b), null, b.getBoundingClientRect(), null); },
       });
       host.append(btn);
@@ -532,9 +540,14 @@
   // ---- Panel: threads, drafts, export ---------------------------------------------------------------------
 
   function goTo(t) {
+    if (!ROOMY.matches) setCollapsed(true); // or the open panel would cover the thread
     const loc = located.get(t.root.id);
     if (loc) {
-      const anchor = loc.range.startContainer.nodeType === 1 ? loc.range.startContainer : loc.range.startContainer.parentElement;
+      // The node the range starts at. A section or block comment's range selects the heading or block, so its start
+      // container is the parent (the article): scrolling that to the centre lands mid-article (#352).
+      const { startContainer: sc, startOffset } = loc.range;
+      const start = sc.nodeType === 1 ? sc.childNodes[startOffset] || sc : sc.parentElement;
+      const anchor = start.nodeType === 1 ? start : start.parentElement;
       anchor.scrollIntoView({ block: "center", behavior: bh.reducedMotion.matches ? "instant" : "smooth" });
       setTimeout(() => openThread(t), 350);
     } else {
@@ -570,6 +583,7 @@
     panel.querySelector(".bh-review-publist").replaceChildren(...(shownPub.length ? shownPub.map(threadItem) : [el("li", { class: "muted", text: pub.length ? "All threads are resolved." : "No published comments on this page yet." })]));
     panel.querySelector(".bh-review-mylist").replaceChildren(...(mine.length ? mine.map(threadItem) : [el("li", { class: "muted", text: "Select text and press Comment, or use + Comment on a section. Reply from any thread." })]));
     panel.querySelector(".bh-review-mine").textContent = draftCount ? `Your drafts · ${draftCount} not yet submitted` : "Your drafts";
+    panel.querySelector(".bh-review-summary").textContent = [open.length ? `${open.length} open` : "", draftCount ? `${draftCount} draft${draftCount === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ");
     panel.querySelectorAll("[data-export]").forEach((b) => { b.disabled = !draftCount; });
     panel.querySelector("[data-clear]").disabled = !draftCount;
     panel.querySelector(".bh-review-resolved").hidden = pub.length === open.length;
@@ -598,9 +612,10 @@
     since.addEventListener("change", () => { if (since.value) showChanges(since.value, null); else if (bh.diff) bh.diff.hide(); });
     const pageToggle = el("input", { type: "checkbox", checked: showOnPage });
     pageToggle.addEventListener("change", () => { showOnPage = pageToggle.checked; bh.storage(() => localStorage.setItem("bh-review/v1/show", showOnPage ? "on" : "off")); paint(); });
-    panel = el("aside", { class: "bh-review-panel bh-review-ui", "aria-label": "Review" }, [
+    panel = el("aside", { class: "bh-review-panel bh-review-ui", id: "bh-review-panel", "aria-label": "Review" }, [
       el("div", { class: "bh-review-panel-head" }, [
-        el("strong", { text: "Review" }),
+        el("span", { class: "bh-review-title" }, [el("strong", { text: "Review" }), el("span", { class: "muted bh-review-summary" })]),
+        el("button", { type: "button", class: "btn ghost bh-review-collapse", "aria-controls": "bh-review-panel", onclick: () => setCollapsed(!panel.classList.contains("is-collapsed")) }),
         el("button", { type: "button", class: "btn ghost", text: "Done", onclick: () => setActive(false) }),
       ]),
       el("p", { class: "bh-review-sec bh-review-pubhead" }),
@@ -619,6 +634,15 @@
       el("label", { class: "bh-review-check" }, [pageToggle, " Show comments on the page when not reviewing"]),
     ]);
     doc.body.append(panel);
+  }
+
+  /** Collapse the panel to its head (a bar) or open it again; review mode stays on either way. */
+  function setCollapsed(on) {
+    if (!panel) return;
+    panel.classList.toggle("is-collapsed", on);
+    const btn = panel.querySelector(".bh-review-collapse");
+    btn.textContent = on ? "Show panel" : "Hide panel";
+    btn.setAttribute("aria-expanded", String(!on));
   }
 
   function reviewFile() {
@@ -687,7 +711,7 @@
     root.classList.toggle("bh-reviewing", on);
     const btn = doc.querySelector(".bh-review-btn");
     if (btn) btn.setAttribute("aria-pressed", String(on));
-    if (on) { if (!panel) buildPanel(); addBlockButtons(); panel.hidden = false; renderPanel(); }
+    if (on) { if (!panel) buildPanel(); addBlockButtons(); setCollapsed(!ROOMY.matches); panel.hidden = false; renderPanel(); }
     else { if (panel) panel.hidden = true; removeBlockButtons(); selBtn.hidden = true; closePop(); }
     requestAnimationFrame(paint);
   }

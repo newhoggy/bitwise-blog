@@ -144,7 +144,24 @@
   font-size: var(--step--1);
 }
 .bh-review-panel[hidden] { display: none; }
-.bh-review-panel-head { display: flex; align-items: center; justify-content: space-between; font-size: var(--step-0); }
+.bh-review-panel-head { display: flex; align-items: center; gap: var(--space-2); font-size: var(--step-0); }
+.bh-review-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-2); margin-right: auto; }
+.bh-review-summary { font-size: var(--step--2); }
+.bh-review-panel:not(.is-collapsed) .bh-review-summary { display: none; } /* the open panel says it in full */
+/* Collapsed (review.js starts it so below 1100px, where it would cover the article): only the head, as a bar in
+   the bottom corner, so the page and its "+ Comment" buttons stay reachable while reviewing. */
+.bh-review-panel.is-collapsed {
+  top: auto;
+  right: var(--space-3);
+  bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  width: auto;
+  max-width: calc(100vw - 2 * var(--space-3));
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  overflow: visible;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+.bh-review-panel.is-collapsed > :not(.bh-review-panel-head) { display: none; }
 .bh-review-list { display: grid; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .bh-review-list li { margin: 0 !important; }
 .bh-review-item {
@@ -177,6 +194,7 @@
 .bh-review-item-text { display: grid; gap: 2px; min-width: 0; }
 .bh-review-item-text .muted { font-size: var(--step--2); overflow-wrap: anywhere; }
 .bh-review-label { display: grid; gap: var(--space-1); font-weight: 600; }
+.bh-review-label[hidden] { display: none; } /* "Show changes since" with no version to compare (#351) */
 .bh-review-export { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .bh-review-help { font-size: var(--step--2); }
 
