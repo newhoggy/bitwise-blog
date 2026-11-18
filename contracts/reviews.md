@@ -5,18 +5,20 @@ Read this before applying a review file, replying to one, or touching `reviews/`
 Readers comment **on the page itself**: the top bar's Review button (or `?review`) lets
 them select text or use "+ Comment" on a section or block. Comments stay in their browser,
 reappear on later visits, and are exported from the Review panel as a `bh-review/1` file
-(`.json`, or `.json.gz`). Below 1100px, where the page does not make room for the panel, it
-opens collapsed to a bar ("Show panel", "Done") so the page stays usable while reviewing.
-- **Each file names the version it was made against**: `repo`, `build.commit` and `build.dirty`,
-  and each message's `commit` and `dirty`, all from `theme/build.js`. That file is not committed:
-  the deploy writes it, `npm run serve` serves it and `bundle` inlines it. A page opened from
-  `file://` has none, so its review file says `null` for all of them (the schema allows it) and
-  "Changes since this comment" is unavailable: review from the site, `npm run serve` or a bundle.
-  `tests/review-browser.test.mts` checks these fields in a downloaded file. The format is defined in `reviews/schema.json`. Reviewers submit a
+(`.json`, or `.json.gz`). The format is defined in `reviews/schema.json`. Reviewers submit a
 file by adding it to `reviews/inbox/` in a pull request. `check` validates every review file
 against the schema and its own rules (`scripts/reviews.mts`). Review is off on a page with
 `<body data-review="off">` (no button; `?review` and stored drafts do nothing) and on every private
-page, whose review would quote it in public (see `contracts/private-pages.md`).
+page, whose review would quote it in public (see `contracts/private-pages.md`). Below 1100px, where
+the page does not make room for the Review panel, it opens collapsed to a bar ("Show panel", "Done"),
+so the page stays usable while reviewing.
+
+**Each file names the version it was made against**: `repo`, `build.commit` and `build.dirty`, and
+each message's `commit` and `dirty`, all from `theme/build.js`. That file is not committed: the deploy
+writes it, `npm run serve` serves it and `bundle` inlines it. A page opened from `file://` has none, so
+its review file says `null` for all of them (the schema allows it) and "Changes since this comment" is
+unavailable: review from the site, `npm run serve` or a bundle. `tests/review-browser.test.mts` checks
+these fields in a downloaded file.
 
 **Submitting from the page waits for a hosted service** (#207). A "Submit on GitHub" button that
 filed the review as a GitHub issue, and workflows that turned the issue into a pull request, were
