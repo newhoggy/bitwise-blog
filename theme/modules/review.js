@@ -43,7 +43,10 @@
   const article = doc.querySelector(".bh-article");
   const build = () => window.BH_BUILD || { repo: null, commit: null, dirty: null, builtAt: null };
   const docPath = () => bh.sitePath() || bh.meta("bh:source") || location.pathname.replace(/^\//, "");
-  const storeKey = () => `bh-review/v1/${build().repo || "local"}/${docPath()}`;
+  // Fixed when the drafts are first loaded: a stamp pasted later (#353) sets build().repo, and must not move them to
+  // another key, where the next visit, which has no stamp, would not find them.
+  let draftKey = null;
+  const storeKey = () => draftKey || (draftKey = `bh-review/v1/${build().repo || "local"}/${docPath()}`);
 
   let state = { reviewer: "", comments: [] };            // local drafts (comments + replies)
   let published = [];                                      // merged comments for this document
@@ -664,7 +667,81 @@
     };
   }
 
+  // ---- A missing build stamp: ask for it before a download (#353) -----------------------------------------------
+  // A page opened from file:// has no theme/build.js, so its review file would say null for the repo and every
+  // commit. `npm run -s stamp` prints the stamp `serve` would have given the page; the reader pastes it here.
+
+  const FULL_COMMIT = /^[0-9a-f]{40}$/;
+  let stampDeclined = false; // "Download without it" once: don't ask again on this visit
+  let stampBox = null;
+
+  /** The command that prints this page's stamp, run in the repo's folder when the page was opened from it. */
+  function stampCommand() {
+    const run = "npm run -s stamp";
+    const r = bh.siteRoot;
+    if (!r || r.protocol !== "file:") return run;
+    let dir = decodeURIComponent(r.pathname).replace(/\/$/, "");
+    if (/^\/[A-Za-z]:\//.test(dir)) dir = dir.slice(1); // file:///C:/… on Windows
+    return `cd '${dir.replace(/'/g, "'\\''")}' && ${run}`;
+  }
+
+  /** The stamp in what the reader pasted, or why it is not one. */
+  function parseStamp(text) {
+    const m = String(text).match(/\{[\s\S]*\}/);
+    let s = null;
+    try { s = m && JSON.parse(m[0]); } catch (_) { /* not JSON */ }
+    if (!s || typeof s !== "object") return { error: "That isn’t what the command prints: paste the line that starts with {." };
+    if (typeof s.repo !== "string" || !/^[\w.-]+\/[\w.-]+$/.test(s.repo)) return { error: "It names no repository (owner/name): run the command in the repository’s folder." };
+    if (typeof s.commit !== "string" || !FULL_COMMIT.test(s.commit)) return { error: "It has no commit: run the command in a git checkout of the repository." };
+    if (typeof s.dirty !== "boolean") return { error: "It has no dirty flag (true or false)." };
+    const builtAt = typeof s.builtAt === "string" && !Number.isNaN(Date.parse(s.builtAt)) ? s.builtAt : new Date().toISOString();
+    return { stamp: { repo: s.repo, commit: s.commit, dirty: s.dirty, builtAt } };
+  }
+
+  /** Use a stamp for this visit: the file's build, later comments, and every draft that has no commit yet. */
+  function applyStamp(s) {
+    window.BH_BUILD = s;
+    for (const m of state.comments) if (!m.commit) Object.assign(m, { commit: s.commit, dirty: s.dirty });
+    save();
+    relocateAll(); // "Changes since this comment" depends on the commit
+  }
+
+  function closeStampBox() { if (stampBox) stampBox.remove(); stampBox = null; }
+
+  function askForStamp(gzip) {
+    closeStampBox();
+    const cmd = stampCommand();
+    const field = el("textarea", { class: "bh-review-stamp-input", id: "bh-review-stamp-input", rows: "3", spellcheck: "false", "aria-describedby": "bh-review-stamp-why bh-review-stamp-error", placeholder: '{"repo":"…","commit":"…","dirty":false,…}' });
+    const err = el("p", { class: "bh-review-stamp-error", id: "bh-review-stamp-error", hidden: true });
+    const add = () => {
+      const r = parseStamp(field.value);
+      if (r.error) { err.textContent = r.error; err.hidden = false; field.setAttribute("aria-invalid", "true"); field.focus(); announce(r.error); return; }
+      applyStamp(r.stamp);
+      closeStampBox();
+      announce(`Version recorded: ${r.stamp.commit.slice(0, 7)}${r.stamp.dirty ? ", with uncommitted changes" : ""}`);
+      exportFile(gzip);
+    };
+    stampBox = el("div", { class: "bh-review-stamp", role: "group", "aria-labelledby": "bh-review-stamp-title" }, [
+      el("p", { class: "bh-review-stamp-title", id: "bh-review-stamp-title", text: "Which version did you review?" }),
+      el("p", { id: "bh-review-stamp-why", text: `${location.protocol === "file:" ? "This page was opened from a file" : "This page has no build stamp"}, so the review can’t say which version of it you read, and whoever applies it can’t see the page as you saw it. Run this in a terminal, then paste what it prints:` }),
+      el("div", { class: "bh-review-stamp-cmd" }, [
+        el("code", { text: cmd }),
+        el("button", { type: "button", class: "btn ghost", text: "Copy", onclick: () => bh.copyText(cmd).then((ok) => announce(ok ? "Command copied" : "Couldn’t copy it: select the command and copy it")) }),
+      ]),
+      el("label", { class: "bh-review-label", for: "bh-review-stamp-input", text: "What it printed" }),
+      field, err,
+      el("div", { class: "bh-review-actions" }, [
+        el("button", { type: "button", class: "btn ghost", text: "Download without it", onclick: () => { stampDeclined = true; closeStampBox(); exportFile(gzip); } }),
+        el("button", { type: "button", class: "btn primary", text: "Add and download", onclick: add }),
+      ]),
+    ]);
+    field.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); add(); } });
+    panel.querySelector(".bh-review-export").after(stampBox);
+    field.focus();
+  }
+
   async function exportFile(gzip) {
+    if (!build().commit && !stampDeclined) { askForStamp(gzip); return; }
     const json = JSON.stringify(reviewFile(), null, 2) + "\n";
     const stampStr = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
     const slug = docPath().split("/").pop().replace(/\.html$/, "");

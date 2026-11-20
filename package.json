@@ -21,6 +21,7 @@
     "seal": "node scripts/bh.mts seal",
     "unseal": "node scripts/bh.mts unseal",
     "serve": "node scripts/bh.mts serve",
+    "stamp": "node scripts/bh.mts stamp",
     "visual": "node scripts/visual.mts",
     "a11y": "node scripts/a11y.mts",
     "stats": "node scripts/stats.mts",

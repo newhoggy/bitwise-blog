@@ -9,7 +9,8 @@ import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
 import type http from "node:http";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { execFileSync } from "node:child_process";
 import { test } from "node:test";
 import { findChrome, launchChrome, serveStatic, sleep, type ChromeHandle } from "../scripts/chrome.mts";
 import { readSchema, schemaProblems } from "../scripts/reviews.mts";
@@ -104,16 +105,18 @@ async function compose(p: Tab, kind: string, body: string, suggestion?: string) 
   await p.until("!document.querySelector('.bh-review-pop')", "the composer to close");
 }
 
-/** Click a download button and return the file Chrome saved. */
+/** Click a download button and return the file Chrome saved. Names are per minute, and headless Chrome overwrites a
+    file of the same name, so a file counts as downloaded when it is new or has changed since the click. */
 async function download(p: Tab, dir: string, button: string, ext: string): Promise<string> {
-  const before = new Set(fs.readdirSync(dir));
+  const stamp = (f: string) => fs.statSync(path.join(dir, f)).mtimeMs;
+  const before = new Map(fs.readdirSync(dir).map((f) => [f, stamp(f)]));
   await p.click(button);
   for (let i = 0; i < 100; i++) {
-    const done = fs.readdirSync(dir).find((f) => !before.has(f) && f.endsWith(ext));
+    const done = fs.readdirSync(dir).find((f) => f.endsWith(ext) && (!before.has(f) || stamp(f) !== before.get(f)));
     if (done) return path.join(dir, done);
     await sleep(50);
   }
-  throw new Error(`no ${ext} download`);
+  throw new Error(`no ${ext} download (the folder holds ${JSON.stringify(fs.readdirSync(dir))})`);
 }
 
 test("the Review panel: comments made on the page, and the review files they download as", { skip, timeout: 180000 }, async (t) => {
@@ -238,4 +241,66 @@ test("the Review panel: comments made on the page, and the review files they dow
     assert.deepEqual(await p.evaluate("[innerWidth, document.documentElement.scrollWidth]"), [390, 390], "no horizontal overflow");
     assert.deepEqual(await p.evaluate("window.__errors"), []);
   });
+  await t.test("from file:// a download first asks for the build stamp, and puts the one pasted in the file", async () => {
+    const real = fs.realpathSync(root);
+    const p = await tab();
+    await p.goto(`${pathToFileURL(path.join(real, PAGE)).href}?review`);
+    await p.until("document.querySelector('.bh-review-panel:not([hidden])')", "the panel");
+    await p.click("#beta > .bh-review-add");
+    await compose(p, "comment", "Read from disk.");
+    const files = () => fs.readdirSync(downloads).length;
+    const before = files();
+
+    await p.click("[data-export=json]");
+    await p.until("document.querySelector('.bh-review-stamp')", "the stamp prompt");
+    assert.equal(await p.evaluate("document.querySelector('.bh-review-stamp-cmd code').textContent"), `cd '${real}' && npm run -s stamp`, "the command, in the page's own folder");
+    assert.equal(await p.evaluate("document.activeElement.id"), "bh-review-stamp-input");
+    const tryPaste = async (text: string) => {
+      await p.fill("#bh-review-stamp-input", text);
+      await p.click(".bh-review-stamp .btn.primary");
+      return p.evaluate("(() => { const e = document.querySelector('.bh-review-stamp-error'); return e && !e.hidden ? e.textContent : null; })()");
+    };
+    assert.match(await tryPaste("command not found: npm"), /starts with \{/);
+    assert.match(await tryPaste('{"repo":"example/blog","commit":"abc123","dirty":false}'), /no commit/);
+    assert.match(await tryPaste(`{"repo":"","commit":"${HEAD}","dirty":false}`), /no repository/);
+    await sleep(300);
+    assert.equal(files(), before, "nothing downloads until the reader chooses");
+
+    // What the command prints, pasted with the terminal's other lines around it.
+    const printed = execFileSync(process.execPath, [path.join(ROOT, "scripts/bh.mts"), "stamp"], { cwd: ROOT, encoding: "utf8" }).trim();
+    const stamp = JSON.parse(printed);
+    await p.fill("#bh-review-stamp-input", `$ npm run -s stamp\n${printed}\n$ `);
+    const jsonFile = await download(p, downloads, ".bh-review-stamp .btn.primary", ".json");
+    const review = JSON.parse(fs.readFileSync(jsonFile, "utf8"));
+    assert.deepEqual(schemaProblems(review, schema), []);
+    assert.deepEqual([review.repo, review.build], [stamp.repo, { commit: stamp.commit, dirty: stamp.dirty, builtAt: stamp.builtAt }]);
+    assert.deepEqual(review.comments.map((m: { commit: string; dirty: boolean }) => [m.commit, m.dirty]), [[stamp.commit, stamp.dirty]], "the draft took the stamp");
+    assert.equal(await p.evaluate("document.querySelector('.bh-review-stamp')"), null, "the prompt closed");
+
+    // A new visit has no stamp again. A draft written now has no commit; "Download without it" keeps it so, and does not ask twice.
+    await p.goto(pathToFileURL(path.join(real, PAGE)).href + "?review");
+    await p.until("document.querySelector('.bh-review-panel:not([hidden])')", "the panel");
+    await p.click("#gamma > .bh-review-add");
+    await compose(p, "comment", "Second visit.");
+    await p.click("[data-export=gz]");
+    await p.until("document.querySelector('.bh-review-stamp')", "the stamp prompt");
+    const gzFile = await download(p, downloads, ".bh-review-stamp .bh-review-actions .btn.ghost", ".json.gz");
+    const plain = JSON.parse(zlib.gunzipSync(fs.readFileSync(gzFile)).toString("utf8"));
+    assert.deepEqual(schemaProblems(plain, schema), []);
+    assert.deepEqual([plain.repo, plain.build.commit], [null, null]);
+    assert.deepEqual(plain.comments.map((m: { commit: string | null }) => m.commit), [stamp.commit, null], "the earlier draft keeps its stamp; the new one has none");
+    await download(p, downloads, "[data-export=json]", ".json");
+    assert.equal(await p.evaluate("document.querySelector('.bh-review-stamp')"), null, "not asked again on this visit");
+    assert.deepEqual(await p.evaluate("window.__errors"), []);
+  });
+});
+
+test("npm run stamp prints the build stamp serve gives a page", () => {
+  const out = execFileSync(process.execPath, [path.join(ROOT, "scripts/bh.mts"), "stamp"], { cwd: ROOT, encoding: "utf8" });
+  assert.equal(out.trim().split("\n").length, 1, "one line, to paste");
+  const stamp = JSON.parse(out);
+  const git = (...a: string[]) => execFileSync("git", ["-C", ROOT, ...a], { encoding: "utf8" });
+  const repo = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).repository.replace(/^github:/, "");
+  assert.deepEqual([stamp.repo, stamp.commit, stamp.dirty], [repo, git("rev-parse", "HEAD").trim(), git("status", "--porcelain", "--", "docs", "theme", "index.html") !== ""]);
+  assert.ok(!Number.isNaN(Date.parse(stamp.builtAt)));
 });

@@ -10,6 +10,7 @@
 //   node scripts/bh.mts seal [--show-links|--reshell]   encrypt docs/*.private.html → docs/<slug>.html (see contracts/private-pages.md)
 //   node scripts/bh.mts unseal [slug…]        decrypt docs/<slug>.html → docs/<slug>.private.html
 //   node scripts/bh.mts serve [port] [host]   static server (pages also work from file://); port 0 picks a free one
+//   node scripts/bh.mts stamp                 print the build stamp serve gives a page (repo, commit, dirty) as JSON, for a review made from file://
 
 import fs from "node:fs";
 import path from "node:path";
@@ -2355,6 +2356,8 @@ function buildInfo() {
   const repo = String(pkg.repository || "").replace(/^github:/, "");
   return { repo, commit: git("rev-parse HEAD") || null, dirty: git("status --porcelain -- docs theme index.html") !== "", builtAt: new Date().toISOString() };
 }
+/** `stamp`: the build stamp on one line, for the Review panel of a page opened from file://, which has none (#353). */
+function cmdStamp(): void { console.log(JSON.stringify(buildInfo())); }
 const buildScript = (info: ReturnType<typeof buildInfo>) => `/* Review build stamp (generated, not committed). */\nwindow.BH_BUILD = ${JSON.stringify(info)};\n`;
 
 function cmdServe([port = "8000", host]: string[]): void {
@@ -2420,7 +2423,7 @@ function cmdServe([port = "8000", host]: string[]): void {
 // ---- main -------------------------------------------------------------------------
 
 const [cmd, ...args] = process.argv.slice(2);
-const commands: Record<string, (args: string[]) => unknown> = { new: cmdNew, index: cmdIndex, check: cmdCheckCommand, cards: cmdCards, bundle: cmdBundle, diff: cmdDiff, seal: cmdSeal, unseal: cmdUnseal, serve: cmdServe };
+const commands: Record<string, (args: string[]) => unknown> = { new: cmdNew, index: cmdIndex, check: cmdCheckCommand, cards: cmdCards, bundle: cmdBundle, diff: cmdDiff, seal: cmdSeal, unseal: cmdUnseal, serve: cmdServe, stamp: cmdStamp };
 if (!commands[cmd]) {
   console.log(`beautiful-html
 
@@ -2440,7 +2443,9 @@ if (!commands[cmd]) {
                                                --reshell rewraps sealed pages in the current shell, no key needed
   unseal [slug…] [--force]                     recreate docs/<slug>.private.html from the sealed page and its key
   serve [port] [host]                          static server on http://localhost:8000/ (every interface unless
-                                               a host is given; port 0 picks a free port and prints it)`);
+                                               a host is given; port 0 picks a free port and prints it)
+  stamp                                        print the build stamp \`serve\` gives a page (repo, commit, dirty) as
+                                               JSON: what a review made from file:// asks for`);
   process.exit(cmd ? 2 : 0);
 }
 try { await commands[cmd](args); } catch (e) { console.error(c.red(`bh ${cmd}: ${(e as Error).message}`)); process.exit(1); }
