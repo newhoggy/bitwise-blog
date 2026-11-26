@@ -1,7 +1,7 @@
 name: CI
 
-# One workflow, so that publishing can depend on the checks: the `deploy` job below
-# `needs` both `check` and `render`, and runs only for main (a push, or a manual run
+# One workflow, so that publishing can depend on the checks: the `package` and `deploy` jobs below
+# `need` both `check` and `render`, and run only for main (a push, or a manual run
 # from main, which re-runs the checks first). A commit that fails any check is not published.
 on:
   push:
@@ -161,9 +161,66 @@ jobs:
   #   3. Optional page-view counting: add the variable GOATCOUNTER_CODE = <your GoatCounter
   #      site code>. Unset or empty means no tag (see contracts/page-views.md).
   # To redeploy without a new commit (after changing a variable), run this workflow from main.
+  #
+  # Two jobs, `package` then `deploy`: an artifact uploaded moments ago may not be listed yet, and
+  # deploy-pages looks it up once. Starting the second job gives the artifact time to appear.
+  package:
+    name: Package the Pages site
+    needs: [check, render]
+    if: vars.PAGES_ENABLED == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Normally under 30 seconds.
+    timeout-minutes: 10
+    env:
+      # One artifact name per attempt: "Re-run all jobs" keeps the earlier attempt's artifact in the
+      # run, and deploy-pages fails when two artifacts have the name it asks for.
+      PAGES_ARTIFACT: github-pages-${{ github.run_attempt }}
+    outputs:
+      # `deploy` takes the name from here: "Re-run failed jobs" can run it alone, as a later attempt
+      # than the one that uploaded the artifact.
+      artifact: ${{ env.PAGES_ARTIFACT }}
+    steps:
+      # The full history (under 1 MB): publish.mts diffs each reviewed page against the commits its
+      # review threads name (theme/diffs/), and a shallow clone has none of them.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # No `npm ci` and no `npm run check` here: the `check` job already ran both on this
+      # commit. The publish script imports no installed package (tests/advisor-guards.test.mts).
+
+      # Assemble the local variant, then remove examples from the published copy.
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp -r index.html docs theme _site/
+          # The review-file schema is published at the URL its $id names.
+          mkdir -p _site/reviews && cp reviews/schema.json _site/reviews/
+          touch _site/.nojekyll
+          # Private pages ship only as sealed (encrypted) copies; never plaintext or keys.
+          if find _site -name '*.private.html' -o -name '.private-keys.json' | grep -q .; then
+            echo "::error::plaintext private page or key file in the site"; exit 1
+          fi
+          # Review comments record which commit the reader was looking at.
+          echo "window.BH_BUILD = {\"repo\": \"${GITHUB_REPOSITORY}\", \"commit\": \"${GITHUB_SHA}\", \"dirty\": false, \"builtAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"};" > _site/theme/build.js
+
+      - name: Remove example pages and rebuild published data
+        run: node scripts/publish.mts
+        env:
+          GOATCOUNTER_CODE: ${{ vars.GOATCOUNTER_CODE }}
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          name: ${{ env.PAGES_ARTIFACT }}
+          path: _site
+
   deploy:
     name: Publish to GitHub Pages
-    needs: [check, render]
+    needs: [check, render, package]
     if: vars.PAGES_ENABLED == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # Normally under 30 seconds.
@@ -177,21 +234,10 @@ jobs:
       cancel-in-progress: false
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
-    env:
-      # One artifact name per attempt: a re-run keeps the earlier attempt's artifact in the run,
-      # and deploy-pages fails when two artifacts have the name it asks for.
-      PAGES_ARTIFACT: github-pages-${{ github.run_attempt }}
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # The full history (under 1 MB): publish.mts diffs each reviewed page against the commits its
-      # review threads name (theme/diffs/), and a shallow clone has none of them.
+      # For `origin`, which the next step asks for the head of main.
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
 
       # The gates finish at different times, so an older commit's deploy can start after a newer
       # commit has landed. Publish only if this commit is still the head of main; the newer
@@ -207,61 +253,14 @@ jobs:
             echo "current=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # No `npm ci` and no `npm run check` here: the `check` job already ran both on this
-      # commit. The publish script imports no installed package (tests/advisor-guards.test.mts).
-
-      # Assemble the local variant, then remove examples from the published copy.
-      - name: Assemble the site
-        if: steps.fresh.outputs.current == 'true'
-        run: |
-          mkdir -p _site
-          cp -r index.html docs theme _site/
-          # The review-file schema is published at the URL its $id names.
-          mkdir -p _site/reviews && cp reviews/schema.json _site/reviews/
-          touch _site/.nojekyll
-          # Private pages ship only as sealed (encrypted) copies; never plaintext or keys.
-          if find _site -name '*.private.html' -o -name '.private-keys.json' | grep -q .; then
-            echo "::error::plaintext private page or key file in the site"; exit 1
-          fi
-          # Review comments record which commit the reader was looking at.
-          echo "window.BH_BUILD = {\"repo\": \"${GITHUB_REPOSITORY}\", \"commit\": \"${GITHUB_SHA}\", \"dirty\": false, \"builtAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"};" > _site/theme/build.js
-
-      - name: Remove example pages and rebuild published data
-        if: steps.fresh.outputs.current == 'true'
-        run: node scripts/publish.mts
-        env:
-          GOATCOUNTER_CODE: ${{ vars.GOATCOUNTER_CODE }}
-
       - uses: actions/configure-pages@v6
         if: steps.fresh.outputs.current == 'true'
 
-      - uses: actions/upload-pages-artifact@v5
-        if: steps.fresh.outputs.current == 'true'
-        with:
-          name: ${{ env.PAGES_ARTIFACT }}
-          path: _site
-
-      # deploy-pages looks the artifact up once, and one uploaded moments ago may not be listed
-      # yet. So a failed deploy is tried once more after a pause. The first step may fail without
-      # failing the job; the second may not.
       - id: deployment
         if: steps.fresh.outputs.current == 'true'
-        continue-on-error: true
         uses: actions/deploy-pages@v5
         with:
-          artifact_name: ${{ env.PAGES_ARTIFACT }}
-
-      - name: Wait before deploying again
-        if: steps.deployment.outcome == 'failure'
-        run: |
-          echo "::warning::The first deploy failed (see its log); trying again in 30 seconds"
-          sleep 30
-
-      - id: retry
-        if: steps.fresh.outputs.current == 'true' && steps.deployment.outcome == 'failure'
-        uses: actions/deploy-pages@v5
-        with:
-          artifact_name: ${{ env.PAGES_ARTIFACT }}
+          artifact_name: ${{ needs.package.outputs.artifact }}
 
   a11y:
     name: Accessibility (axe-core)

@@ -1,7 +1,7 @@
 // The files allowed to share text with the private corpus, and how much (see corpus/README.md).
 //
 // Data only, outside scripts/advisor/: scripts/bh.mts may reach no advisor code and no installed
-// package (the deploy job runs it with no install), but the feed needs this list to keep these pages'
+// package (the package job runs it with no install), but the feed needs this list to keep these pages'
 // text out of feed.xml, since an allowance covers its page, not a file generated from it.
 // scripts/advisor/guards.mts, which runs the leak check, re-exports both names.
 

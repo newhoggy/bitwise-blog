@@ -121,7 +121,7 @@ The authoring and publishing commands (`index`, `check`, `bundle`, `seal`, …) 
   latest build of `main`, and the render job's summary lists the pages that changed, with the
   images in the `renders` artifact's `report.html`. The diff only reports; a page that fails to
   render fails the job.
-- **GitHub Pages** (the `deploy` job in `.github/workflows/ci.yml`) publishes a copy of the repo to
+- **GitHub Pages** (the `package` and `deploy` jobs in `.github/workflows/ci.yml`) publishes a copy of the repo to
   [bitwise.john-ky.io](https://bitwise.john-ky.io/) from `main`, only after the `check` and `render`
   jobs pass on that commit, so a commit that fails type-checking, tests, `npm run check` or the
   render is not published. To redeploy without a new commit, run the CI workflow from `main`. It uses

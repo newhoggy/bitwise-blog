@@ -1,5 +1,5 @@
 // Publishing must wait for the checks. The deploy is a job in ci.yml that `needs` the jobs
-// which check and render the site, so a commit that fails one of them is never published.
+// which check, render and package the site, so a commit that fails one of them is never published.
 // A second workflow that deploys on a push to main would bypass that, so it fails here.
 
 import assert from "node:assert/strict";
@@ -47,35 +47,33 @@ test("only the deploy job can publish: no other workflow or job has `pages: writ
 
 test("the deploy job publishes only while its commit is still the head of main", () => {
   const steps = load("ci.yml").jobs["deploy"]?.steps ?? [];
-  const publishing = steps.filter((s) => s.uses?.startsWith("actions/deploy-pages") || s.uses?.startsWith("actions/upload-pages-artifact"));
-  assert.ok(publishing.length === 3, "the deploy job uploads the Pages artifact, deploys it and can deploy again");
-  for (const step of publishing) assert.match(JSON.stringify(step), /steps\.fresh\.outputs\.current == 'true'/);
+  const publishing = steps.filter((s) => s.uses?.startsWith("actions/deploy-pages@"));
+  assert.equal(publishing.length, 1, "the deploy job deploys once");
+  assert.equal(publishing[0]?.if, "steps.fresh.outputs.current == 'true'");
 });
 
-// A re-run keeps the artifacts of earlier attempts, and deploy-pages fails when two share the name
-// it asks for, so a failed deploy could not be re-run.
-test("each attempt of the deploy job uploads and deploys its own Pages artifact", () => {
-  const deploy = load("ci.yml").jobs["deploy"] as (Job & { env?: Record<string, string> }) | undefined;
-  assert.match(deploy?.env?.["PAGES_ARTIFACT"] ?? "", /\$\{\{ github\.run_attempt \}\}/);
-  const steps = (action: string) => deploy?.steps?.filter((s) => s.uses?.startsWith(`actions/${action}@`)) ?? [];
-  assert.deepEqual(steps("upload-pages-artifact").map((s) => s.with?.["name"]), ["${{ env.PAGES_ARTIFACT }}"]);
-  assert.deepEqual(steps("deploy-pages").map((s) => s.with?.["artifact_name"]), ["${{ env.PAGES_ARTIFACT }}", "${{ env.PAGES_ARTIFACT }}"]);
+// deploy-pages looks the artifact up once, and a fresh upload may not be listed yet. The time a
+// second job takes to start covers that, so the upload and the deploy must stay in separate jobs.
+test("the Pages artifact is uploaded by a job that finishes before the one that deploys it", () => {
+  const jobs = load("ci.yml").jobs;
+  const using = (action: string) => Object.entries(jobs).filter(([, job]) => job.steps?.some((s) => s.uses?.startsWith(`actions/${action}@`))).map(([name]) => name);
+  assert.deepEqual(using("upload-pages-artifact"), ["package"]);
+  assert.deepEqual(using("deploy-pages"), ["deploy"]);
+  assert.ok(needs(jobs["deploy"]!).includes("package"), "deploy needs `package`");
+  for (const gate of ["check", "render"]) assert.ok(needs(jobs["package"]!).includes(gate), `package needs \`${gate}\``);
+  assert.equal(jobs["package"]?.if, jobs["deploy"]?.if);
 });
 
-// deploy-pages looks the artifact up once, and a fresh upload may not be listed yet. The retry
-// must run when the first deploy fails, after a pause, and its own failure must fail the job.
-test("a failed deploy is tried once more after a pause, and a second failure fails the job", () => {
-  const deploy = load("ci.yml").jobs["deploy"] as (Job & { environment?: { url?: string } }) | undefined;
-  const steps = (deploy?.steps ?? []) as (Step & { "continue-on-error"?: boolean })[];
-  const [first, retry] = steps.filter((s) => s.uses?.startsWith("actions/deploy-pages@"));
-  assert.ok(first?.id && retry?.id, "the deploy job has two deploy steps, each with an id");
-  assert.equal(first["continue-on-error"], true, "the first deploy may fail without failing the job");
-  assert.equal(retry["continue-on-error"], undefined, "a failed retry fails the job");
-  const failed = `steps.${first.id}.outcome == 'failure'`;
-  assert.ok(retry.if?.includes(failed), "the retry runs when the first deploy failed");
-  const wait = steps.slice(steps.indexOf(first) + 1, steps.indexOf(retry)).find((s) => /\bsleep \d+/.test(s.run ?? ""));
-  assert.equal(wait?.if, failed, "the job pauses between the two deploys, only after a failure");
-  assert.equal(deploy?.environment?.url, `\${{ steps.${first.id}.outputs.page_url || steps.${retry.id}.outputs.page_url }}`);
+// "Re-run all jobs" keeps the artifacts of earlier attempts, and deploy-pages fails when two share
+// the name it asks for. "Re-run failed jobs" can run deploy alone, in a later attempt than the
+// upload, so deploy takes the name from the job that uploaded it.
+test("each attempt uploads its own Pages artifact, and deploy asks for the one that was uploaded", () => {
+  const jobs = load("ci.yml").jobs as Record<string, Job & { env?: Record<string, string>; outputs?: Record<string, string> }>;
+  assert.match(jobs["package"]?.env?.["PAGES_ARTIFACT"] ?? "", /\$\{\{ github\.run_attempt \}\}/);
+  assert.equal(jobs["package"]?.outputs?.["artifact"], "${{ env.PAGES_ARTIFACT }}");
+  const step = (job: string, action: string) => jobs[job]?.steps?.find((s) => s.uses?.startsWith(`actions/${action}@`));
+  assert.equal(step("package", "upload-pages-artifact")?.with?.["name"], "${{ env.PAGES_ARTIFACT }}");
+  assert.equal(step("deploy", "deploy-pages")?.with?.["artifact_name"], "${{ needs.package.outputs.artifact }}");
 });
 
 // The render job compares a pull request with main's renders (issue #165). It reads another run's artifact,
