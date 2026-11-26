@@ -34,6 +34,36 @@ window.BH_SITE = {
    "supersededBy": ""
   },
   {
+   "href": "docs/announcing-succinctly-0-8.html",
+   "title": "succinctly 0.8: a jq you can trust, three times faster",
+   "kind": "explainer",
+   "status": "accepted",
+   "date": "2026-11-26",
+   "description": "succinctly 0.8.0 is a drop-in replacement for jq 1.7.1: the same answers, bug for bug, about three times faster, and every difference written down.",
+   "supersedes": "",
+   "supersededBy": ""
+  },
+  {
+   "href": "docs/benchmarking-against-jq.html",
+   "title": "Benchmarking against jq honestly",
+   "kind": "explainer",
+   "status": "accepted",
+   "date": "2026-11-26",
+   "description": "How the succinctly jq comparison is measured: outputs checked against jq before timing, tools interleaved, a geometric mean per chip, an A/A′ control, and a release-day slowdown put to the test.",
+   "supersedes": "",
+   "supersededBy": ""
+  },
+  {
+   "href": "docs/bug-for-bug-jq-compatibility.html",
+   "title": "Bug for bug: what jq compatibility means",
+   "kind": "explainer",
+   "status": "accepted",
+   "date": "2026-11-26",
+   "description": "Why succinctly jq reproduces jq 1.7.1&#39;s quirks, when it is allowed to differ, and how every difference is checked and written down.",
+   "supersedes": "",
+   "supersededBy": ""
+  },
+  {
    "href": "docs/component-gallery.html",
    "title": "Component gallery",
    "kind": "reference",
@@ -105,6 +135,16 @@ window.BH_SITE = {
    "supersededBy": "docs/how-deflate-compresses.html"
   },
   {
+   "href": "docs/how-succinctly-reads-json.html",
+   "title": "How succinctly reads JSON without building a tree",
+   "kind": "explainer",
+   "status": "accepted",
+   "date": "2026-11-26",
+   "description": "succinctly jq turns a JSON document into two strings of bits and answers a query by counting bits in them: the bits for a 23-byte document, a walk of .a[1] through them, and what the index costs.",
+   "supersedes": "",
+   "supersededBy": ""
+  },
+  {
    "href": "docs/pedagogical-writing.html",
    "title": "Pedagogical writing: so the reader could have invented it",
    "kind": "explainer",
@@ -163,6 +203,134 @@ window.BH_SITE = {
     "href": "docs/adr-002-rate-limit-at-the-edge.html#context",
     "title": "ADR-002: Rate limit at the edge gateway",
     "section": "Context"
+   }
+  ],
+  "docs/how-succinctly-reads-json.html": [
+   {
+    "href": "docs/announcing-succinctly-0-8.html#fast",
+    "title": "succinctly 0.8: a jq you can trust, three times faster",
+    "section": "Fast: about three times jq, and more as inputs grow"
+   },
+   {
+    "href": "docs/announcing-succinctly-0-8.html#lean",
+    "title": "succinctly 0.8: a jq you can trust, three times faster",
+    "section": "Lean: less than half of jq's memory on large inputs"
+   },
+   {
+    "href": "docs/announcing-succinctly-0-8.html#further-reading",
+    "title": "succinctly 0.8: a jq you can trust, three times faster",
+    "section": "Further reading"
+   },
+   {
+    "href": "docs/benchmarking-against-jq.html#output-gate",
+    "title": "Benchmarking against jq honestly",
+    "section": "First, the outputs must match"
+   },
+   {
+    "href": "docs/benchmarking-against-jq.html#geomean",
+    "title": "Benchmarking against jq honestly",
+    "section": "Many rows, one number"
+   },
+   {
+    "href": "docs/benchmarking-against-jq.html#further-reading",
+    "title": "Benchmarking against jq honestly",
+    "section": "Further reading"
+   },
+   {
+    "href": "docs/bug-for-bug-jq-compatibility.html#gotchas",
+    "title": "Bug for bug: what jq compatibility means",
+    "section": "Edge cases worth knowing"
+   },
+   {
+    "href": "docs/bug-for-bug-jq-compatibility.html#further-reading",
+    "title": "Bug for bug: what jq compatibility means",
+    "section": "Further reading"
+   }
+  ],
+  "docs/bug-for-bug-jq-compatibility.html": [
+   {
+    "href": "docs/announcing-succinctly-0-8.html#faithful",
+    "title": "succinctly 0.8: a jq you can trust, three times faster",
+    "section": "Faithful: jq's answers, including its quirks"
+   },
+   {
+    "href": "docs/announcing-succinctly-0-8.html#further-reading",
+    "title": "succinctly 0.8: a jq you can trust, three times faster",
+    "section": "Further reading"
+   },
+   {
+    "href": "docs/benchmarking-against-jq.html#further-reading",
+    "title": "Benchmarking against jq honestly",
+    "section": "Further reading"
+   },
+   {
+    "href": "docs/how-succinctly-reads-json.html#validation",
+    "title": "How succinctly reads JSON without building a tree",
+    "section": "What it does not check"
+   },
+   {
+    "href": "docs/how-succinctly-reads-json.html#further-reading",
+    "title": "How succinctly reads JSON without building a tree",
+    "section": "Further reading"
+   }
+  ],
+  "docs/benchmarking-against-jq.html": [
+   {
+    "href": "docs/announcing-succinctly-0-8.html#honest",
+    "title": "succinctly 0.8: a jq you can trust, three times faster",
+    "section": "Honest: numbers you can regenerate"
+   },
+   {
+    "href": "docs/announcing-succinctly-0-8.html#further-reading",
+    "title": "succinctly 0.8: a jq you can trust, three times faster",
+    "section": "Further reading"
+   },
+   {
+    "href": "docs/bug-for-bug-jq-compatibility.html#further-reading",
+    "title": "Bug for bug: what jq compatibility means",
+    "section": "Further reading"
+   },
+   {
+    "href": "docs/how-succinctly-reads-json.html#further-reading",
+    "title": "How succinctly reads JSON without building a tree",
+    "section": "Further reading"
+   }
+  ],
+  "docs/announcing-succinctly-0-8.html": [
+   {
+    "href": "docs/benchmarking-against-jq.html",
+    "title": "Benchmarking against jq honestly",
+    "section": ""
+   },
+   {
+    "href": "docs/benchmarking-against-jq.html#further-reading",
+    "title": "Benchmarking against jq honestly",
+    "section": "Further reading"
+   },
+   {
+    "href": "docs/bug-for-bug-jq-compatibility.html",
+    "title": "Bug for bug: what jq compatibility means",
+    "section": ""
+   },
+   {
+    "href": "docs/bug-for-bug-jq-compatibility.html#further-reading",
+    "title": "Bug for bug: what jq compatibility means",
+    "section": "Further reading"
+   },
+   {
+    "href": "docs/how-succinctly-reads-json.html",
+    "title": "How succinctly reads JSON without building a tree",
+    "section": ""
+   },
+   {
+    "href": "docs/how-succinctly-reads-json.html#rebuild",
+    "title": "How succinctly reads JSON without building a tree",
+    "section": "Rebuild it yourself"
+   },
+   {
+    "href": "docs/how-succinctly-reads-json.html#further-reading",
+    "title": "How succinctly reads JSON without building a tree",
+    "section": "Further reading"
    }
   ],
   "docs/glossary.html": [

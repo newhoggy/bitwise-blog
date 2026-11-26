@@ -6,9 +6,67 @@
   <subtitle>A software engineering blog on compression, distributed systems, AI workflows, writing and communication, written as interactive pages.</subtitle>
   <link rel="alternate" type="text/html" href="https://bitwise.john-ky.io/"/>
   <link rel="self" type="application/atom+xml" href="https://bitwise.john-ky.io/feed.xml"/>
-  <updated>2026-11-14T00:00:00Z</updated>
+  <updated>2026-11-26T00:00:00Z</updated>
   <author><name>Bitwise Engineering</name></author>
   <generator>beautiful-html</generator>
+  <entry>
+    <id>https://bitwise.john-ky.io/docs/benchmarking-against-jq.html</id>
+    <title>Benchmarking against jq honestly</title>
+    <link rel="alternate" type="text/html" href="https://bitwise.john-ky.io/docs/benchmarking-against-jq.html"/>
+    <published>2026-11-26T00:00:00Z</published>
+    <updated>2026-11-26T00:00:00Z</updated>
+    <author><name>John Ky</name></author>
+    <category term="rust"/>
+    <category term="jq"/>
+    <category term="json"/>
+    <category term="performance"/>
+    <category term="benchmarking"/>
+    <summary>How the succinctly jq comparison is measured: outputs checked against jq before timing, tools interleaved, a geometric mean per chip, an A/A′ control, and a release-day slowdown put to the test.</summary>
+  </entry>
+  <entry>
+    <id>https://bitwise.john-ky.io/docs/bug-for-bug-jq-compatibility.html</id>
+    <title>Bug for bug: what jq compatibility means</title>
+    <link rel="alternate" type="text/html" href="https://bitwise.john-ky.io/docs/bug-for-bug-jq-compatibility.html"/>
+    <published>2026-11-26T00:00:00Z</published>
+    <updated>2026-11-26T00:00:00Z</updated>
+    <author><name>John Ky</name></author>
+    <category term="rust"/>
+    <category term="jq"/>
+    <category term="json"/>
+    <category term="compatibility"/>
+    <category term="testing"/>
+    <category term="fuzzing"/>
+    <summary>Why succinctly jq reproduces jq 1.7.1's quirks, when it is allowed to differ, and how every difference is checked and written down.</summary>
+  </entry>
+  <entry>
+    <id>https://bitwise.john-ky.io/docs/how-succinctly-reads-json.html</id>
+    <title>How succinctly reads JSON without building a tree</title>
+    <link rel="alternate" type="text/html" href="https://bitwise.john-ky.io/docs/how-succinctly-reads-json.html"/>
+    <published>2026-11-26T00:00:00Z</published>
+    <updated>2026-11-26T00:00:00Z</updated>
+    <author><name>John Ky</name></author>
+    <category term="rust"/>
+    <category term="jq"/>
+    <category term="json"/>
+    <category term="succinct data structures"/>
+    <category term="performance"/>
+    <summary>succinctly jq turns a JSON document into two strings of bits and answers a query by counting bits in them: the bits for a 23-byte document, a walk of .a[1] through them, and what the index costs.</summary>
+  </entry>
+  <entry>
+    <id>https://bitwise.john-ky.io/docs/announcing-succinctly-0-8.html</id>
+    <title>succinctly 0.8: a jq you can trust, three times faster</title>
+    <link rel="alternate" type="text/html" href="https://bitwise.john-ky.io/docs/announcing-succinctly-0-8.html"/>
+    <published>2026-11-26T00:00:00Z</published>
+    <updated>2026-11-26T00:00:00Z</updated>
+    <author><name>John Ky</name></author>
+    <category term="rust"/>
+    <category term="jq"/>
+    <category term="json"/>
+    <category term="performance"/>
+    <category term="succinct data structures"/>
+    <category term="benchmarking"/>
+    <summary>succinctly 0.8.0 is a drop-in replacement for jq 1.7.1: the same answers, bug for bug, about three times faster, and every difference written down.</summary>
+  </entry>
   <entry>
     <id>https://bitwise.john-ky.io/docs/visibility-threat-model.html</id>
     <title>What each visibility level hides, and from whom</title>
