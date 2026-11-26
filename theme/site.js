@@ -291,6 +291,11 @@ window.BH_SITE = {
     "section": "Further reading"
    },
    {
+    "href": "docs/glossary.html",
+    "title": "Glossary",
+    "section": ""
+   },
+   {
     "href": "docs/how-succinctly-reads-json.html#further-reading",
     "title": "How succinctly reads JSON without building a tree",
     "section": "Further reading"
