@@ -250,18 +250,33 @@ test("the review fixture page has pins to check: stacked, with a count, beside a
     const { targetId } = await chrome.send("Target.createTarget", { url: "about:blank" });
     const { sessionId } = await chrome.send("Target.attachToTarget", { targetId, flatten: true });
     const s = (m: string, p?: object) => chrome.send(m, p, sessionId);
-    await s("Page.enable");
-    await s("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile });
-    await s("Page.navigate", { url: `${base}/${REVIEW_FIXTURE_PAGE}` });
-    const probe = `new Promise((done) => { const t = Date.now(); (function wait() {
-      if (document.documentElement.hasAttribute("data-bh-ready") && document.querySelector(".bh-review-pin")) return done(JSON.stringify({
-        pins: [...document.querySelectorAll(".bh-review-pin")].map((p) => { const r = p.getBoundingClientRect(); return [p.dataset.thread, p.dataset.count || "", Math.round(r.height * 10) / 10, r.top + scrollY]; }),
-        badge: !!document.querySelector(".bh-review-count:not([hidden])"), resolved: document.querySelectorAll(".bh-review-pin.is-resolved").length }));
-      if (Date.now() - t > 15000) return done("timeout"); setTimeout(wait, 100); })(); })`;
-    const r = await s("Runtime.evaluate", { expression: probe, awaitPromise: true, returnByValue: true });
-    await chrome.send("Target.closeTarget", { targetId });
-    assert.notEqual(r.result.value, "timeout", `${viewport.name}: no pins appeared`);
-    const got = JSON.parse(r.result.value) as { pins: [string, string, number, number][]; badge: boolean };
+    try {
+      await s("Page.enable");
+      // A background tab may not get animation frames; match scan and the diff-fixture probe.
+      await s("Page.bringToFront");
+      await s("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile });
+      await s("Page.navigate", { url: `${base}/${REVIEW_FIXTURE_PAGE}` });
+      // Poll from Node so navigation can replace the document without losing an in-page timer.
+      const deadline = Date.now() + 20000;
+      for (;;) {
+        const ready = await s("Runtime.evaluate", {
+          returnByValue: true,
+          expression: 'location.href !== "about:blank" && document.readyState === "complete" && document.documentElement.hasAttribute("data-bh-ready") && !!document.querySelector(".bh-review-pin")',
+        }).catch(() => null);
+        if (ready?.result?.value === true) break;
+        if (Date.now() > deadline) throw new Error(`${viewport.name}: review pins never became ready`);
+        await sleep(100);
+      }
+      const r = await s("Runtime.evaluate", {
+        returnByValue: true,
+        expression: `JSON.stringify({
+          pins: [...document.querySelectorAll(".bh-review-pin")].map((p) => { const r = p.getBoundingClientRect(); return [p.dataset.thread, p.dataset.count || "", Math.round(r.height * 10) / 10, r.top + scrollY]; }),
+          badge: !!document.querySelector(".bh-review-count:not([hidden])"),
+          resolved: document.querySelectorAll(".bh-review-pin.is-resolved").length
+        })`,
+      });
+      assert.equal(typeof r.result.value, "string", `${viewport.name}: expected a serialized review fixture result`);
+      const got = JSON.parse(r.result.value) as { pins: [string, string, number, number][]; badge: boolean };
     assert.ok(got.pins.length >= 6, `${viewport.name}: ${got.pins.length} pins`);
     assert.ok(got.pins.some((p) => p[1] !== ""), `${viewport.name}: a pin with a message count`);
     assert.ok(got.badge, `${viewport.name}: the Review button's count badge shows`);
@@ -269,6 +284,7 @@ test("the review fixture page has pins to check: stacked, with a count, beside a
     const tops = got.pins.map((p) => p[3]).sort((a, b) => a - b);
     const closest = Math.min(...tops.slice(1).map((v, i) => v - tops[i]));
     assert.ok(closest >= 24 && closest < 30, `${viewport.name}: the closest pins are ${closest}px apart, a line apart but not overlapping`);
+    } finally { await chrome.send("Target.closeTarget", { targetId }); }
   }
 });
 
