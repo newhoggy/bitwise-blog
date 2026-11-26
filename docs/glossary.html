@@ -55,12 +55,16 @@
         <div><dt>Status</dt><dd><span class="badge accepted">accepted</span></dd></div>
         <div><dt>Updated</dt><dd><time datetime="2026-10-05">2026-10-05</time></dd></div>
         <div><dt>Authors</dt><dd>John Ky</dd></div>
-        <div><dt>Reading time</dt><dd>6 min</dd></div>
+        <div><dt>Reading time</dt><dd>7 min</dd></div>
         <div><dt>Tags</dt><dd>glossary, reference</dd></div>
       </dl>
     </header>
 
     <dl class="glossary wide">
+      <dt id="aa-test" data-aliases="A/A tests, A/A control, A/A′ control, A/A' control">A/A test</dt>
+      <dd><p>A benchmark that compares two copies of the same program. Any difference it shows is noise, so a difference between two versions means something only if it is clearly larger.</p>
+        <p><a href="benchmarking-against-jq.html#noise-floor">Benchmarking against jq honestly</a> shows one at work.</p></dd>
+
       <dt id="adr" data-aliases="ADRs, architecture decision record, architecture decision records">ADR</dt>
       <dd><p>An architecture decision record: a short, permanent note of one significant decision, covering its context, the options considered and the consequences. ADRs are superseded by new records rather than edited.</p></dd>
 
@@ -113,6 +117,10 @@
       <dd><p>The generic cell rate algorithm. It is equivalent to a token bucket, but stores one timestamp per key: the theoretical arrival time of the next conforming request.</p>
         <p><a href="https://en.wikipedia.org/wiki/Generic_cell_rate_algorithm">Generic cell rate algorithm (Wikipedia)</a></p></dd>
 
+      <dt id="geometric-mean" data-aliases="geometric means, geometric-mean, geomean, geomeans">Geometric mean</dt>
+      <dd><p>An average suited to ratios such as speedups: multiply the <em>n</em> numbers together and take the <em>n</em>th root. A few very large values raise it much less than they raise the ordinary (arithmetic) mean.</p>
+        <p><a href="benchmarking-against-jq.html#geomean">Why benchmarks use it</a> · <a href="https://en.wikipedia.org/wiki/Geometric_mean">Geometric mean (Wikipedia)</a></p></dd>
+
       <dt id="huffman-code" data-aliases="Huffman codes, Huffman coding, Huffman table, Huffman tables">Huffman code</dt>
       <dd><p>A variable-length binary code that gives frequent symbols short bit patterns and rare ones long patterns. No code is a prefix of another, so a decoder can read them back to back without separators.</p>
         <p><a href="how-deflate-compresses.html#huffman">Step by step</a> · <a href="https://en.wikipedia.org/wiki/Huffman_coding">Huffman coding (Wikipedia)</a></p></dd>
@@ -142,6 +150,14 @@
       <dt id="monotonic-clock" data-aliases="monotonic clocks">Monotonic clock</dt>
       <dd><p>A clock that only moves forwards. Use it to measure elapsed time, because the wall clock can jump backwards when NTP corrects it.</p></dd>
 
+      <dt id="mutation-testing" data-aliases="mutation test, mutation tests">Mutation testing</dt>
+      <dd><p>A check on a test suite: put small deliberate bugs into the code, one at a time, and see whether any test fails. A bug that no test catches shows a gap in the tests.</p>
+        <p><a href="https://en.wikipedia.org/wiki/Mutation_testing">Mutation testing (Wikipedia)</a></p></dd>
+
+      <dt id="ndjson" data-aliases="newline-delimited JSON">NDJSON</dt>
+      <dd><p>Newline-delimited JSON: a file or stream with one complete JSON value on each line, so a program can handle one record at a time without first reading the rest.</p>
+        <p><a href="https://github.com/ndjson/ndjson-spec">NDJSON specification</a></p></dd>
+
       <dt id="occupancy">Occupancy</dt>
       <dd><p>How many <a href="#simd-group">SIMD groups</a> a GPU core keeps resident at once. More resident groups give the core more work to switch to while others wait for memory. Registers and <a href="#threadgroup-memory">threadgroup memory</a> per group limit it.</p></dd>
 
@@ -151,6 +167,9 @@
       <dt id="patch-coverage" data-aliases="diff coverage">Patch coverage</dt>
       <dd><p>The share of the executable lines a change added that the tests ran. Unlike the project-wide total, it shows the gaps in new code even when they are too small to move the total.</p>
         <p><a href="announcing-patchcov.html#patch-coverage">Announcing patchcov</a> lets you try it.</p></dd>
+
+      <dt id="popcount" data-aliases="popcounts, popcnt, population count">Popcount</dt>
+      <dd><p>Short for population count: the number of 1 bits in a binary word. Many CPUs can compute it with a single instruction.</p></dd>
 
       <dt id="rate-limiting" data-aliases="rate limit, rate limits, rate limiter, rate limiters">Rate limiting</dt>
       <dd><p>Capping how many requests a client may make in a period of time, to protect a service and share its capacity fairly.</p>
@@ -166,8 +185,15 @@
       <dt id="retry-budget" data-aliases="retry budgets">Retry budget</dt>
       <dd><p>A cap on retries as a fraction of normal traffic (for example 10%). It stops retries from multiplying load during an outage.</p></dd>
 
+      <dt id="rss" data-aliases="peak RSS, resident set size, resident memory, peak resident memory">RSS</dt>
+      <dd><p>Resident set size: how much of a process's memory is held in physical RAM at a given moment. Peak RSS, the largest it reached during a run, is a common measure of how much memory a program needed.</p></dd>
+
       <dt id="shuffle" data-aliases="shuffles, lane shuffle, lane shuffles">Shuffle</dt>
       <dd><p>A GPU instruction in which every <a href="#lane">lane</a> reads a register value from another lane of its SIMD group, without going through memory. In Metal it is <code>simd_shuffle</code>; in HLSL, <code>WaveReadLaneAt</code>.</p></dd>
+
+      <dt id="simd">SIMD</dt>
+      <dd><p>Single instruction, multiple data: instructions that apply one operation to several values at once, such as comparing 16 or 32 bytes in a single step.</p>
+        <p><a href="https://en.wikipedia.org/wiki/Single_instruction,_multiple_data">SIMD (Wikipedia)</a></p></dd>
 
       <dt id="simd-group" data-aliases="SIMD groups, simdgroup, simdgroups, warp, warps, subgroup, subgroups, wavefront, wavefronts">SIMD group</dt>
       <dd><p>The set of threads a GPU executes in lock-step: 32 on Apple GPUs (NVIDIA calls it a warp, Vulkan a subgroup, HLSL a wave). One instruction is fetched once and executed by every <a href="#lane">lane</a>.</p></dd>
