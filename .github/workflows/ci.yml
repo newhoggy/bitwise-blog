@@ -177,7 +177,7 @@ jobs:
       cancel-in-progress: false
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
     env:
       # One artifact name per attempt: a re-run keeps the earlier attempt's artifact in the run,
       # and deploy-pages fails when two artifacts have the name it asks for.
@@ -241,8 +241,24 @@ jobs:
           name: ${{ env.PAGES_ARTIFACT }}
           path: _site
 
+      # deploy-pages looks the artifact up once, and one uploaded moments ago may not be listed
+      # yet. So a failed deploy is tried once more after a pause. The first step may fail without
+      # failing the job; the second may not.
       - id: deployment
         if: steps.fresh.outputs.current == 'true'
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: ${{ env.PAGES_ARTIFACT }}
+
+      - name: Wait before deploying again
+        if: steps.deployment.outcome == 'failure'
+        run: |
+          echo "::warning::The first deploy failed (see its log); trying again in 30 seconds"
+          sleep 30
+
+      - id: retry
+        if: steps.fresh.outputs.current == 'true' && steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v5
         with:
           artifact_name: ${{ env.PAGES_ARTIFACT }}
