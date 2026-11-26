@@ -6,7 +6,7 @@
 // theme/diffs/<slug>.<commit>.js. The files are generated at deploy time and by `npm run serve`, and
 // are never committed (see contracts/page-diff.md).
 //
-// No installed package: scripts/publish.mts imports this, and the deploy job installs nothing.
+// No installed package: scripts/publish.mts imports this, and the package job installs nothing.
 
 import fs from "node:fs";
 import path from "node:path";

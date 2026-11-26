@@ -16,7 +16,7 @@
 //   - CI lists the changed sections of a pull request (summaryMarkdown);
 //   - the Review panel shows "changes since this comment" from a data file (diffData).
 //
-// Pure and dependency-free (publish.mts imports it, and the deploy job installs nothing). Regex-based,
+// Pure and dependency-free (publish.mts imports it, and the package job installs nothing). Regex-based,
 // like the rest of the tooling: fine for the pages we author, not a general HTML parser.
 
 import { VOID_TAGS, decodeEntities } from "./html-tree.mts";

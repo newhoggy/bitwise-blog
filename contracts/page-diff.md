@@ -126,7 +126,7 @@ erase the marks.
    differs from `<base>`.
 2. **CI** (`render` job, pull requests only) runs the `--changed` form against the base commit: the diff
    pages go into the `renders` artifact under `diff/`, and the changed sections of each page into the job
-   summary. It only reports. Both the `render` and `deploy` jobs check out the full history (`fetch-depth: 0`).
+   summary. It only reports. Both the `render` and `package` jobs check out the full history (`fetch-depth: 0`).
 3. **The Review panel.** A thread whose first message was written on another commit has a "Changes since
    this comment" button, the panel has "Show changes since", and `?diff=<commit>` does the same from a
    link. `theme/modules/diff.js` loads `theme/diffs/<slug>.<commit>.js` and puts one mark before each live
@@ -192,7 +192,7 @@ anything else, use `npm run diff`.
 
 ## Changing it
 
-- The core is pure and imports no installed package: `publish.mts` uses it, and the deploy job installs nothing.
+- The core is pure and imports no installed package: `publish.mts` uses it, and the package job installs nothing.
 - Status tags reuse the theme's badge tones, and `<ins>`/`<del>` sit on `--ok-soft`/`--danger-soft`; both
   are in `CONTRAST_PAIRS`. Colour is never alone: a mark carries a word, insertions are underlined,
   deletions struck through.
