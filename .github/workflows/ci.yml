@@ -178,6 +178,10 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      # One artifact name per attempt: a re-run keeps the earlier attempt's artifact in the run,
+      # and deploy-pages fails when two artifacts have the name it asks for.
+      PAGES_ARTIFACT: github-pages-${{ github.run_attempt }}
     steps:
       # The full history (under 1 MB): publish.mts diffs each reviewed page against the commits its
       # review threads name (theme/diffs/), and a shallow clone has none of them.
@@ -234,11 +238,14 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         if: steps.fresh.outputs.current == 'true'
         with:
+          name: ${{ env.PAGES_ARTIFACT }}
           path: _site
 
       - id: deployment
         if: steps.fresh.outputs.current == 'true'
         uses: actions/deploy-pages@v5
+        with:
+          artifact_name: ${{ env.PAGES_ARTIFACT }}
 
   a11y:
     name: Accessibility (axe-core)

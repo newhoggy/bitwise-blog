@@ -52,6 +52,16 @@ test("the deploy job publishes only while its commit is still the head of main",
   for (const step of publishing) assert.match(JSON.stringify(step), /steps\.fresh\.outputs\.current == 'true'/);
 });
 
+// A re-run keeps the artifacts of earlier attempts, and deploy-pages fails when two share the name
+// it asks for, so a failed deploy could not be re-run.
+test("each attempt of the deploy job uploads and deploys its own Pages artifact", () => {
+  const deploy = load("ci.yml").jobs["deploy"] as (Job & { env?: Record<string, string> }) | undefined;
+  assert.match(deploy?.env?.["PAGES_ARTIFACT"] ?? "", /\$\{\{ github\.run_attempt \}\}/);
+  const step = (action: string) => deploy?.steps?.find((s) => s.uses?.startsWith(`actions/${action}@`));
+  assert.equal(step("upload-pages-artifact")?.with?.["name"], "${{ env.PAGES_ARTIFACT }}");
+  assert.equal(step("deploy-pages")?.with?.["artifact_name"], "${{ env.PAGES_ARTIFACT }}");
+});
+
 // The render job compares a pull request with main's renders (issue #165). It reads another run's artifact,
 // so it needs `actions: read`, and nothing that writes: a fork's pull request runs it too.
 test("the render job can read other runs' artifacts and write nothing", () => {
